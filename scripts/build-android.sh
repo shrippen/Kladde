@@ -95,6 +95,9 @@ find "$CHECK" -type f \( -name '*.so' -o -name '*.rcc' -o -name '*.json' \) -pri
     | xargs -0 -I{} cmake -DAPP={} -P "$REPO/tests/no_demo.cmake"
 rm -rf "$CHECK"
 
+# Every library finds its dependencies on the phone (the QML plugins' own libraries).
+python3 "$REPO/tests/check_apk_libs.py" "$APK" "$NDK_PATH" || error "libraries missing from the APK"
+
 mkdir -p "$REPO/dist/android"
 OUT="$REPO/dist/android/kladde-$MODE.apk"
 cp "$APK" "$OUT"

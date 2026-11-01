@@ -84,7 +84,15 @@ if(ANDROID)
         endif()
     endforeach()
     list(GET kladde_libomp 0 kladde_libomp)
-    set_target_properties(kladde PROPERTIES QT_ANDROID_EXTRA_LIBS "${kladde_ssl};${kladde_libomp}")
+    # The libraries behind Kirigami's QML plugins: the app does not link them, so
+    # androiddeployqt does not follow them (tests/check_apk_libs.py).
+    file(GLOB kladde_kirigami "${KLADDE_ANDROID_DEPS}/lib/libKirigami*.so")
+    if(NOT kladde_kirigami)
+        message(FATAL_ERROR "Android: no libKirigami*.so in ${KLADDE_ANDROID_DEPS}/lib")
+    endif()
+    # Kirigami itself needs Qt Concurrent.
+    list(APPEND kladde_kirigami "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_LIBS}/libQt6Concurrent_${ANDROID_ABI}.so")
+    set_target_properties(kladde PROPERTIES QT_ANDROID_EXTRA_LIBS "${kladde_ssl};${kladde_libomp};${kladde_kirigami}")
 
     # Kirigami's QML modules come from the dependency prefix, not from Qt.
     get_filename_component(kladde_kf6_qml "${KLADDE_ANDROID_DEPS}/lib/qml" ABSOLUTE)
