@@ -27,9 +27,10 @@ Android, später der Adapter für den Pebble-Daemon auf Plasma Mobile. Ab da ist
 - [x] App-Gerüst mit Kante, Screenshot ohne Display für die CI.
 - [x] `spikes/hc-probe`: zählt je Typ und App, exportiert JSON.
 - [ ] Probe auf dem Telefon: Was schreibt die Pebble wirklich (coredevices/mobileapp#469)?
-- [ ] Upload mit `kladde-push` nach hl.arianw.de mit synthetischen Daten vom März 2001,
-      Ergebnis prüfen (Tagessummen, Herzfrequenz-Blöcke, Schlafphasen, Zeitzone, keine
-      Duplikate beim zweiten Lauf). Danach der erste echte Upload.
+- [x] Upload mit `kladde-push` nach hl.arianw.de mit synthetischen Daten vom März 2001:
+      10 eingefügt, beim zweiten Lauf 0 neu (5 Duplikate, 5 überschrieben). Zeitzone: das
+      Mess-Token erreicht `/api/auth/me` nicht, `kladde-push` nimmt die des Rechners.
+- [ ] Der erste echte Upload.
 - [ ] Echten Export (gekürzt, anonymisiert) als zweite Fixture.
 - [x] Entscheidung Hintergrund-Sync: Kotlin-Modul `android/sync` (lesen, abbilden, Warteschlange,
       Upload per WorkManager). Den Qt-Kern ohne Oberfläche im Worker zu laden, braucht eine
@@ -46,13 +47,21 @@ Aufbau nach der iOS-App ([ios-aufbau.md](ios-aufbau.md)).
       Warteschlange in SQLite (Cursor in derselben Transaktion), Upload mit Backoff, 422 je
       Eintrag, Token im Android Keystore, WorkManager, Statusdaten (LF-10 … LF-24).
 - [ ] Qt für Android bauen (Vorlage Plasmai), JNI zu `KladdeSync`.
-- [ ] Einrichtung: Server, Anmeldung (Passwort/MFA, Web-Login mit PKCE), Health Connect.
-- [ ] Home, Log (Messwert, Stimmung), Verlauf mit Diagrammen, Mehr mit Sync-Status.
+- [x] Einrichtung: Server prüfen, Anmeldung mit Passwort und zweitem Faktor; Refresh-Token im
+      Schlüsselbund (QtKeychain), Erneuerung einzeln und mit Rotation; nach der Anmeldung legt
+      die App ihr eigenes Mess-Token für den Hintergrund an.
+- [ ] Web-Login mit PKCE (`healthlog://login-callback`), Health-Connect-Rechte im Ablauf.
+- [x] Start (Kacheln mit letzten 7 Tagen), Erfassen (Gewicht, Blutdruck mit Puls, Puls,
+      Körperfett, Stimmung; Bereiche geprüft), Verlauf (Woche bis Jahr, Achse, Kennzahlen),
+      Mehr (Sync-Status, Konto). Deutsch und Englisch.
+- [x] Demo-Modus mit Studio-Weber-Gesundheitsdaten (`demo/start.sh`, `demo/shots.json`), ein
+      Test hält die Demo aus normalen Builds.
+- [ ] Android-Schlüsselspeicher für das Refresh-Token (JNI zu `Credentials`).
 
 ## Phase 2: Anzeige und Plasma Mobile (LF-30 … LF-33)
 
-Heute, Verläufe, Hypnogramm (neuer Baustein in Kante), manuelle Einträge. Linux-Paket für
-aarch64. Demo-Modus mit Studio-Weber-Gesundheitsdaten, `demo/shots.json`.
+Hypnogramm der letzten Nacht (neuer Baustein in Kante; die Phasen liegen schon in der
+Demo-Welt). Linux-Paket für aarch64.
 
 ## Phase 3: Pebble direkt an Plasma Mobile (eigenes Repo)
 

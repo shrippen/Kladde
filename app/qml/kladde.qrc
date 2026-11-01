@@ -1,6 +1,12 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource prefix="/qt/qml/Kladde">
   <file alias="Main.qml">Main.qml</file>
-  <file alias="ConnectionPage.qml">ConnectionPage.qml</file>
+  <file alias="Metrics.js">Metrics.js</file>
+  <file alias="SetupPage.qml">SetupPage.qml</file>
+  <file alias="MainPage.qml">MainPage.qml</file>
+  <file alias="HomeView.qml">HomeView.qml</file>
+  <file alias="LogView.qml">LogView.qml</file>
+  <file alias="HistoryView.qml">HistoryView.qml</file>
+  <file alias="MoreView.qml">MoreView.qml</file>
 </qresource>
 </RCC>

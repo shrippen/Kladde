@@ -12,6 +12,9 @@ find_package(Qt6 REQUIRED COMPONENTS Core Network)
 
 option(KLADDE_APP "Build the Kirigami app" ON)
 option(KLADDE_TESTS "Build the tests" ON)
+# Screenshots only (Studio Weber data, an in-process HealthLog): never in a release, and a
+# test fails if the demo ends up in a normal build.
+option(KLADDE_DEMO "Demo build for screenshots; never for a release" OFF)
 
 add_subdirectory(core)
 add_subdirectory(tools)

@@ -1,0 +1,12 @@
+{
+  "kind": "command",
+  "start": "demo/start.sh {lang}",
+  "viewport": [420, 780],
+  "format": "webp",
+  "shots": [
+    {"name": "home", "page": "home"},
+    {"name": "history", "page": "history", "kind": "bloodPressure", "days": 30},
+    {"name": "log", "page": "log"},
+    {"name": "more", "page": "more"}
+  ]
+}
