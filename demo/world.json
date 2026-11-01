@@ -10569,7 +10569,38 @@
    "last_run": "@-15m",
    "last_success": "@-15m",
    "uploaded": 214,
-   "pending": 0
+   "pending": 0,
+   "app_order": {
+    "note": "The apps that wrote Mara's sleep and trainings, in her order on More (Pebble real, as Kladde is for it; the others invented): where two saw the same night or training, the upper one's goes to HealthLog.",
+    "sleep": [
+     {
+      "app": "coredevices.coreapp",
+      "label": "Pebble"
+     },
+     {
+      "app": "test.example.nachtruhe",
+      "label": "Nachtruhe"
+     },
+     {
+      "app": "test.example.pulsweg",
+      "label": "Pulsweg"
+     }
+    ],
+    "workouts": [
+     {
+      "app": "test.example.elbtempo",
+      "label": "Elbtempo"
+     },
+     {
+      "app": "coredevices.coreapp",
+      "label": "Pebble"
+     },
+     {
+      "app": "test.example.pulsweg",
+      "label": "Pulsweg"
+     }
+    ]
+   }
   }
  },
  "it_docs": {

@@ -91,7 +91,8 @@ QJsonObject DemoBackend::syncStatus() const
     return QJsonObject{{QStringLiteral("lastRun"), iso(when(s.value(QLatin1String("last_run")).toString()))},
                        {QStringLiteral("lastSuccess"), iso(when(s.value(QLatin1String("last_success")).toString()))},
                        {QStringLiteral("uploaded"), s.value(QLatin1String("uploaded"))},
-                       {QStringLiteral("pending"), s.value(QLatin1String("pending"))}};
+                       {QStringLiteral("pending"), s.value(QLatin1String("pending"))},
+                       {QStringLiteral("apps"), s.value(QLatin1String("app_order"))}};
 }
 
 QList<DemoBackend::Point> DemoBackend::points(const QString &kind, int days) const

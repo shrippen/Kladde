@@ -88,7 +88,8 @@ public:
 
 #ifdef KLADDE_DEMO
     // The demo build shows the Android status from the demo world.
-    void showDemo(const QDateTime &lastRun, const QDateTime &lastSuccess, int uploaded, int pending);
+    // `apps` as KladdeSync's appsJson.
+    void showDemo(const QDateTime &lastRun, const QDateTime &lastSuccess, int uploaded, int pending, const QByteArray &apps);
 #endif
 
 Q_SIGNALS:

@@ -27,6 +27,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QTranslator>
 #include <QtQml/qqml.h>
@@ -50,6 +51,12 @@ int main(int argc, char **argv)
 #ifdef Q_OS_ANDROID
     QIcon::setThemeSearchPaths(QIcon::themeSearchPaths() << QStringLiteral(":/icons"));
     QIcon::setThemeName(QStringLiteral("breeze-dark"));
+#elif defined(KLADDE_DEMO)
+    // The screenshots run offscreen, without the desktop's icon theme; Breeze for the light page.
+    QIcon::setThemeSearchPaths(QIcon::themeSearchPaths()
+                               + QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("icons"),
+                                                           QStandardPaths::LocateDirectory));
+    QIcon::setThemeName(QStringLiteral("breeze"));
 #endif
 
     // German where the system speaks it, English otherwise.
@@ -101,7 +108,8 @@ int main(int argc, char **argv)
     const QJsonObject status = demo.syncStatus();
     sync.showDemo(QDateTime::fromString(status.value(QLatin1String("lastRun")).toString(), Qt::ISODateWithMs),
                   QDateTime::fromString(status.value(QLatin1String("lastSuccess")).toString(), Qt::ISODateWithMs),
-                  status.value(QLatin1String("uploaded")).toInt(), status.value(QLatin1String("pending")).toInt());
+                  status.value(QLatin1String("uploaded")).toInt(), status.value(QLatin1String("pending")).toInt(),
+                  QJsonDocument(status.value(QLatin1String("apps")).toObject()).toJson(QJsonDocument::Compact));
     account.setServer(demo.server());
 #endif
 
@@ -148,9 +156,16 @@ int main(int argc, char **argv)
                 if (shot.contains(QLatin1String("days")))
                     history.setDays(shot.value(QLatin1String("days")).toInt());
                 window->setProperty("tab", int(tabs.indexOf(shot.value(QLatin1String("page")).toString())));
+                // "viewport" [w, h]: this shot's own window size (a whole page, e.g. More).
+                const QJsonArray size = shot.value(QLatin1String("viewport")).toArray();
+                if (size.size() == 2) {
+                    window->resize(size[0].toInt(), size[1].toInt());
+                }
             });
-            QTimer::singleShot(delay + 1500, &app, [window, shot, shotDir] {
+
+            QTimer::singleShot(delay + 1500, &app, [window, shot, shotDir, size = window->size()] {
                 window->grabWindow().save(QDir(shotDir).filePath(shot.value(QLatin1String("name")).toString() + QStringLiteral(".png")));
+                window->resize(size);
             });
             delay += 2000;
         }

@@ -68,8 +68,8 @@
   <div class="feat" data-tier="yellow">
     <span class="feat-tag"><span lang="en">Sync</span><span lang="de">Abgleich</span></span>
     <h3 lang="en">From the watch to your server</h3><h3 lang="de">Von der Uhr auf deinen Server</h3>
-    <p lang="en">Steps as daily totals, heart rate in 10-minute blocks and sleep with its stages. From Health Connect only what the Pebble app wrote, so nothing counts twice; it writes no distance or resting heart rate.</p>
-    <p lang="de">Schritte als Tagessummen, Herzfrequenz in 10-Minuten-Blöcken und Schlaf mit seinen Phasen. Aus Health Connect nur, was die Pebble-App geschrieben hat, damit nichts doppelt zählt; Strecke und Ruhepuls schreibt sie nicht.</p>
+    <p lang="en">Daily totals, heart rate in 10-minute blocks, sleep with its stages, trainings and readings such as weight or blood pressure, from every app that writes to Health Connect. Daily totals as Health Connect adds them up, sleep and trainings in your app order, so they never count twice.</p>
+    <p lang="de">Tagessummen, Herzfrequenz in 10-Minuten-Blöcken, Schlaf mit seinen Phasen, Training und Einzelwerte wie Gewicht oder Blutdruck, von jeder App, die nach Health Connect schreibt. Tagessummen so, wie Health Connect sie zusammenzählt, Schlaf und Training in deiner App-Reihenfolge, damit sie nie doppelt zählen.</p>
   </div>
   <div class="feat" data-tier="blue">
     <span class="feat-tag"><span lang="en">Background</span><span lang="de">Hintergrund</span></span>
@@ -118,7 +118,7 @@
 <section class="section">
   <h2 lang="en">How it works</h2><h2 lang="de">So funktioniert es</h2>
   <div class="flow">
-    <div class="flow-node"><b>Pebble</b><span lang="en">the Pebble app writes steps, heart rate and sleep</span><span lang="de">die Pebble-App schreibt Schritte, Herzfrequenz und Schlaf</span></div>
+    <div class="flow-node"><b>Pebble, Fit, Freeletics …</b><span lang="en">apps write steps, heart rate, sleep and trainings</span><span lang="de">Apps schreiben Schritte, Herzfrequenz, Schlaf und Training</span></div>
     <div class="flow-arrow" aria-hidden="true"></div>
     <div class="flow-node"><b>Health Connect</b><span lang="en">Android's health store on the phone</span><span lang="de">der Gesundheitsspeicher von Android auf dem Telefon</span></div>
     <div class="flow-arrow" aria-hidden="true"></div>
@@ -130,8 +130,8 @@
 
 <section class="section">
   <h2 lang="en">Prerequisites</h2><h2 lang="de">Voraussetzungen</h2>
-  <ul lang="en"><li>An Android phone with Android 14 or newer (Health Connect is part of the system) and a 64-bit ARM processor</li><li>The Pebble app, writing to Health Connect</li><li>Your own <a href="https://healthlog.dev">HealthLog</a> instance, version 1.46 or newer</li></ul>
-  <ul lang="de"><li>Ein Android-Telefon mit Android 14 oder neuer (Health Connect gehört zum System) und 64-Bit-ARM-Prozessor</li><li>Die Pebble-App, die nach Health Connect schreibt</li><li>Deine eigene <a href="https://healthlog.dev">HealthLog</a>-Instanz, Version 1.46 oder neuer</li></ul>
+  <ul lang="en"><li>An Android phone with Android 14 or newer (Health Connect is part of the system) and a 64-bit ARM processor</li><li>The Pebble app or other apps writing to Health Connect</li><li>Your own <a href="https://healthlog.dev">HealthLog</a> instance, version 1.46 or newer</li></ul>
+  <ul lang="de"><li>Ein Android-Telefon mit Android 14 oder neuer (Health Connect gehört zum System) und 64-Bit-ARM-Prozessor</li><li>Die Pebble-App oder andere Apps, die nach Health Connect schreiben</li><li>Deine eigene <a href="https://healthlog.dev">HealthLog</a>-Instanz, Version 1.46 oder neuer</li></ul>
   <p lang="en">Your values show up in HealthLog with the source "Apple Health": HealthLog does not know Health Connect as a source yet. Plasma Mobile and reading the watch directly come later.</p>
   <p lang="de">Deine Werte erscheinen in HealthLog mit der Quelle „Apple Health“: HealthLog kennt Health Connect noch nicht als Quelle. Plasma Mobile und das direkte Lesen der Uhr kommen später.</p>
 </section>
@@ -140,6 +140,32 @@
   <h2 lang="en">Changes</h2><h2 lang="de">Änderungen</h2>
   <p lang="en">What each release brought, newest first. Every release adds an entry here and the same notes on the release page.</p><p lang="de">Was jede Version gebracht hat, die neueste zuerst. Jede Version bekommt hier einen Eintrag und dieselben Notizen auf der Release-Seite.</p>
   <ol class="changelog">
+    <li class="release" id="v0.2.0">
+      <div class="release-head"><b class="release-version">0.2.0</b><time datetime="2026-11-02"><span lang="en">2 Nov 2026</span><span lang="de">2. Nov. 2026</span></time></div>
+      <div class="release-body">
+        <p class="release-lead"><span lang="en">Kladde now brings everything HealthLog can store from Health Connect, from every app: trainings, weight, blood pressure and more, sleep from any sleep app, and daily totals as Health Connect adds them up.</span><span lang="de">Kladde bringt jetzt alles aus Health Connect, was HealthLog speichern kann, von jeder App: Training, Gewicht, Blutdruck und mehr, Schlaf aus jeder Schlaf-App und Tagessummen so, wie Health Connect sie zusammenzählt.</span></p>
+        <div class="release-group" data-kind="new"><h3><span lang="en">New</span><span lang="de">Neu</span></h3><ul>
+          <li><span lang="en">Trainings from every app (Freeletics, the Pebble app, Google Fit …) with sport, time, pause, heart rate, steps and distance; the sections of one Freeletics training arrive as one.</span><span lang="de">Training von jeder App (Freeletics, Pebble-App, Google Fit …) mit Sportart, Zeit, Pause, Puls, Schritten und Strecke; die Abschnitte eines Freeletics-Trainings kommen als eines an.</span></li>
+          <li><span lang="en">Readings from every app: weight, body fat, lean mass, blood pressure, blood glucose, oxygen saturation, heart rate variability, respiratory rate, VO₂ max, body temperature and resting heart rate.</span><span lang="de">Einzelwerte von jeder App: Gewicht, Körperfett, Magermasse, Blutdruck, Blutzucker, Sauerstoffsättigung, Herzfrequenzvariabilität, Atemfrequenz, VO₂max, Körpertemperatur und Ruhepuls.</span></li>
+          <li><span lang="en">Sleep from every app. Where two apps saw the same night, the first in Kladde's order goes to HealthLog (Pebble app, Sleep as Android, Google Fit); a night goes four hours after it ended, so the watch's is in.</span><span lang="de">Schlaf von jeder App. Sahen zwei Apps dieselbe Nacht, geht die erste in Kladdes Reihenfolge an HealthLog (Pebble-App, Sleep as Android, Google Fit); eine Nacht geht vier Stunden nach ihrem Ende raus, damit die der Uhr da ist.</span></li>
+          <li><span lang="en">App order for sleep and trainings under More: move an app up or down, the upper one wins where two saw the same night or training.</span><span lang="de">App-Reihenfolge für Schlaf und Training unter „Mehr“: eine App hoch- oder runterschieben, die obere gewinnt, wenn zwei dieselbe Nacht oder dasselbe Training sahen.</span></li>
+          <li><span lang="en">Active energy and floors climbed as daily totals.</span><span lang="de">Aktive Energie und Stockwerke als Tagessummen.</span></li>
+        </ul></div>
+        <div class="release-group" data-kind="improved"><h3><span lang="en">Improved</span><span lang="de">Verbessert</span></h3><ul>
+          <li><span lang="en">Daily totals (steps, distance, energy, floors) and heart rate now come from every app, added up by Health Connect in the app order set there, so phone and watch never count twice.</span><span lang="de">Tagessummen (Schritte, Strecke, Energie, Stockwerke) und Puls kommen jetzt von jeder App, zusammengezählt von Health Connect in der dort eingestellten App-Reihenfolge, damit Telefon und Uhr nie doppelt zählen.</span></li>
+          <li><span lang="en">"Allow more kinds" on More asks for the new kinds; one left out does not stop the sync.</span><span lang="de">„Weitere Arten erlauben“ unter „Mehr“ fragt nach den neuen Arten; eine nicht erlaubte hält den Abgleich nicht auf.</span></li>
+        </ul></div>
+        <div class="release-group" data-kind="note"><h3><span lang="en">Note</span><span lang="de">Hinweis</span></h3><ul>
+          <li><span lang="en">After the update tap "Allow more kinds" on More, so Kladde may read trainings, weight and the other new kinds. The first sync then reads 30 days again; daily totals are replaced, nothing counts twice.</span><span lang="de">Nach dem Update unter „Mehr“ auf „Weitere Arten erlauben“ tippen, damit Kladde Training, Gewicht und die anderen neuen Arten lesen darf. Der erste Abgleich liest dann 30 Tage neu; Tagessummen werden ersetzt, nichts zählt doppelt.</span></li>
+          <li><span lang="en">Daily totals count only the apps in Health Connect's priority list (Health Connect → Activity → Data sources and priority). If distance is missing, add the app that records it, for example Google Fit, and tap "Read everything again".</span><span lang="de">Tagessummen zählen nur die Apps in Health Connects Prioritätsliste (Health Connect → Aktivität → Datenquellen und Priorität). Fehlt die Strecke, die App aufnehmen, die sie aufzeichnet, zum Beispiel Google Fit, und „Alles neu lesen“ tippen.</span></li>
+          <li><span lang="en">A changed app order applies to nights and trainings that begin after the change; those sent before stay as they were.</span><span lang="de">Eine geänderte App-Reihenfolge gilt für Nächte und Trainings, die nach der Änderung beginnen; vorher gesendete bleiben, wie sie sind.</span></li>
+          <li><span lang="en">The energy of a training does not arrive yet.</span><span lang="de">Die Energie eines Trainings kommt noch nicht an.</span></li>
+          <li><span lang="en">A reading written by two apps, for example the same weighing, arrives twice; readings have no app order yet.</span><span lang="de">Einen Einzelwert, den zwei Apps schreiben, zum Beispiel dieselbe Wägung, bekommt HealthLog doppelt; für Einzelwerte gibt es noch keine App-Reihenfolge.</span></li>
+        </ul></div>
+        <div class="release-shots"><figure><img lang="en" src="shots/release-0.2.0-app-order-en.webp" alt="Kladde More: the app order for sleep and trainings" loading="lazy"><img lang="de" src="shots/release-0.2.0-app-order-de.webp" alt="Kladde Mehr: die App-Reihenfolge für Schlaf und Training" loading="lazy"><figcaption><span lang="en">The app order on More (demo data)</span><span lang="de">Die App-Reihenfolge unter „Mehr“ (Demodaten)</span></figcaption></figure></div>
+        <a class="release-notes" href="https://github.com/shrippen/Kladde/compare/v0.1.0...v0.2.0"><span lang="en">All changes since 0.1.0 →</span><span lang="de">Alle Änderungen seit 0.1.0 →</span></a>
+      </div>
+    </li>
     <li class="release" id="v0.1.0">
       <div class="release-head"><b class="release-version">0.1.0</b><time datetime="2026-11-01"><span lang="en">1 Nov 2026</span><span lang="de">1. Nov. 2026</span></time></div>
       <div class="release-body">
@@ -182,7 +208,7 @@
         <a href="https://github.com/shrippen/Kladde">GitHub</a><a href="https://github.com/shrippen/Kladde/issues">Issues</a></div>
     </nav>
   </div>
-  <div class="foot-meta"><p>GPL-3.0 · shrippen · Kante · <a href="#changes">v0.1</a></p></div>
+  <div class="foot-meta"><p>GPL-3.0 · shrippen · Kante · <a href="#changes">v0.2</a></p></div>
 </footer>
 
 </body>

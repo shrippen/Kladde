@@ -7,6 +7,7 @@
     {"name": "home", "page": "home"},
     {"name": "history", "page": "history", "kind": "bloodPressure", "days": 30},
     {"name": "log", "page": "log"},
-    {"name": "more", "page": "more"}
+    {"name": "more", "page": "more"},
+    {"name": "release-0.2.0-app-order", "page": "more", "viewport": [420, 1180]}
   ]
 }

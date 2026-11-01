@@ -30,7 +30,7 @@ SyncBridge::SyncBridge(QObject *parent)
 }
 
 #ifdef KLADDE_DEMO
-void SyncBridge::showDemo(const QDateTime &lastRun, const QDateTime &lastSuccess, int uploaded, int pending)
+void SyncBridge::showDemo(const QDateTime &lastRun, const QDateTime &lastSuccess, int uploaded, int pending, const QByteArray &apps)
 {
     m_demo = true;
     m_configured = true;
@@ -40,6 +40,7 @@ void SyncBridge::showDemo(const QDateTime &lastRun, const QDateTime &lastSuccess
     m_lastSuccess = lastSuccess;
     m_uploaded = uploaded;
     m_pending = pending;
+    applyApps(apps);
     Q_EMIT changed();
 }
 #endif
