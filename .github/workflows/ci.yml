@@ -1,0 +1,123 @@
+# Public mirror: Gitea pushes every branch and tag here on each commit.
+# This runs the checks and reports them back to the commit on Gitea as
+# the status "github / test", where the pull requests live. There are no
+# pull requests on GitHub, so everything runs on push.
+#
+# Stays local (needs a phone or a watch): the probe's run against Health
+# Connect, the real sync.
+#
+# Needs the secret GITEA_TOKEN: a Gitea token with write access to the
+# repository (commit statuses).
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+
+# No concurrency group: every commit runs to the end and keeps its own
+# status, a newer push does not cancel an older run.
+
+permissions:
+  contents: read
+
+env:
+  GITEA_STATUS: https://git.arianw.de/api/v1/repos/shrippen/Kladde/statuses/${{ github.sha }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  # Core, kladde-push and the Kirigami app (Arch container: current Qt 6
+  # and KF6, as on the development machine).
+  test:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    outputs:
+      started: ${{ steps.start.outputs.t }}
+    steps:
+      # A missing status is no reason to fail the checks.
+      - id: start
+        name: Report pending to Gitea
+        run: |
+          echo "t=$(date +%s)" >> "$GITHUB_OUTPUT"
+          curl -fsS -X POST "$GITEA_STATUS" \
+            -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"state\":\"pending\",\"context\":\"github / test\",\"description\":\"running\",\"target_url\":\"$RUN_URL\"}" \
+            || echo "::warning::Gitea status not reported"
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+      - name: Tools
+        run: pacman -Syu --noconfirm --needed git base-devel cmake ninja qt6-base qt6-declarative qt6-svg kirigami
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Kante (public mirror)
+        run: git clone --depth 1 https://github.com/shrippen/Kante.git ../Kante
+      - name: Kante copy matches Kante main
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          tools/sync-kante.sh ../Kante
+          git diff --exit-code -- app/qml
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja
+          cmake --build build
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+      - name: kladde-push on the fixture
+        run: build/tools/kladde-push --dry-run --zone Europe/Berlin tests/fixtures/pebble-day.json > /dev/null
+      - name: App starts and renders
+        run: |
+          timeout 60 build/app/kladde --shot /tmp/kladde.png 2>&1 | tee /tmp/kladde.log
+          test -s /tmp/kladde.png
+          ! grep -E 'qrc:.*(Error|Unable|is not)' /tmp/kladde.log
+
+  # The phase 0 probe, a plain Kotlin app. The APK is a CI artifact for
+  # the phone, not a release.
+  hc-probe:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          gradle-version: "9.1.0"
+      - name: Build
+        working-directory: spikes/hc-probe
+        run: gradle --no-daemon assembleDebug
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: hc-probe-debug-apk
+          path: spikes/hc-probe/app/build/outputs/apk/debug/*.apk
+
+  # Also runs when a check failed or was cancelled, so Gitea never keeps a
+  # stale "pending".
+  report:
+    needs: [test, hc-probe]
+    if: always()
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report result to Gitea
+        run: |
+          if [ "$TEST" = success ] && [ "$PROBE" = success ]; then
+            state=success; result=success
+          elif [ "$TEST" = failure ] || [ "$PROBE" = failure ]; then
+            state=failure; result=failure
+          else
+            state=error; result="test $TEST, hc-probe $PROBE"
+          fi
+          desc=$result
+          if [ -n "$STARTED" ]; then desc="$result in $(( ($(date +%s) - STARTED) / 60 )) min"; fi
+          curl -fsS -X POST "$GITEA_STATUS" \
+            -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"state\":\"$state\",\"context\":\"github / test\",\"description\":\"$desc\",\"target_url\":\"$RUN_URL\"}"
+        env:
+          TEST: ${{ needs.test.result }}
+          PROBE: ${{ needs.hc-probe.result }}
+          STARTED: ${{ needs.test.outputs.started }}
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
