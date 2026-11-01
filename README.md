@@ -4,8 +4,16 @@ Bringt Gesundheitsdaten der Pebble in die eigene [HealthLog](https://healthlog.d
 auf Android aus Health Connect, später auf Plasma Mobile direkt von der Uhr. Eine Qt-/Kirigami-App
 im Design System Kante für beide Plattformen.
 
-Stand: Phase 1 (Android): Hintergrund-Sync und App-Seiten stehen, der Android-Build folgt. Anforderungen in [docs/lastenheft.md](docs/lastenheft.md), Plan in
-[docs/plan.md](docs/plan.md).
+Seite: https://shrippen.github.io/Kladde/ · Anforderungen in [docs/lastenheft.md](docs/lastenheft.md),
+Plan in [docs/plan.md](docs/plan.md), Änderungen in [CHANGELOG.md](CHANGELOG.md).
+
+## Installieren
+
+Die APK aus dem [neuesten Release](https://github.com/shrippen/Kladde/releases/latest) auf dem
+Telefon öffnen. Braucht Android 14 oder neuer (64-Bit-ARM), die Pebble-App mit Zugriff auf
+Health Connect und eine eigene HealthLog-Instanz ab 1.46. In der App: Server eingeben, anmelden
+(Passwort mit zweitem Faktor oder SSO), Health Connect erlauben; der Abgleich läuft dann im
+Hintergrund.
 
 ## Bauen
 
@@ -28,30 +36,21 @@ Baut `build-demo/` mit `-DKLADDE_DEMO=ON`: angemeldet als Mara Weber (Studio Web
 `demo/world.json`, kopiert aus `shrippen.github.io/demo`), kein Server, kein Schlüsselbund.
 Nur für Screenshots; ein Test (`no_demo_in_app`) prüft, dass die Demo in normalen Builds fehlt.
 
-## Probe bauen
+## Android
 
 ```sh
-cd spikes/hc-probe
-echo "sdk.dir=$HOME/android-sdk" > local.properties
-./gradlew assembleDebug
-adb install app/build/outputs/apk/debug/app-debug.apk
+scripts/build-android.sh debug     # de.arianw.kladde.dev, neben einem Release installierbar
+scripts/build-android.sh release   # signiert mit KLADDE_KEYSTORE_PATH & Co., sonst unsigniert
+adb install -r dist/android/kladde-debug.apk
 ```
 
-## Phase 0 ausprobieren
+Installiert, was fehlt (NDK, Qt per aqtinstall, KF6/QtKeychain/OpenSSL). Releases baut und
+signiert GitHub Actions (`.github/workflows/release.yml`), Ablauf in [agent.md](agent.md).
 
-1. Die Probe (`spikes/hc-probe`, APK als Artefakt der GitHub-CI) auf dem Telefon installieren, Zugriff
-   erteilen, „Count per type and app“ zeigt, was die Pebble-App nach Health Connect schreibt.
-   „Export JSON“ speichert die Daten.
-2. In HealthLog ein Token mit dem Scope `measurements:write` anlegen.
-3. Hochladen, erst trocken:
+## Werkzeuge aus Phase 0
 
-   ```sh
-   build/tools/kladde-push --dry-run health-connect-7-days.json | less
-   KLADDE_TOKEN=… build/tools/kladde-push health-connect-7-days.json
-   ```
-
-   Standard: nur Daten der Pebble-App (`--app coredevices.coreapp`), Server `https://hl.arianw.de`.
-
+`spikes/hc-probe` zeigt und exportiert, was in Health Connect steht; `build/tools/kladde-push`
+lädt so einen Export mit einem `measurements:write`-Token hoch (`--dry-run` zeigt nur die Batches).
 Exporte sind echte Gesundheitsdaten: nicht ins Repo (`.gitignore` hält `health-connect-*.json` fern).
 
 ## Lizenz

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kladde — your Pebble's health data in your own HealthLog</title>
+<meta name="description" content="An Android app that brings what your Pebble writes to Health Connect into your own HealthLog instance, in the background, and shows your values on the phone.">
+<meta property="og:title" content="Kladde — your Pebble's health data in your own HealthLog">
+<meta property="og:description" content="An Android app that brings what your Pebble writes to Health Connect into your own HealthLog instance, in the background, and shows your values on the phone.">
+<meta property="og:image" content="https://shrippen.github.io/Kladde/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:url" content="https://shrippen.github.io/Kladde/">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<!-- Umami tracker: mandatory on every landing page, same tag and ID everywhere, do not change -->
+<script defer src="https://um.arianw.de/script.js" data-website-id="056d39ee-6a9d-4b14-9902-5a1ac399df08"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://shrippen.github.io/v1/shrippen.css">
+<script src="https://shrippen.github.io/v1/shrippen.js"></script>
+</head>
+<body>
+
+<nav class="nav"><div class="nav-inner">
+  <a class="nav-brand" href="#"><img src="icon.svg" alt="">Kladde</a>
+  <div class="nav-links">
+    <a href="#features"><span lang="en">Features</span><span lang="de">Funktionen</span></a>
+    <a href="#changes"><span lang="en">Changes</span><span lang="de">Änderungen</span></a>
+    <a class="nav-hl" href="https://github.com/shrippen/Kladde">GitHub</a>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="de" aria-pressed="false">DE</button>
+    </div>
+  </div>
+</div></nav>
+
+<header class="hero">
+  <img class="hero-wm" src="icon-mono.svg" alt="" aria-hidden="true">
+  <div class="hero-main">
+    <h1>Kladde</h1>
+    <p class="tagline" lang="en">Kladde brings what your Pebble writes to Health Connect into your own HealthLog instance: steps, heart rate, resting heart rate and sleep, in the background, without a cloud in between. On the phone it shows your values and lets you log weight, blood pressure and mood.</p>
+    <p class="tagline" lang="de">Kladde bringt, was deine Pebble nach Health Connect schreibt, in deine eigene HealthLog-Instanz: Schritte, Herzfrequenz, Ruhepuls und Schlaf, im Hintergrund, ohne Cloud dazwischen. Auf dem Telefon zeigt es deine Werte und nimmt Gewicht, Blutdruck und Stimmung auf.</p>
+  </div>
+
+  <div class="hero-side">
+    <div class="install-card">
+      <label>Installation</label>
+      <p class="install-note" lang="en">The APK for Android 14 or newer (64-bit ARM) from the GitHub release. Open it on the phone and allow the install from your browser or file manager.</p>
+      <p class="install-note" lang="de">Die APK für Android 14 oder neuer (64-Bit-ARM) aus dem GitHub-Release. Auf dem Telefon öffnen und die Installation aus Browser oder Dateimanager erlauben.</p>
+      <div class="install-links">
+        <a class="btn btn-primary" href="https://github.com/shrippen/Kladde/releases/latest">Download</a>
+        <a class="btn btn-ghost" href="https://github.com/shrippen/Kladde">GitHub</a>
+      </div>
+    </div>
+
+    <div class="hero-shot">
+      <img lang="en" src="shots/home-en.webp" alt="Kladde home: the latest value of each metric with its last seven days">
+      <img lang="de" src="shots/home-de.webp" alt="Kladde Start: der neueste Wert jeder Messgröße mit ihren letzten sieben Tagen">
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="section"><div class="callout"><span lang="en"><strong>Note:</strong> built with AI assistance and still young. Not affiliated with HealthLog, Core Devices or Google. Kladde needs your own HealthLog instance.</span><span lang="de"><strong>Hinweis:</strong> mit KI-Unterstützung entstanden und noch jung. Nicht verbunden mit HealthLog, Core Devices oder Google. Kladde braucht deine eigene HealthLog-Instanz.</span></div></div>
+
+<section class="features" id="features">
+  <div class="feat" data-tier="yellow">
+    <span class="feat-tag"><span lang="en">Sync</span><span lang="de">Abgleich</span></span>
+    <h3 lang="en">From the watch to your server</h3><h3 lang="de">Von der Uhr auf deinen Server</h3>
+    <p lang="en">Steps as daily totals, distance, heart rate in 10-minute blocks, resting heart rate and sleep with its stages. Only what the Pebble app wrote, so nothing counts twice.</p>
+    <p lang="de">Schritte als Tagessummen, Strecke, Herzfrequenz in 10-Minuten-Blöcken, Ruhepuls und Schlaf mit seinen Phasen. Nur, was die Pebble-App geschrieben hat, damit nichts doppelt zählt.</p>
+  </div>
+  <div class="feat" data-tier="blue">
+    <span class="feat-tag"><span lang="en">Background</span><span lang="de">Hintergrund</span></span>
+    <h3 lang="en">Nothing gets lost</h3><h3 lang="de">Nichts geht verloren</h3>
+    <p lang="en">Runs every 60 minutes (from 15 on), reads 30 days back on the first run and then only what changed. Offline, a queue keeps what could not be sent and sends it later, in order and without duplicates.</p>
+    <p lang="de">Läuft alle 60 Minuten (ab 15 möglich), liest beim ersten Lauf 30 Tage zurück und danach nur, was sich geändert hat. Offline hält eine Warteschlange, was nicht gesendet werden konnte, und schickt es später, der Reihe nach und ohne Duplikate.</p>
+  </div>
+  <div class="feat" data-tier="red">
+    <span class="feat-tag"><span lang="en">Sign-in</span><span lang="de">Anmeldung</span></span>
+    <h3 lang="en">Like the iOS app</h3><h3 lang="de">Wie die iOS-App</h3>
+    <p lang="en">Password with a second factor or single sign-on in the browser. Kladde keeps only a renewable sign-in, encrypted with a key in the Android Keystore.</p>
+    <p lang="de">Passwort mit zweitem Faktor oder Single Sign-on im Browser. Kladde behält nur eine erneuerbare Anmeldung, verschlüsselt mit einem Schlüssel im Android Keystore.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="showcase">
+    <div class="showcase-text">
+      <span class="showcase-tag"><span lang="en">History</span><span lang="de">Verlauf</span></span>
+      <h2 lang="en">Your values on the phone</h2><h2 lang="de">Deine Werte auf dem Telefon</h2>
+      <p lang="en">Home shows the latest value of each metric and its last seven days. History goes from a week to a year, with scale, legend and figures. Log takes weight, blood pressure, pulse, body fat and mood.</p>
+      <p lang="de">Start zeigt den neuesten Wert jeder Messgröße und ihre letzten sieben Tage. Der Verlauf reicht von einer Woche bis zu einem Jahr, mit Skala, Legende und Kennzahlen. Erfassen nimmt Gewicht, Blutdruck, Puls, Körperfett und Stimmung auf.</p>
+    </div>
+    <figure>
+      <img lang="en" src="shots/history-en.webp" alt="Kladde history: blood pressure over a month with scale, legend and figures">
+      <img lang="de" src="shots/history-de.webp" alt="Kladde Verlauf: Blutdruck über einen Monat mit Skala, Legende und Kennzahlen">
+    </figure>
+  </div>
+</section>
+
+<section class="section">
+  <div class="showcase">
+    <div class="showcase-text">
+      <span class="showcase-tag">Status</span>
+      <h2 lang="en">You see when it stalls</h2><h2 lang="de">Du siehst, wenn es hängt</h2>
+      <p lang="en">Last run, entries waiting, errors, and a warning when the watch has sent a kind of data for two days no more. "Sync now" and "Read everything again" by hand.</p>
+      <p lang="de">Letzter Lauf, wartende Einträge, Fehler und eine Warnung, wenn die Uhr eine Art Daten seit zwei Tagen nicht mehr geschickt hat. „Jetzt abgleichen“ und „Alles neu lesen“ von Hand.</p>
+    </div>
+    <figure>
+      <img lang="en" src="shots/more-en.webp" alt="Kladde More: watch sync status, interval, days to read back, account">
+      <img lang="de" src="shots/more-de.webp" alt="Kladde Mehr: Status des Abgleichs, Intervall, Tage zurück, Konto">
+    </figure>
+  </div>
+</section>
+
+<section class="section">
+  <h2 lang="en">How it works</h2><h2 lang="de">So funktioniert es</h2>
+  <div class="flow">
+    <div class="flow-node"><b>Pebble</b><span lang="en">the Pebble app writes steps, heart rate and sleep</span><span lang="de">die Pebble-App schreibt Schritte, Herzfrequenz und Schlaf</span></div>
+    <div class="flow-arrow" aria-hidden="true"></div>
+    <div class="flow-node"><b>Health Connect</b><span lang="en">Android's health store on the phone</span><span lang="de">der Gesundheitsspeicher von Android auf dem Telefon</span></div>
+    <div class="flow-arrow" aria-hidden="true"></div>
+    <div class="flow-node"><b>Kladde</b><span lang="en">reads what changed, maps it, queues it</span><span lang="de">liest, was sich geändert hat, bildet es ab, reiht es ein</span></div>
+    <div class="flow-arrow" aria-hidden="true"></div>
+    <div class="flow-node"><b>HealthLog</b><span lang="en">your own instance</span><span lang="de">deine eigene Instanz</span></div>
+  </div>
+</section>
+
+<section class="section">
+  <h2 lang="en">Prerequisites</h2><h2 lang="de">Voraussetzungen</h2>
+  <ul lang="en"><li>An Android phone with Android 14 or newer (Health Connect is part of the system) and a 64-bit ARM processor</li><li>The Pebble app, writing to Health Connect</li><li>Your own <a href="https://healthlog.dev">HealthLog</a> instance, version 1.46 or newer</li></ul>
+  <ul lang="de"><li>Ein Android-Telefon mit Android 14 oder neuer (Health Connect gehört zum System) und 64-Bit-ARM-Prozessor</li><li>Die Pebble-App, die nach Health Connect schreibt</li><li>Deine eigene <a href="https://healthlog.dev">HealthLog</a>-Instanz, Version 1.46 oder neuer</li></ul>
+  <p lang="en">Your values show up in HealthLog with the source "Apple Health": HealthLog does not know Health Connect as a source yet. Plasma Mobile and reading the watch directly come later.</p>
+  <p lang="de">Deine Werte erscheinen in HealthLog mit der Quelle „Apple Health“: HealthLog kennt Health Connect noch nicht als Quelle. Plasma Mobile und das direkte Lesen der Uhr kommen später.</p>
+</section>
+
+<section class="section" id="changes">
+  <h2 lang="en">Changes</h2><h2 lang="de">Änderungen</h2>
+  <p lang="en">What each release brought, newest first. Every release adds an entry here and the same notes on the release page.</p><p lang="de">Was jede Version gebracht hat, die neueste zuerst. Jede Version bekommt hier einen Eintrag und dieselben Notizen auf der Release-Seite.</p>
+  <ol class="changelog">
+    <li class="release" id="v0.1.0">
+      <div class="release-head"><b class="release-version">0.1.0</b><time datetime="2026-11-01"><span lang="en">1 Nov 2026</span><span lang="de">1. Nov. 2026</span></time></div>
+      <div class="release-body">
+        <p class="release-lead"><span lang="en">The first release: Kladde brings what your Pebble writes to Health Connect into your own HealthLog, in the background, and shows your values on the phone.</span><span lang="de">Das erste Release: Kladde bringt, was deine Pebble nach Health Connect schreibt, im Hintergrund in dein eigenes HealthLog und zeigt deine Werte auf dem Telefon.</span></p>
+        <div class="release-group" data-kind="new"><h3><span lang="en">New</span><span lang="de">Neu</span></h3><ul>
+          <li><span lang="en">Sign in to your HealthLog instance like the iOS app: the server is checked first, then password with a second factor (TOTP or recovery code) or single sign-on in the browser.</span><span lang="de">Anmelden an deiner HealthLog-Instanz wie mit der iOS-App: erst wird der Server geprüft, dann Passwort mit zweitem Faktor (TOTP oder Wiederherstellungscode) oder Single Sign-on im Browser.</span></li>
+          <li><span lang="en">Watch sync from Health Connect: steps as daily totals, distance, heart rate in 10-minute blocks, resting heart rate and sleep with its stages, only from the Pebble app, so nothing counts twice.</span><span lang="de">Abgleich der Uhr aus Health Connect: Schritte als Tagessummen, Strecke, Herzfrequenz in 10-Minuten-Blöcken, Ruhepuls und Schlaf mit seinen Phasen, nur aus der Pebble-App, damit nichts doppelt zählt.</span></li>
+          <li><span lang="en">Runs in the background (every 60 minutes, from 15 on), reads 30 days back on the first run and then only what changed; "Sync now" and "Read everything again" by hand.</span><span lang="de">Läuft im Hintergrund (alle 60 Minuten, ab 15 möglich), liest beim ersten Lauf 30 Tage zurück und danach nur, was sich geändert hat; „Jetzt abgleichen“ und „Alles neu lesen“ von Hand.</span></li>
+          <li><span lang="en">Nothing gets lost offline: what could not be sent waits in a queue and goes out later, in order and without duplicates.</span><span lang="de">Offline geht nichts verloren: was nicht gesendet werden konnte, wartet in einer Warteschlange und geht später raus, der Reihe nach und ohne Duplikate.</span></li>
+          <li><span lang="en">Status: last run, entries waiting, errors, and a warning when the watch has sent a kind of data for two days no more.</span><span lang="de">Status: letzter Lauf, wartende Einträge, Fehler und eine Warnung, wenn die Uhr eine Art Daten seit zwei Tagen nicht mehr geschickt hat.</span></li>
+          <li><span lang="en">Home with the latest value of each metric and its last seven days, History from a week to a year with scale and figures, Log for weight, blood pressure, pulse, body fat and mood.</span><span lang="de">Start mit dem neuesten Wert jeder Messgröße und ihren letzten sieben Tagen, Verlauf von einer Woche bis zu einem Jahr mit Skala und Kennzahlen, Erfassen für Gewicht, Blutdruck, Puls, Körperfett und Stimmung.</span></li>
+          <li><span lang="en">German and English.</span><span lang="de">Deutsch und Englisch.</span></li>
+        </ul></div>
+        <div class="release-group" data-kind="note"><h3><span lang="en">Note</span><span lang="de">Hinweis</span></h3><ul>
+          <li><span lang="en">Needs Android 14 or newer (Health Connect is part of the system) on a 64-bit ARM phone, and HealthLog 1.46 or newer.</span><span lang="de">Braucht Android 14 oder neuer (Health Connect gehört zum System) auf einem Telefon mit 64-Bit-ARM und HealthLog 1.46 oder neuer.</span></li>
+          <li><span lang="en">Your values show up in HealthLog with the source "Apple Health": HealthLog does not know Health Connect as a source yet.</span><span lang="de">Deine Werte erscheinen in HealthLog mit der Quelle „Apple Health“: HealthLog kennt Health Connect noch nicht als Quelle.</span></li>
+          <li><span lang="en">Kladde keeps only a renewable sign-in, encrypted with a key in the Android Keystore; the background sync uses the same sign-in, no extra token.</span><span lang="de">Kladde behält nur eine erneuerbare Anmeldung, verschlüsselt mit einem Schlüssel im Android Keystore; der Abgleich im Hintergrund nutzt dieselbe Anmeldung, kein zusätzliches Token.</span></li>
+          <li><span lang="en">Plasma Mobile and reading the watch directly come later.</span><span lang="de">Plasma Mobile und das direkte Lesen der Uhr kommen später.</span></li>
+        </ul></div>
+        <a class="release-notes" href="https://github.com/shrippen/Kladde/commits/v0.1.0"><span lang="en">All changes →</span><span lang="de">Alle Änderungen →</span></a>
+      </div>
+    </li>
+  </ol>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div class="foot-brand">
+      <img src="icon.svg" alt="">
+      <div><span class="foot-name">Kladde</span>
+        <span class="foot-tag"><span lang="en">Your Pebble's health data in your own HealthLog</span><span lang="de">Die Gesundheitsdaten deiner Pebble in deinem eigenen HealthLog</span></span></div>
+    </div>
+    <nav class="foot-cols" aria-label="Footer">
+      <div><h4><span lang="en">Project</span><span lang="de">Projekt</span></h4>
+        <a href="#features"><span lang="en">Features</span><span lang="de">Funktionen</span></a>
+        <a href="#changes"><span lang="en">Changes</span><span lang="de">Änderungen</span></a>
+        <a href="https://github.com/shrippen/Kladde/releases"><span lang="en">Releases</span><span lang="de">Versionen</span></a></div>
+      <div><h4><span lang="en">Source</span><span lang="de">Quelltext</span></h4>
+        <a href="https://github.com/shrippen/Kladde">GitHub</a><a href="https://github.com/shrippen/Kladde/issues">Issues</a></div>
+    </nav>
+  </div>
+  <div class="foot-meta"><p>GPL-3.0 · shrippen · Kante · <a href="#changes">v0.1</a></p></div>
+</footer>
+
+</body>
+</html>

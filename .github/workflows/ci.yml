@@ -50,6 +50,9 @@ jobs:
       - name: Tools
         run: pacman -Syu --noconfirm --needed git base-devel cmake ninja qt6-base qt6-declarative qt6-svg qt6-tools qtkeychain-qt6 kirigami python
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # Release headings "## [X.Y.Z] — YYYY-MM-DD": a wrong one shows up here, not at the tag.
+      - name: Changelog
+        run: scripts/release-notes.sh --check
       - name: Kante (public mirror)
         run: git clone --depth 1 https://github.com/shrippen/Kante.git ../Kante
       - name: Kante copy matches Kante main

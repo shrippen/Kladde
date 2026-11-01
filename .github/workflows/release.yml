@@ -1,0 +1,154 @@
+# A tag v* reaches GitHub through the Gitea push mirror (the tag is pushed to Gitea only;
+# the Gitea release gets the notes, never files). Here the GitHub release is made with the
+# same notes (scripts/release-notes.sh, the tag's section of CHANGELOG.md; stops without it)
+# and the signed APK is built and attached. agent.md, "Release rule".
+#
+# Run by hand (workflow_dispatch):
+#   - without `tag`: builds the release APK as a test, no release (signed when the keystore
+#     secrets are set), kept as a workflow artifact;
+#   - with `tag` (e.g. v0.1.0): builds that tag and attaches the APK to its existing release.
+#
+# Secrets (agent.md, "Release rule"): KLADDE_KEYSTORE_B64 (the keystore, base64),
+# KLADDE_KEYSTORE_PASSWORD, KLADDE_KEY_ALIAS, KLADDE_KEY_PASSWORD.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach the APK to (empty: test build only)"
+        required: false
+        default: ""
+
+# A release is never cancelled (tag push or a run by hand with `tag`); a newer test run
+# replaces an older one.
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && !inputs.tag }}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.server_url == 'https://github.com'
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Version
+        id: version
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          TAG=""
+          [ "$GITHUB_REF_TYPE" = "tag" ] && TAG="$GITHUB_REF_NAME"
+          [ -n "$INPUT_TAG" ] && TAG="$INPUT_TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if [ -n "$TAG" ]; then
+            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=test" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.version.outputs.tag || github.ref }}
+      # Tag and project version must agree, else the APK's version code does not count up.
+      - name: Tag matches the project version
+        if: steps.version.outputs.tag != ''
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          PROJECT=$(sed -nE 's/^project\(kladde VERSION ([0-9.]+).*/\1/p' CMakeLists.txt)
+          [ "$PROJECT" = "$VERSION" ] \
+            || { echo "::error::CMakeLists.txt is at version $PROJECT, the tag at $VERSION (agent.md, Release rule, step 1)"; exit 1; }
+      - name: GitHub release
+        if: steps.version.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release view "$TAG" > /dev/null 2>&1 && exit 0
+          # Fails without a section "## [X.Y.Z] — YYYY-MM-DD" or with an empty one.
+          scripts/release-notes.sh "$VERSION" > "$RUNNER_TEMP/notes.md"
+          # A draft until the APK is attached: "latest" never points at a release without it.
+          gh release create "$TAG" --title "Kladde $VERSION" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag --draft
+
+  # The release APK (de.arianw.kladde), built by the same script as on a developer machine;
+  # the script stops when demo code or data is in the package.
+  apk:
+    needs: release
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.release.outputs.tag || github.ref }}
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: 17
+      # Qt's host tools (qsb for Kirigami's shaders) need the GL libraries of a desktop.
+      - name: Host libraries for Qt tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libegl1 libgl1 libopengl0 libxkbcommon0 libfontconfig1 > /dev/null
+      - name: Android SDK packages
+        run: |
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/Qt
+            ~/kf6-android
+          key: android-deps-${{ hashFiles('scripts/build-android.sh', 'scripts/build-deps-android.sh') }}
+      # A release needs the key; a test run signs only when the secrets are set.
+      - name: Keystore
+        id: keystore
+        env:
+          KLADDE_KEYSTORE_B64: ${{ secrets.KLADDE_KEYSTORE_B64 }}
+          IS_RELEASE: ${{ needs.release.outputs.tag != '' }}
+        run: |
+          if [ -z "$KLADDE_KEYSTORE_B64" ]; then
+            [ "$IS_RELEASE" != "true" ] || { echo "::error::Secret KLADDE_KEYSTORE_B64 is missing (agent.md, Release rule)"; exit 1; }
+            echo "No keystore secret: unsigned test build."
+            exit 0
+          fi
+          echo "$KLADDE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/kladde-release.jks"
+          echo "KLADDE_KEYSTORE_PATH=$RUNNER_TEMP/kladde-release.jks" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+      - name: Build the release APK
+        env:
+          KLADDE_VERBOSE: 1
+          KLADDE_KEYSTORE_PASSWORD: ${{ secrets.KLADDE_KEYSTORE_PASSWORD }}
+          KLADDE_KEY_ALIAS: ${{ secrets.KLADDE_KEY_ALIAS }}
+          KLADDE_KEY_PASSWORD: ${{ secrets.KLADDE_KEY_PASSWORD }}
+        run: |
+          scripts/build-android.sh release
+          mkdir -p assets
+          mv dist/android/kladde-release.apk "assets/Kladde-${{ needs.release.outputs.version }}.apk"
+      - name: Check the signature
+        if: steps.keystore.outputs.signed == 'true'
+        run: '"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs assets/*.apk'
+      - name: Attach to the release
+        if: needs.release.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          gh release upload "$TAG" assets/* --clobber
+          gh release edit "$TAG" --draft=false
+      - name: Keep as test artifact
+        if: needs.release.outputs.tag == ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: kladde-test-apk
+          path: assets/*
+          if-no-files-found: error
+          retention-days: 7
