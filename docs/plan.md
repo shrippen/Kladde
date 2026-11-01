@@ -13,8 +13,9 @@ android/   (Phase 1) Kotlin: Health-Connect-Leser, WorkManager, Berechtigungen
 spikes/    Wegwerf-Code für Phase 0 (hc-probe)
 ```
 
-Jede Datenquelle liefert JSON im Austauschformat (`core/hcjson.h`): der Kotlin-Leser auf
-Android, später der Adapter für den Pebble-Daemon auf Plasma Mobile. Ab da ist alles gleich.
+Das Austauschformat (`core/hcjson.h`) nutzen `kladde-push` und später der Adapter für den
+Pebble-Daemon. Auf Android bildet `android/sync` selbst ab (Entscheidung unten); gleich
+bleibt die Abbildung über die gemeinsame Fixture.
 
 ## Phase 0: Machbarkeit
 

@@ -57,8 +57,9 @@ Auswertungen, das bleibt HealthLog.
 
 ### Datenquellen
 
-Jede Quelle liefert dieselben neutralen Datensätze (`core/record.h`); Abbildung, Warteschlange
-und Upload sind für alle gleich.
+Jede Quelle wird gleich abgebildet (gemeinsame Fixture `tests/fixtures/pebble-day.expected.json`).
+Auf Android erledigt das Kotlin-Modul `android/sync` Lesen, Abbildung, Warteschlange und Upload; der
+Pebble-Daemon liefert später das Austauschformat (`core/hcjson.h`) an `core/`.
 
 - **LF-10** Health Connect (Android): Berechtigungen je Datentyp anfordern, mit der
   Rationale-Activity, die Health Connect verlangt.

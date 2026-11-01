@@ -56,15 +56,16 @@ Plan mit Häkchen: `docs/plan.md`, Quellen: `docs/referenzen.md`. Aktuell halten
 
 ## Schichten (nur zum direkten Nachbarn darunter)
 ```
-app/        Kirigami-Oberfläche (QML mit Kante), Connection und Co. als QML-Objekte
-  ↓
-core/       Abbildung, Batches, Warteschlange, HealthLogClient   (nur Qt Core + Network)
-  ↑
-Quellen     Health Connect (Kotlin, Android) | Pebble-Daemon (D-Bus, Linux)
-            liefern nur das Austauschformat (core/hcjson.h), nie direkt an HealthLog
+app/          Kirigami-Oberfläche (QML mit Kante), Connection und Co. als QML-Objekte
+  ↓                          ↓ (nur Android, JNI über app/syncbridge)
+core/         HealthLogClient, Anmeldung, Abbildung, Batches (nur Qt Core + Network)
+android/sync  Kotlin: Health Connect lesen, abbilden, Warteschlange, Upload (WorkManager)
 ```
 - QML spricht nie HTTP; alles über Objekte aus `app/`, die `core/` nutzen.
-- `core/` bleibt ohne Qt GUI, damit er in Tests, `kladde-push` und im Android-Hintergrundjob läuft.
+- `core/` bleibt ohne Qt GUI, damit er in Tests und `kladde-push` läuft.
+- Abbildung zweimal (Kotlin `Mapper.kt`, C++ `core/mapper.cpp`): beide prüfen gegen
+  `tests/fixtures/pebble-day.expected.json`, eine Änderung immer an beiden.
+- Der Pebble-Daemon (Plasma Mobile, später) liefert das Austauschformat (`core/hcjson.h`) an `core/`.
 
 ## Konventionen
 - C++20, Qt 6. Vor jedem Commit: `cmake --build build && ctest --test-dir build`.
