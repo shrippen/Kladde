@@ -26,7 +26,7 @@
 
 - Every visualization (chart, graph, heatmap) in a popup or page has axis labels or a legend; without them it is useless. Give it hover tooltips where possible. Tiles stay without axes and legends, so they read at a glance; their popup carries the details.
 
-- Test integrations against a real instance where possible: HealthLog's API as a throwaway Docker container (`docker compose` from the HealthLog repo, connection in `.local-test/healthlog.json`, outside Git). Tests never write to the user's own instance (`hl.arianw.de`); real uploads there are the user's step (`kladde-push`, the app). Without a configured instance the test is skipped: in cloud environments and CI, tests against fakes are enough.
+- Test integrations against a real instance where possible. HealthLog: the owner's instance `https://hl.arianw.de` with the `measurements:write` token in `token.txt` (repo root, ignored by Git; owner, 1.11.2026: free to test with it). Write only synthetic data dated far in the past (March 2001, ids starting `kladde-test-`), so it never shows in the owner's current charts; never print, log or commit the token. Without the token the test is skipped: in cloud environments and CI, tests against fakes are enough.
 
 When you write a commit message, follow these 7 rules:
 Rule 1: Separate the subject line from the body with a single blank line.

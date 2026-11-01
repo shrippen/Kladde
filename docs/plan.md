@@ -27,9 +27,9 @@ Android, später der Adapter für den Pebble-Daemon auf Plasma Mobile. Ab da ist
 - [x] App-Gerüst mit Kante, Screenshot ohne Display für die CI.
 - [x] `spikes/hc-probe`: zählt je Typ und App, exportiert JSON.
 - [ ] Probe auf dem Telefon: Was schreibt die Pebble wirklich (coredevices/mobileapp#469)?
-- [ ] Upload mit `kladde-push` gegen einen Wegwerf-HealthLog (Docker), Ergebnis prüfen
-      (Tagessummen, Herzfrequenz-Blöcke, Schlafphasen, Zeitzone). Danach der erste echte Upload
-      nach hl.arianw.de durch dich.
+- [ ] Upload mit `kladde-push` nach hl.arianw.de mit synthetischen Daten vom März 2001,
+      Ergebnis prüfen (Tagessummen, Herzfrequenz-Blöcke, Schlafphasen, Zeitzone, keine
+      Duplikate beim zweiten Lauf). Danach der erste echte Upload.
 - [ ] Echten Export (gekürzt, anonymisiert) als zweite Fixture.
 - [ ] Spike: Kann ein WorkManager-Job den C++-Kern ohne Oberfläche laden? Sonst schreibt Kotlin
       in eine SQLite-Warteschlange und der Kern lädt hoch.

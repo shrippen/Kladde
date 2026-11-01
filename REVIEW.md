@@ -22,8 +22,9 @@ their own HealthLog. A bug that matters is one that costs data or trust:
 - **Leaks:** health data or a token in a log, a commit, a fixture, a
   crash report or a request to anyone but the user's server; a token in a
   settings file instead of the keychain; demo data in a release build.
-- **Writes where it must not:** a test that writes to the user's own
-  HealthLog (`hl.arianw.de`) instead of a throwaway container.
+- **Writes where it must not:** a test that writes real-looking or
+  current data to the owner's HealthLog (`hl.arianw.de`); tests write only
+  synthetic data from March 2001 with ids starting `kladde-test-`.
 - **Drains the phone:** polling, full re-reads instead of the changes
   API, work on the UI thread, a background job that never finishes.
 - **Lies:** docs, `docs/lastenheft.md`, `docs/plan.md` or comments the
