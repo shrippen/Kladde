@@ -2,6 +2,7 @@ package de.arianw.kladde.sync
 
 import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.work.Constraints
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -241,6 +243,52 @@ object KladdeSync {
         // the app calls this on its UI thread, where the vault's lock may wait a minute.
         context.deleteDatabase(SqliteQueueStore.NAME)
     }
+
+    /**
+     * Per [Ranked] kind (by key), the apps that wrote it within the backfill window, in the
+     * user's order, with their names: `{"sleep": [{"app": "coredevices.coreapp", "label":
+     * "Pebble"}, …], "workouts": […]}`. A kind not allowed has none. Reads Health Connect.
+     */
+    @JvmStatic
+    fun appsJson(context: Context): String {
+        if (!available(context)) {
+            return JSONObject().toString()
+        }
+        val client = HealthConnectClient.getOrCreate(context)
+        val order = AppOrder(context)
+        val now = Instant.now()
+        val start = now.minus(Duration.ofDays(backfillDays(context)))
+        val out = JSONObject()
+
+        runBlocking {
+            val granted = runCatching { client.permissionController.getGrantedPermissions() }.getOrDefault(emptySet())
+            for (kind in Ranked.entries) {
+                val allowed = kind.types.all { HealthPermission.getReadPermission(it) in granted }
+                val seen = if (allowed) runCatching { appsOf(kind, client, start, now) }.getOrDefault(emptySet()) else emptySet()
+                out.put(kind.key, JSONArray(AppOrder.shown(order.of(kind).current, seen).map {
+                    JSONObject().put("app", it).put("label", labelOf(context.packageManager, it))
+                }))
+            }
+        }
+        return out.toString()
+    }
+
+    /** The order of the apps the app showed for [kind] (a Ranked key), comma separated. */
+    @JvmStatic
+    fun setAppOrder(context: Context, kind: String, apps: String) {
+        val ranked = Ranked.entries.firstOrNull { it.key == kind } ?: return
+        val order = AppOrder(context)
+        order.set(ranked, AppOrder.stored(order.of(ranked).current, apps.split(",").filter { it.isNotEmpty() }), Instant.now())
+    }
+
+    private suspend fun appsOf(kind: Ranked, client: HealthConnectClient, start: Instant, now: Instant): Set<String> = when (kind) {
+        Ranked.SLEEP -> SleepSource(client).apps(start, now)
+        Ranked.WORKOUTS -> WorkoutSource(client).apps(start, now)
+    }
+
+    /** The app's name as the launcher shows it; the package where Android does not say. */
+    private fun labelOf(pm: PackageManager, app: String): String =
+        runCatching { pm.getApplicationLabel(pm.getApplicationInfo(app, 0)).toString() }.getOrDefault(app)
 
     /** Forget the cursor: the next sync reads the backfill window again (the server dedups). */
     @JvmStatic

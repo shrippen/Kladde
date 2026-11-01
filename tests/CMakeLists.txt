@@ -29,7 +29,8 @@ if(KLADDE_APP)
 
     # Pages with their C++ objects, the QML from the sources.
     find_package(Qt6 REQUIRED COMPONENTS Quick)
-    qt_add_executable(test_views test_views.cpp ${app}/dashboard.cpp ${app}/history.cpp ${app}/errors.cpp)
+    qt_add_executable(test_views test_views.cpp ${app}/dashboard.cpp ${app}/history.cpp ${app}/errors.cpp
+        ${app}/account.cpp ${app}/syncbridge.cpp syncbridge_fake.h syncbridge_fake.cpp)
     target_include_directories(test_views PRIVATE ${app})
     target_link_libraries(test_views PRIVATE kladde-core Qt6::Quick Qt6::Test)
     target_compile_definitions(test_views PRIVATE KLADDE_QML="${app}/qml")

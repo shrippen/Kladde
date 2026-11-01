@@ -1,9 +1,11 @@
 #pragma once
 
 #include <QDateTime>
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QTimer>
+#include <QVariantList>
 
 // The background sync as the app sees it (Lastenheft LF-10 … LF-24). On Android it drives
 // the Kotlin module `android/sync` (KladdeSync) through JNI: Health Connect, WorkManager,
@@ -28,7 +30,15 @@ class SyncBridge : public QObject
     Q_PROPERTY(QStringList silentKinds READ silentKinds NOTIFY changed)
     Q_PROPERTY(int intervalMinutes READ intervalMinutes WRITE setIntervalMinutes NOTIFY changed)
     Q_PROPERTY(int backfillDays READ backfillDays WRITE setBackfillDays NOTIFY changed)
+    // The apps that wrote sleep or trainings lately, in the user's order, each {app, label}:
+    // where two apps saw the same night or training, the first one's goes to HealthLog.
+    Q_PROPERTY(QVariantList sleepApps READ sleepApps NOTIFY appsChanged)
+    Q_PROPERTY(QVariantList workoutApps READ workoutApps NOTIFY appsChanged)
 public:
+    // The kinds whose sessions overlap between apps (KladdeSync's Ranked).
+    enum class Ranked { Sleep, Workouts };
+    Q_ENUM(Ranked)
+
     // How configure treats what an earlier session left (queue, cursor, status).
     enum class Start {
         Resume, // the same session again (a restart)
@@ -54,6 +64,8 @@ public:
     void setIntervalMinutes(int minutes);
     int backfillDays() const { return m_backfill; }
     void setBackfillDays(int days);
+    QVariantList sleepApps() const { return m_apps.value(Ranked::Sleep); }
+    QVariantList workoutApps() const { return m_apps.value(Ranked::Workouts); }
 
     // Where the session lives and the device it was signed in from; the background sync
     // uploads with the session the vault keeps (SessionVault).
@@ -67,6 +79,10 @@ public:
     Q_INVOKABLE void resync();
     // Read the status the background work left (on showing the page).
     Q_INVOKABLE void refresh();
+    // Read which apps wrote sleep and trainings (asks Health Connect, on showing the order).
+    Q_INVOKABLE void loadApps();
+    // Move the app at `from` to `to` in the kind's order; the next run picks by it.
+    Q_INVOKABLE void moveApp(Ranked kind, int from, int to);
 
 #ifdef KLADDE_DEMO
     // The demo build shows the Android status from the demo world.
@@ -75,6 +91,7 @@ public:
 
 Q_SIGNALS:
     void changed();
+    void appsChanged();
 
 private:
     // Platform side (syncbridge_android.cpp, syncbridge_none.cpp).
@@ -84,6 +101,11 @@ private:
     void startSync();
     // Takes KladdeSync's statusJson and permissionsJson (see there).
     void applyStatus(const QByteArray &status, const QByteArray &permissions);
+    void storeOrder(Ranked kind, const QStringList &apps);
+    // The kind's name in KladdeSync (Ranked.key): "sleep", "workouts".
+    static QString keyOf(Ranked kind);
+    // Takes KladdeSync's appsJson (see there).
+    void applyApps(const QByteArray &apps);
 
     bool m_demo = false;
     bool m_configured = false;
@@ -96,6 +118,7 @@ private:
     int m_uploaded = 0;
     int m_pending = 0;
     QStringList m_silent;
+    QHash<Ranked, QVariantList> m_apps;
     int m_interval = 60;
     int m_backfill = 30;
     // Asks again while a sync runs (applyStatus).

@@ -49,3 +49,11 @@ void SyncBridge::resync()
 void SyncBridge::refresh()
 {
 }
+
+void SyncBridge::loadApps()
+{
+}
+
+void SyncBridge::storeOrder(Ranked, const QStringList &)
+{
+}

@@ -28,7 +28,7 @@ import kotlin.reflect.KClass
  */
 class WorkoutSource(
     private val client: HealthConnectClient,
-    private val order: List<String> = WorkoutMapper.DEFAULT_ORDER,
+    private val ranking: Ranking = Ranking(WorkoutMapper.DEFAULT_ORDER),
 ) {
 
     class Read(val entries: List<JSONObject>, val cursor: String)
@@ -72,7 +72,7 @@ class WorkoutSource(
             Session(it.metadata.id, it.metadata.dataOrigin.packageName, it.exerciseType, it.title, it.startTime, it.endTime)
         }
 
-        val workouts = Sessions.select(sessions, order, days, zone, now, WorkoutMapper.SETTLE, since)
+        val workouts = Sessions.select(sessions, ranking, days, zone, now, WorkoutMapper.SETTLE, since)
         val entries = mutableListOf<JSONObject>()
         for (group in clusters(workouts)) {
             val from = group.minOf { it.start }
@@ -99,6 +99,10 @@ class WorkoutSource(
         }
         return out
     }
+
+    /** The apps that wrote trainings from [start] on: the ones the user may put in order. */
+    suspend fun apps(start: Instant, now: Instant): Set<String> =
+        readAll(ExerciseSessionRecord::class, start, now).map { it.metadata.dataOrigin.packageName }.toSet()
 
     /** Every app's records: the mapper picks. */
     private suspend fun <T : Record> readAll(type: KClass<T>, start: Instant, end: Instant): List<T> {

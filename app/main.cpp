@@ -109,6 +109,7 @@ int main(int argc, char **argv)
     const QString why = QStringLiteral("provided by the app");
     qmlRegisterUncreatableType<Account>(uri, 1, 0, "Account", why);
     qmlRegisterUncreatableType<Entry>(uri, 1, 0, "Entry", why);
+    qmlRegisterUncreatableType<SyncBridge>(uri, 1, 0, "SyncBridge", why);
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("account"), &account);

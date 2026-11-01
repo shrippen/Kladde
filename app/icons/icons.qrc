@@ -2,9 +2,11 @@
 <qresource prefix="/icons">
   <file>breeze-dark/index.theme</file>
   <file>breeze-dark/actions/22/application-menu.svg</file>
+  <file>breeze-dark/actions/22/go-down.svg</file>
   <file>breeze-dark/actions/22/go-home.svg</file>
   <file>breeze-dark/actions/22/go-next.svg</file>
   <file>breeze-dark/actions/22/go-previous.svg</file>
+  <file>breeze-dark/actions/22/go-up.svg</file>
   <file>breeze-dark/actions/22/list-add.svg</file>
   <file>breeze-dark/actions/22/office-chart-line.svg</file>
   <file>breeze-dark/actions/22/overflow-menu.svg</file>

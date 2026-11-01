@@ -34,8 +34,9 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         val exercise = HealthPermission.getReadPermission(ExerciseSessionRecord::class)
         // Not asked (Health Connect busy): nothing read this run, the queue still goes.
         val granted = runCatching { client.permissionController.getGrantedPermissions() }.getOrDefault(emptySet())
-        val workouts = WorkoutSource(client).takeIf { exercise in granted }
-        val sleep = SleepSource(client).takeIf { HealthPermission.getReadPermission(SleepSessionRecord::class) in granted }
+        val order = AppOrder(applicationContext)
+        val workouts = WorkoutSource(client, order.of(Ranked.WORKOUTS)).takeIf { exercise in granted }
+        val sleep = SleepSource(client, order.of(Ranked.SLEEP)).takeIf { HealthPermission.getReadPermission(SleepSessionRecord::class) in granted }
         val source = HealthConnectSource(client, (HealthConnectSource.TYPES + HealthConnectSource.OPTIONAL_TYPES).filter { HealthPermission.getReadPermission(it) in granted }.toSet())
         val allowed = ReadingSource.TYPES.filter { HealthPermission.getReadPermission(it) in granted }.toSet()
         val readings = ReadingSource(client, allowed).takeIf { allowed.isNotEmpty() }

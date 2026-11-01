@@ -304,4 +304,42 @@ class UploaderTest {
         assertEquals(1, store.pendingCount())
         assertEquals(t, store.lastSeen()[Kind.WEIGHT])
     }
+
+    @Test
+    fun sleepIsQueuedWithItsOwnCursor() = runBlocking {
+        val store = MemoryStore()
+        val stage = Sample(Kind.SLEEP_STAGE, "n1", HealthConnectSource.PEBBLE_APP, Instant.parse("2026-11-01T01:00:00Z"), Instant.parse("2026-11-01T02:00:00Z"), 5.0)
+        SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
+            HealthConnectSource.Read(emptyList(), "token-1", emptyMap())
+        }, Trigger.MANUAL, now, sleep = { cursor, since, _, _ ->
+            assertNull(cursor)
+            assertNull(since)
+            SleepSource.Read(listOf(stage), "sleep-1")
+        })
+
+        assertEquals("sleep-1", store.cursor(Stream.SLEEP))
+        assertEquals(now, store.readAt(Stream.SLEEP))
+        assertEquals(1, store.pendingCount())
+    }
+
+    @Test
+    fun aFailingSleepReadHoldsNoOtherKindBack() = runBlocking {
+        val store = MemoryStore()
+        val t = Instant.parse("2026-11-01T06:30:00Z")
+        val weight = Sample(Kind.WEIGHT, "w1", "org.example.scale", t, t, 72.4)
+        val status = SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
+            HealthConnectSource.Read(emptyList(), "token-1", emptyMap())
+        }, Trigger.MANUAL, now, readings = { _, _, _ ->
+            ReadingSource.Read(listOf(weight), "Weight|r1")
+        }, sleep = { _, _, _, _ ->
+            throw SecurityException("READ_SLEEP")
+        }, workouts = { _, _, _, _ ->
+            WorkoutSource.Read(emptyList(), "workouts-1")
+        })
+
+        assertNull(store.cursor(Stream.SLEEP))
+        assertEquals("Weight|r1", store.cursor(Stream.READINGS))
+        assertEquals("workouts-1", store.cursor(Stream.WORKOUTS))
+        assertEquals("Health Connect: READ_SLEEP", status.lastError)
+    }
 }

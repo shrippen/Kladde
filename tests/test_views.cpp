@@ -1,6 +1,9 @@
+#include "account.h"
 #include "dashboard.h"
 #include "history.h"
 #include "secretstore.h"
+#include "syncbridge.h"
+#include "syncbridge_fake.h"
 
 #include <QGuiApplication>
 #include <QQmlComponent>
@@ -21,6 +24,16 @@ class TestViews : public QObject
     static QUrl page(const char *name)
     {
         return QUrl::fromLocalFile(QStringLiteral(KLADDE_QML "/") + QLatin1String(name));
+    }
+
+    // Every item below `root` in the visual tree (a Repeater's items have no QObject parent).
+    static QList<QQuickItem *> itemsBelow(QQuickItem *root)
+    {
+        QList<QQuickItem *> out;
+        for (QQuickItem *child : root->childItems()) {
+            out << child << itemsBelow(child);
+        }
+        return out;
     }
 
     // Kante's loader somewhere below `root`, shown.
@@ -69,6 +82,34 @@ private Q_SLOTS:
 
         QVERIFY(history.loading());
         QVERIFY(showsLoader(qobject_cast<QQuickItem *>(view.get())));
+    }
+
+    void moreShowsTheAppOrder()
+    {
+        FakeSync::apps = R"({"sleep": [{"app": "coredevices.coreapp", "label": "Pebble"},
+                                       {"app": "com.urbandroid.sleep", "label": "Sleep as Android"}],
+                             "workouts": [{"app": "com.freeletics.lite", "label": "Freeletics"}]})";
+        MemorySecretStore secrets;
+        SyncBridge sync;
+        Account account(&secrets, &sync);
+        qmlRegisterUncreatableType<SyncBridge>("Kladde.Core", 1, 0, "SyncBridge", QStringLiteral("test"));
+
+        QQmlEngine engine;
+        engine.addImportPath(QStringLiteral(KLADDE_QML));
+        engine.rootContext()->setContextProperty(QStringLiteral("sync"), &sync);
+        engine.rootContext()->setContextProperty(QStringLiteral("account"), &account);
+        QQmlComponent component(&engine, page("MoreView.qml"));
+        std::unique_ptr<QObject> view(component.create());
+        QVERIFY2(view, qPrintable(component.errorString()));
+
+        // Sleep has two apps to order, trainings one: only sleep's rows are there.
+        QStringList rows;
+        for (QQuickItem *i : itemsBelow(qobject_cast<QQuickItem *>(view.get()))) {
+            if (QByteArray(i->metaObject()->className()).startsWith("KanteListRow") && i->isVisible()) {
+                rows << i->property("text").toString();
+            }
+        }
+        QCOMPARE(rows, QStringList({QStringLiteral("Pebble"), QStringLiteral("Sleep as Android")}));
     }
 };
 

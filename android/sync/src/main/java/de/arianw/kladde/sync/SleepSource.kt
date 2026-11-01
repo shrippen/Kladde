@@ -15,7 +15,7 @@ import kotlin.reflect.KClass
 
 /**
  * Reads the sleep of every app (the Pebble app, Sleep as Android, Google Fit …) with a
- * changes token of its own. Where two apps saw the same night, the one first in [order]
+ * changes token of its own. Where two apps saw the same night, the one first in [ranking]
  * stays (Sessions.select); a night goes once it ended [SETTLE] ago, so the watch's night,
  * synced later than the phone's, still wins.
  *
@@ -25,7 +25,7 @@ import kotlin.reflect.KClass
  */
 class SleepSource(
     private val client: HealthConnectClient,
-    private val order: List<String> = DEFAULT_ORDER,
+    private val ranking: Ranking = Ranking(DEFAULT_ORDER),
 ) {
 
     class Read(val samples: List<Sample>, val cursor: String)
@@ -70,10 +70,14 @@ class SleepSource(
             Session(it.metadata.id, it.metadata.dataOrigin.packageName, NO_TYPE, it.title, it.startTime, it.endTime)
         }
 
-        val nights = Sessions.select(sessions, order, days, zone, now, SETTLE, since)
+        val nights = Sessions.select(sessions, ranking, days, zone, now, SETTLE, since)
         val samples = nights.flatMap { night -> night.sessions.flatMap { HealthConnectSource.samplesOf(records.getValue(it.id)) } }
         return Read(samples, token)
     }
+
+    /** The apps that wrote sleep from [start] on: the ones the user may put in order. */
+    suspend fun apps(start: Instant, now: Instant): Set<String> =
+        readAll(start, now).map { it.metadata.dataOrigin.packageName }.toSet()
 
     private suspend fun readAll(start: Instant, end: Instant): List<SleepSessionRecord> {
         val out = mutableListOf<SleepSessionRecord>()

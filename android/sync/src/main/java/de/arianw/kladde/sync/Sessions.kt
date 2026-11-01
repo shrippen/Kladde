@@ -26,13 +26,35 @@ class SessionGroup(val sessions: List<Session>) {
 }
 
 /**
+ * The app order over time: a session takes the order in force when it began, so a reorder
+ * never changes the winner of one already sent (HealthLog would keep both). The beginning,
+ * not the end: a rival of a sent session began before that one ended, so before any later
+ * change, even if it ends after it.
+ *
+ *   past [Pebble, Sleep] until 1.11. 10:00, current [Sleep, Pebble]
+ *   night began 31.10. 22:00 ─▶ Pebble's       night began 1.11. 22:00 ─▶ Sleep's
+ */
+class Ranking(val current: List<String>, val past: List<Era> = emptyList()) {
+
+    /** [order] was in force for sessions that began before [until]. */
+    class Era(val until: Instant, val order: List<String>)
+
+    fun at(start: Instant): List<String> =
+        past.filter { start.isBefore(it.until) }.minByOrNull { it.until }?.order ?: current
+
+    /** After the user set [order] at [now]; the order before stays for what began until then. */
+    fun changed(order: List<String>, now: Instant): Ranking =
+        if (order == current) this else Ranking(order, past + Era(now, current))
+}
+
+/**
  * Which sessions of several apps go to HealthLog.
  *
  *   sessions ──merge──▶ groups ──overlap: app order wins──▶ settled, on the days asked
  *
  * Sessions of one app and type at most [MAX_GAP] apart are one group. Where groups of two
  * apps overlap, only the one whose app comes first in the order stays; apps not in the order
- * come last. HealthLog keeps the first write, so a group goes only once it ended `settle`
+ * come last, by name (as the app lists them, AppOrder.shown). HealthLog keeps the first write, so a group goes only once it ended `settle`
  * ago: by then its sections and the other apps' sessions are in.
  */
 object Sessions {
@@ -45,17 +67,18 @@ object Sessions {
      */
     fun select(
         sessions: List<Session>,
-        order: List<String>,
+        ranking: Ranking,
         days: Set<LocalDate>,
         zone: ZoneId,
         now: Instant,
         settle: Duration,
         since: Instant? = null,
     ): List<SessionGroup> {
-        val rank = { app: String -> order.indexOf(app).takeIf { it >= 0 } ?: order.size }
+        val rank = { g: SessionGroup -> ranking.at(g.start).let { o -> o.indexOf(g.first.app).takeIf { it >= 0 } ?: o.size } }
+        val unknown = { g: SessionGroup -> if (g.first.app in ranking.at(g.start)) "" else g.first.app }
         val kept = mutableListOf<SessionGroup>()
 
-        for (g in merge(sessions).sortedWith(compareBy({ rank(it.first.app) }, { it.start }))) {
+        for (g in merge(sessions).sortedWith(compareBy({ rank(it) }, { unknown(it) }, { it.start }))) {
             if (kept.none { it.start < g.end && g.start < it.end }) {
                 kept += g
             }

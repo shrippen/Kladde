@@ -63,3 +63,13 @@ void SyncBridge::refresh()
     ++FakeSync::refreshes;
     applyStatus(FakeSync::status, FakeSync::permissions);
 }
+
+void SyncBridge::loadApps()
+{
+    applyApps(FakeSync::apps);
+}
+
+void SyncBridge::storeOrder(Ranked kind, const QStringList &apps)
+{
+    FakeSync::orders[keyOf(kind)] = apps;
+}

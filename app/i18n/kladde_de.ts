@@ -401,93 +401,123 @@
 <context>
     <name>MoreView</name>
     <message>
-        <location filename="../qml/MoreView.qml" line="14"/>
+        <location filename="../qml/MoreView.qml" line="15"/>
         <source>never</source>
         <translation>nie</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="28"/>
+        <location filename="../qml/MoreView.qml" line="50"/>
+        <source>Up</source>
+        <translation>Hoch</translation>
+    </message>
+    <message>
+        <location filename="../qml/MoreView.qml" line="57"/>
+        <source>Down</source>
+        <translation>Runter</translation>
+    </message>
+    <message>
+        <location filename="../qml/MoreView.qml" line="76"/>
         <source>Watch sync</source>
         <translation>Uhr-Abgleich</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="34"/>
-        <location filename="../qml/MoreView.qml" line="48"/>
+        <location filename="../qml/MoreView.qml" line="82"/>
+        <location filename="../qml/MoreView.qml" line="96"/>
         <source>Health Connect</source>
         <translation>Health Connect</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="49"/>
+        <location filename="../qml/MoreView.qml" line="97"/>
         <source>No access to the watch&apos;s data</source>
         <translation>Kein Zugriff auf die Daten der Uhr</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="51"/>
+        <location filename="../qml/MoreView.qml" line="99"/>
         <source>Last upload %1</source>
         <translation>Zuletzt hochgeladen %1</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="55"/>
+        <location filename="../qml/MoreView.qml" line="103"/>
         <source>Allow access</source>
         <translation>Zugriff erlauben</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="55"/>
+        <location filename="../qml/MoreView.qml" line="103"/>
         <source>Allow more kinds</source>
         <translation>Weitere Arten erlauben</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="63"/>
+        <location filename="../qml/MoreView.qml" line="111"/>
         <source>Silent for two days</source>
         <translation>Seit zwei Tagen still</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="71"/>
+        <location filename="../qml/MoreView.qml" line="119"/>
         <source>Last run</source>
         <translation>Letzter Lauf</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="76"/>
+        <location filename="../qml/MoreView.qml" line="124"/>
         <source>Waiting</source>
         <translation>Wartend</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="81"/>
+        <location filename="../qml/MoreView.qml" line="129"/>
         <source>Sync now</source>
         <translation>Jetzt abgleichen</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="88"/>
+        <location filename="../qml/MoreView.qml" line="136"/>
         <source>Every</source>
         <translation>Alle</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="89"/>
+        <location filename="../qml/MoreView.qml" line="137"/>
         <source>Minutes between background runs; Android allows 15 at the least.</source>
         <translation>Minuten zwischen zwei Läufen im Hintergrund; Android erlaubt mindestens 15.</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="100"/>
+        <location filename="../qml/MoreView.qml" line="148"/>
         <source>Days to read back</source>
         <translation>Tage zurück lesen</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="101"/>
+        <location filename="../qml/MoreView.qml" line="149"/>
         <source>On the first run and after reading again.</source>
         <translation>Beim ersten Lauf und nach „Alles neu lesen“.</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="110"/>
+        <location filename="../qml/MoreView.qml" line="158"/>
         <source>Read everything again</source>
         <translation>Alles neu lesen</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="117"/>
+        <location filename="../qml/MoreView.qml" line="165"/>
+        <source>App order</source>
+        <translation>App-Reihenfolge</translation>
+    </message>
+    <message>
+        <location filename="../qml/MoreView.qml" line="172"/>
+        <source>Where two apps saw the same night or training, the upper one&apos;s goes to HealthLog. Applies to nights and trainings that begin from now on; those before keep the order they were sent by.</source>
+        <translation>Sahen zwei Apps dieselbe Nacht oder dasselbe Training, geht das der oberen an HealthLog. Gilt für Nächte und Trainings, die ab jetzt beginnen; frühere behalten die Reihenfolge, mit der sie gesendet wurden.</translation>
+    </message>
+    <message>
+        <location filename="../qml/MoreView.qml" line="177"/>
+        <source>Sleep</source>
+        <translation>Schlaf</translation>
+    </message>
+    <message>
+        <location filename="../qml/MoreView.qml" line="184"/>
+        <source>Trainings</source>
+        <translation>Training</translation>
+    </message>
+    <message>
+        <location filename="../qml/MoreView.qml" line="192"/>
         <source>Account</source>
         <translation>Konto</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="126"/>
+        <location filename="../qml/MoreView.qml" line="201"/>
         <source>Sign out</source>
         <translation>Abmelden</translation>
     </message>

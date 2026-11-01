@@ -14,5 +14,10 @@
 
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <!-- The names of the apps that wrote sleep or trainings, in the app order. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 </manifest>

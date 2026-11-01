@@ -13,14 +13,19 @@ import "."
  *   text      the name
  *   hint      one short line under it ("Capture, webcam")
  *   checked   chosen; tiles of one group are `autoExclusive` (default true)
+ *   glyph     (1.59) a character in place of the icon, such as a kanji (技 for "programme" in
+ *             Mitori's start menu): drawn in the Japanese family, in the icon's colour
  * Chosen: the selection tint and a 2 px frame in the focus colour; hover: tint step 1;
  * keyboard focus: a 1 px ring inside, also on the chosen tile (further in). Screen readers hear a radio button with name and hint.
+ * Launch tile (1.59): `checkable: false` makes it a tile that opens something (a start menu,
+ * Mitori): no chosen state, and screen readers hear a button with name and hint.
  * Kante and Kante Light cut the top right corner; System: square, platform colours.
  */
 QQC2.AbstractButton {
     id: tile
 
     property string hint: ""
+    property string glyph: ""
 
     checkable: true
     autoExclusive: true
@@ -31,7 +36,7 @@ QQC2.AbstractButton {
     implicitWidth: Math.max(KanteStyle.unit(116), implicitContentWidth + leftPadding + rightPadding)
     implicitHeight: Math.max(KanteStyle.unit(84), implicitContentHeight + topPadding + bottomPadding)
 
-    Accessible.role: Accessible.RadioButton
+    Accessible.role: checkable ? Accessible.RadioButton : Accessible.Button
     Accessible.name: text
     Accessible.description: hint
 
@@ -92,7 +97,15 @@ QQC2.AbstractButton {
             source: tile.icon.name !== "" ? tile.icon.name : tile.icon.source
             color: tile.checked ? KanteStyle.focusColor : KanteStyle.textColor
             isMask: true
-            visible: tile.icon.name !== "" || tile.icon.source.toString() !== ""
+            visible: tile.glyph === "" && (tile.icon.name !== "" || tile.icon.source.toString() !== "")
+        }
+        Text {
+            visible: tile.glyph !== ""
+            text: tile.glyph
+            color: tile.checked ? KanteStyle.focusColor : KanteStyle.textColor
+            font.family: KanteStyle.japaneseFamily
+            font.pixelSize: Kirigami.Units.iconSizes.medium
+            Accessible.ignored: true
         }
         Item {
             Layout.fillHeight: true

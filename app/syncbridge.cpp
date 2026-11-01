@@ -9,6 +9,12 @@ namespace {
 // How often the status is read again while a sync runs.
 constexpr int WatchMs = 2000;
 
+// appsJson's key per kind (KladdeSync's Ranked.key).
+const QHash<SyncBridge::Ranked, QString> RankedKeys = {
+    {SyncBridge::Ranked::Sleep, QStringLiteral("sleep")},
+    {SyncBridge::Ranked::Workouts, QStringLiteral("workouts")},
+};
+
 } // namespace
 
 // What every platform shares; the platform side is in syncbridge_android.cpp (JNI into
@@ -92,4 +98,37 @@ void SyncBridge::applyStatus(const QByteArray &status, const QByteArray &permiss
         m_watch.start();
     }
     Q_EMIT changed();
+}
+
+QString SyncBridge::keyOf(Ranked kind)
+{
+    return RankedKeys.value(kind);
+}
+
+void SyncBridge::moveApp(Ranked kind, int from, int to)
+{
+    QVariantList apps = m_apps.value(kind);
+    if (from < 0 || from >= apps.size() || to < 0 || to >= apps.size() || from == to) {
+        return;
+    }
+    apps.move(from, to);
+    m_apps[kind] = apps;
+
+    QStringList order;
+    for (const QVariant &a : apps) {
+        order << a.toMap().value(QStringLiteral("app")).toString();
+    }
+    storeOrder(kind, order);
+    Q_EMIT appsChanged();
+}
+
+void SyncBridge::applyApps(const QByteArray &apps)
+{
+    // {"sleep": [{"app": "coredevices.coreapp", "label": "Pebble"}, …], "workouts": […]}
+    const QJsonObject o = QJsonDocument::fromJson(apps).object();
+    m_apps.clear();
+    for (const Ranked kind : RankedKeys.keys()) {
+        m_apps[kind] = o.value(keyOf(kind)).toArray().toVariantList();
+    }
+    Q_EMIT appsChanged();
 }

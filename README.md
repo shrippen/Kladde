@@ -13,7 +13,7 @@ design for both. [Deutsch](docs/README.de.md) · [Landing page](https://shrippen
 
 On Android Kladde reads Health Connect from every app. Day totals and heart-rate blocks are Health Connect's own sums,
 which take each app in the order set in Health Connect, so phone and watch never count twice. Sleep comes from every
-app; where two saw the same night, the first in Kladde's order wins (Pebble app, Sleep as Android, Google Fit). HealthLog's batch endpoint speaks HealthKit, so the values arrive in Apple's units and with the source
+app; where two saw the same night, the first in Kladde's order wins (Pebble app, Sleep as Android, Google Fit; changeable under More). HealthLog's batch endpoint speaks HealthKit, so the values arrive in Apple's units and with the source
 "Apple Health".
 
 | Health Connect | In HealthLog | How |
@@ -24,7 +24,7 @@ app; where two saw the same night, the first in Kladde's order wins (Pebble app,
 | Heart rate | Pulse | 10-minute blocks with average, minimum and maximum |
 | Resting heart rate, weight, body fat, lean body mass, blood pressure, blood glucose, oxygen saturation, HRV (RMSSD), respiratory rate, VO₂ max, body temperature | the same | one entry per reading, from every app |
 | Sleep session with stages | Sleep | minutes per stage (awake, core, deep, REM); sent four hours after the night ended, so the watch's night is in |
-| Exercise session (Freeletics, Pebble app, Google Fit …) | Workout | sport, time, pause, heart rate, steps; sections of one training (Freeletics) as one; on overlap the app first in the order wins (Freeletics, Pebble app, Google Fit); sent two hours after it ended |
+| Exercise session (Freeletics, Pebble app, Google Fit …) | Workout | sport, time, pause, heart rate, steps; sections of one training (Freeletics) as one; on overlap the app first in the order wins (Freeletics, Pebble app, Google Fit; changeable under More); sent two hours after it ended |
 
 ## The app
 

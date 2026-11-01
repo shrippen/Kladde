@@ -120,3 +120,24 @@ void SyncBridge::refresh()
         });
     });
 }
+
+void SyncBridge::loadApps()
+{
+    // Reads Health Connect: off the UI thread.
+    QPointer<SyncBridge> self(this);
+    QThreadPool::globalInstance()->start([self] {
+        const QByteArray apps = QJniObject::callStaticMethod<jstring>(
+            Sync, "appsJson", "(Landroid/content/Context;)Ljava/lang/String;", context().object()).toString().toUtf8();
+        QMetaObject::invokeMethod(qApp, [self, apps] {
+            if (self)
+                self->applyApps(apps);
+        });
+    });
+}
+
+void SyncBridge::storeOrder(Ranked kind, const QStringList &apps)
+{
+    QJniObject::callStaticMethod<void>(Sync, "setAppOrder", "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)V",
+                                       context().object(), string(keyOf(kind)).object<jstring>(),
+                                       string(apps.join(QLatin1Char(','))).object<jstring>());
+}

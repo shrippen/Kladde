@@ -111,7 +111,11 @@ Mapper ─▶ /api/measurements/batch   |   Training ─▶ /api/workouts/batch 
 - [x] Training → `/api/workouts/batch` (Sportart, Pause, Puls, Schritte, Strecke), eigener
       Changes-Token, Batches mit Ziel in derselben Warteschlange (`WorkoutSource`, `WorkoutMapper`).
 - [ ] Training: Energie (braucht `READ_*_CALORIES_BURNED`), gelöschte Sitzungen.
-- [ ] Berechtigungen je Art, Status je Art, Einstellung „App-Wahl“ für Schlaf und Training.
+- [x] Berechtigungen je Art (Pflicht und optional, „Weitere Arten erlauben“).
+- [x] App-Reihenfolge für Schlaf und Training unter „Mehr“ änderbar (`AppOrder`; gezeigt nur
+      Apps, die die Art im Rücklesefenster geschrieben haben; gilt für Sitzungen, die danach
+      beginnen, frühere behalten ihren Gewinner: `Ranking`).
+- [ ] Status je Art.
 - [ ] C++-Abbildung (`core/mapper.cpp`) und Fixture nachziehen; Lastenheft LF-14/LF-15.
 
 ## Phase 2: Anzeige und Plasma Mobile (LF-30 … LF-33)

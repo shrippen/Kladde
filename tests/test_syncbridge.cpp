@@ -69,6 +69,26 @@ private Q_SLOTS:
         sync.refresh();
         QVERIFY(sync.property("complete").toBool());
     }
+
+    void aMovedAppIsStoredInItsOrder()
+    {
+        FakeSync::apps = R"({"sleep": [{"app": "coredevices.coreapp", "label": "Pebble"},
+                                       {"app": "com.urbandroid.sleep", "label": "Sleep"}],
+                             "workouts": [{"app": "com.freeletics.lite", "label": "Freeletics"}]})";
+        SyncBridge sync;
+        sync.loadApps();
+        QCOMPARE(sync.sleepApps().size(), 2);
+        QCOMPARE(sync.workoutApps().size(), 1);
+
+        sync.moveApp(SyncBridge::Ranked::Sleep, 1, 0);
+        QCOMPARE(FakeSync::orders.value(QStringLiteral("sleep")),
+                 QStringList({QStringLiteral("com.urbandroid.sleep"), QStringLiteral("coredevices.coreapp")}));
+        QCOMPARE(sync.sleepApps().first().toMap().value(QStringLiteral("label")).toString(), QStringLiteral("Sleep"));
+
+        // Past the end: nothing moves, nothing stored.
+        sync.moveApp(SyncBridge::Ranked::Workouts, 0, 1);
+        QVERIFY(!FakeSync::orders.contains(QStringLiteral("workouts")));
+    }
 };
 
 QTEST_GUILESS_MAIN(TestSyncBridge)

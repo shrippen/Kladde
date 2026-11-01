@@ -21,7 +21,7 @@ class WorkoutMapperTest {
     private val pebble = HealthConnectSource.PEBBLE_APP
 
     private fun pick(sessions: List<Session>, order: List<String>, days: Set<LocalDate>, zone: ZoneId, now: Instant, since: Instant? = null) =
-        Sessions.select(sessions, order, days, zone, now, WorkoutMapper.SETTLE, since)
+        Sessions.select(sessions, Ranking(order), days, zone, now, WorkoutMapper.SETTLE, since)
 
     private fun t(hhmm: String) = Instant.parse("2026-10-10T$hhmm:00Z")
 

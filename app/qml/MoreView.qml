@@ -3,6 +3,7 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import Kante
+import Kladde.Core
 
 // More: the account and the background sync (Lastenheft LF-20 … LF-24): what ran when,
 // what waits, what went wrong, and the switches for it.
@@ -14,7 +15,54 @@ QQC2.ScrollView {
         return isNaN(t) ? qsTr("never") : t.toLocaleString(Qt.locale(), Locale.ShortFormat)
     }
 
-    Component.onCompleted: sync.refresh()
+    Component.onCompleted: {
+        sync.refresh()
+        sync.loadApps()
+    }
+
+    // One kind's apps, first wins an overlap; moved with the arrows. Two apps at the least,
+    // one alone has nothing to win against.
+    component AppOrder: ColumnLayout {
+        id: order
+        property string title
+        property var apps: []
+        property int kind
+
+        visible: apps.length > 1
+        spacing: 0
+
+        KanteSectionLabel {
+            text: order.title
+        }
+        Repeater {
+            model: order.apps
+            KanteListRow {
+                required property var modelData
+                required property int index
+                Layout.fillWidth: true
+                leadingText: index + 1
+                text: modelData.label
+                subtitle: modelData.app
+                focusOnClick: false
+                trailing: [
+                    KanteToolButton {
+                        icon.name: "go-up"
+                        text: qsTr("Up")
+                        display: QQC2.AbstractButton.IconOnly
+                        enabled: index > 0
+                        onClicked: sync.moveApp(order.kind, index, index - 1)
+                    },
+                    KanteToolButton {
+                        icon.name: "go-down"
+                        text: qsTr("Down")
+                        display: QQC2.AbstractButton.IconOnly
+                        enabled: index < order.apps.length - 1
+                        onClicked: sync.moveApp(order.kind, index, index + 1)
+                    }
+                ]
+            }
+        }
+    }
 
     ColumnLayout {
         width: view.availableWidth - 2 * Kirigami.Units.largeSpacing
@@ -109,6 +157,33 @@ QQC2.ScrollView {
             KanteButton {
                 text: qsTr("Read everything again")
                 onClicked: sync.resync()
+            }
+
+            KanteHeading {
+                level: 4
+                visible: sleepOrder.visible || workoutOrder.visible
+                text: qsTr("App order")
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                visible: sleepOrder.visible || workoutOrder.visible
+                wrapMode: Text.Wrap
+                color: KanteStyle.mutedTextColor
+                text: qsTr("Where two apps saw the same night or training, the upper one's goes to HealthLog. Applies to nights and trainings that begin from now on; those before keep the order they were sent by.")
+            }
+            AppOrder {
+                id: sleepOrder
+                Layout.fillWidth: true
+                title: qsTr("Sleep")
+                apps: sync.sleepApps
+                kind: SyncBridge.Sleep
+            }
+            AppOrder {
+                id: workoutOrder
+                Layout.fillWidth: true
+                title: qsTr("Trainings")
+                apps: sync.workoutApps
+                kind: SyncBridge.Workouts
             }
         }
 
