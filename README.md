@@ -12,7 +12,7 @@ design for both. [Deutsch](docs/README.de.md) · [Landing page](https://shrippen
 ## What it syncs
 
 On Android Kladde reads Health Connect, there only the records of the Pebble app (`coredevices.coreapp`), so nothing
-counts twice. A kind the Pebble app does not write stays out: today it writes no distance and no resting heart rate. HealthLog's batch endpoint speaks HealthKit, so the values arrive in Apple's units and with the source
+counts twice; workouts it takes from every app. A kind the Pebble app does not write stays out: today it writes no distance and no resting heart rate. HealthLog's batch endpoint speaks HealthKit, so the values arrive in Apple's units and with the source
 "Apple Health".
 
 | Health Connect | In HealthLog | How |
@@ -22,6 +22,7 @@ counts twice. A kind the Pebble app does not write stays out: today it writes no
 | Heart rate | Pulse | 10-minute blocks with average, minimum and maximum |
 | Resting heart rate | Resting heart rate | one entry per reading (if the source writes it) |
 | Sleep session with stages | Sleep | minutes per stage (awake, core, deep, REM) |
+| Exercise session (Freeletics, Pebble app, Google Fit …) | Workout | sport, time, pause, heart rate, steps; sections of one training (Freeletics) as one; on overlap the app first in the order wins (Freeletics, Pebble app, Google Fit); sent two hours after it ended |
 
 ## The app
 
@@ -46,7 +47,7 @@ android/sync  Kotlin, Android only: the background sync from Health Connect
 ```
 
 On Android the Kotlin module `android/sync` reads Health Connect in a WorkManager job, maps the records like
-`core/mapper.cpp` (shared fixtures keep both equal), queues them and sends them to `/api/measurements/batch`.
+`core/mapper.cpp` (shared fixtures keep both equal), queues them and sends them to `/api/measurements/batch`, workouts to `/api/workouts/batch`.
 `core/` maps and sends for `kladde-push` (no queue: it stops at the first error) and, later, the Pebble daemon.
 Requirements: [docs/lastenheft.md](docs/lastenheft.md), plan: [docs/plan.md](docs/plan.md).
 

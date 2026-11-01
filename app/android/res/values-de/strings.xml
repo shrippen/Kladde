@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="privacy_text">Kladde liest Schritte, Strecke, Herzfrequenz, Ruhepuls und Schlaf aus Health Connect, auch ältere Daten und im Hintergrund, und schickt sie an den HealthLog-Server, bei dem du angemeldet bist. Sonst geht nichts irgendwohin: keine Statistik, keine Dritten. Abmelden in Kladde stoppt den Sync und löscht das Zugangs-Token und die Warteschlange auf diesem Telefon. Die Berechtigungen kannst du in Health Connect jederzeit zurücknehmen.</string>
+    <string name="privacy_text">Kladde liest Schritte, Strecke, Herzfrequenz, Ruhepuls, Schlaf und Training aus Health Connect, auch ältere Daten und im Hintergrund, und schickt sie an den HealthLog-Server, bei dem du angemeldet bist. Sonst geht nichts irgendwohin: keine Statistik, keine Dritten. Abmelden in Kladde stoppt den Sync und löscht das Zugangs-Token und die Warteschlange auf diesem Telefon. Die Berechtigungen kannst du in Health Connect jederzeit zurücknehmen.</string>
 </resources>

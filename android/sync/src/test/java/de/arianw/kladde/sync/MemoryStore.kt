@@ -11,6 +11,8 @@ class MemoryStore : QueueStore {
     private val rows = linkedMapOf<String, Row>()
     private var order = 0L
     private var cursor: String? = null
+    private var workoutCursor: String? = null
+    private var workoutReadAt: Instant? = null
     private val days = mutableMapOf<String, Set<LocalDate>>()
     private val seen = mutableMapOf<Kind, Instant>()
     private var status = SyncStatus()
@@ -30,6 +32,14 @@ class MemoryStore : QueueStore {
         if (cursor != null) {
             this.cursor = cursor
         }
+    }
+
+    override fun enqueueWorkouts(batches: List<Batch>, cursor: String, readAt: Instant) {
+        for (b in batches) {
+            rows.putIfAbsent(b.key, Row(b, order++))
+        }
+        workoutCursor = cursor
+        workoutReadAt = readAt
     }
 
     override fun next(now: Instant): Pending? =
@@ -55,8 +65,14 @@ class MemoryStore : QueueStore {
 
     override fun cursor(): String? = cursor
 
+    override fun workoutCursor(): String? = workoutCursor
+
+    override fun workoutReadAt(): Instant? = workoutReadAt
+
     override fun resetCursor() {
         cursor = null
+        workoutCursor = null
+        workoutReadAt = null
     }
 
     override fun daysOf(recordId: String): Set<LocalDate> = days[recordId].orEmpty()

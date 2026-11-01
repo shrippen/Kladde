@@ -3,6 +3,7 @@ package de.arianw.kladde.sync
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -35,11 +36,41 @@ class UploaderTest {
     }
 
     @Test
+    fun workoutBatchesGoToTheirEndpoint() {
+        val batches = Batches.make(entries(150), Trigger.BACKGROUND, Target.WORKOUTS)
+        assertEquals(listOf(100, 50), batches.map { it.size })
+        val body = JSONObject(batches[0].body)
+        assertEquals(100, body.getJSONArray("workouts").length())
+        assertFalse(body.has("syncTrigger"))
+
+        val store = MemoryStore()
+        store.enqueueWorkouts(batches, "w1", now)
+        val sent = mutableListOf<Target>()
+        Uploader(store) { target, _, _ -> sent += target; ok(1) }.flush(now)
+        assertEquals(listOf(Target.WORKOUTS, Target.WORKOUTS), sent)
+        assertEquals(setOf(3), Uploader.invalidEntries("""{"details":{"issues":[{"path":"workouts.3.sportType"}]}}"""))
+    }
+
+    @Test
+    fun aFailingWorkoutReadHoldsNoMeasurementsBack() = runBlocking {
+        val store = MemoryStore()
+        val steps = Sample(Kind.STEPS, "s1", "p", Instant.parse("2026-11-01T08:00:00Z"), Instant.parse("2026-11-01T08:10:00Z"), 300.0)
+        val status = SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
+            HealthConnectSource.Read(listOf(steps), "token-1", emptyMap())
+        }, Trigger.MANUAL, now) { _, _, _, _ -> throw SecurityException("READ_EXERCISE") }
+
+        assertEquals("token-1", store.cursor())
+        assertNull(store.workoutCursor())
+        assertEquals(1, store.pendingCount())
+        assertEquals("Health Connect: READ_EXERCISE", status.lastError)
+    }
+
+    @Test
     fun uploadsInOrderAndEmptiesTheQueue() {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(700), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val sent = mutableListOf<Int>()
-        val result = Uploader(store) { body, _ ->
+        val result = Uploader(store) { _, body, _ ->
             val n = JSONObject(body).getJSONArray("entries").length()
             sent += n
             ok(n)
@@ -55,7 +86,7 @@ class UploaderTest {
     fun networkTroubleKeepsTheBatchAndBacksOff() {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
-        val result = Uploader(store) { _, _ -> throw IOException("offline") }.flush(now)
+        val result = Uploader(store) { _, _, _ -> throw IOException("offline") }.flush(now)
 
         assertEquals(Uploader.Outcome.RETRY_LATER, result.outcome)
         assertEquals(3, store.pendingCount())
@@ -69,7 +100,7 @@ class UploaderTest {
     fun wrongTokenStopsAndKeepsTheQueue() {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
-        val result = Uploader(store) { _, _ -> Response(401, """{"meta":{"errorCode":"auth.invalid"}}""") }.flush(now)
+        val result = Uploader(store) { _, _, _ -> Response(401, """{"meta":{"errorCode":"auth.invalid"}}""") }.flush(now)
 
         assertEquals(Uploader.Outcome.AUTH_FAILED, result.outcome)
         assertEquals("HTTP 401 auth.invalid", result.error)
@@ -83,7 +114,7 @@ class UploaderTest {
             val store = MemoryStore()
             store.enqueue(Batches.make(entries(700), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
             var calls = 0
-            val result = Uploader(store) { _, _ -> calls++; Response(status, "<html>not here</html>") }.flush(now)
+            val result = Uploader(store) { _, _, _ -> calls++; Response(status, "<html>not here</html>") }.flush(now)
 
             assertEquals(Uploader.Outcome.STOPPED, result.outcome)
             assertEquals("HTTP $status", result.error)
@@ -98,17 +129,17 @@ class UploaderTest {
         val store = MemoryStore()
         val a = Batches.make(entries(1), Trigger.BACKGROUND)
         store.enqueue(a, "t1", emptyMap(), emptyMap())
-        Uploader(store) { _, _ -> Response(503, "") }.flush(now)
+        Uploader(store) { _, _, _ -> Response(503, "") }.flush(now)
         store.enqueue(Batches.make(entries(2), Trigger.BACKGROUND), "t2", emptyMap(), emptyMap())
 
         val sent = mutableListOf<String>()
         val later = now.plus(Duration.ofSeconds(30))
-        val result = Uploader(store) { _, key -> sent += key; ok(1) }.flush(later)
+        val result = Uploader(store) { _, _, key -> sent += key; ok(1) }.flush(later)
         assertEquals(emptyList<String>(), sent)
         assertEquals(Uploader.Outcome.RETRY_LATER, result.outcome)
         assertEquals(Uploader.WAITING, result.error)
 
-        Uploader(store) { _, key -> sent += key; ok(1) }.flush(now.plus(Duration.ofMinutes(2)))
+        Uploader(store) { _, _, key -> sent += key; ok(1) }.flush(now.plus(Duration.ofMinutes(2)))
         assertEquals(a[0].key, sent.first())
         assertEquals(2, sent.size)
     }
@@ -118,7 +149,7 @@ class UploaderTest {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val bodies = mutableListOf<String>()
-        val result = Uploader(store) { body, _ ->
+        val result = Uploader(store) { _, body, _ ->
             bodies += body
             Response(200, """{"data":{"processed":3,"inserted":2,"failed":1,"entries":[
                 {"index":0,"status":"inserted"},{"index":1,"status":"failed"},{"index":2,"status":"inserted"}]}}""")
@@ -137,10 +168,10 @@ class UploaderTest {
     fun entriesTheServerKeepsFailingBackOffFurther() {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
-        val failing = Transport { _, _ ->
+        val failing = Transport { _, _, _ ->
             Response(200, """{"data":{"entries":[{"index":0,"status":"inserted"},{"index":1,"status":"failed"},{"index":2,"status":"inserted"}]}}""")
         }
-        val alwaysFailing = Transport { _, _ -> Response(200, """{"data":{"entries":[{"index":0,"status":"failed"}]}}""") }
+        val alwaysFailing = Transport { _, _, _ -> Response(200, """{"data":{"entries":[{"index":0,"status":"failed"}]}}""") }
         Uploader(store, failing).flush(now)
         val t1 = now.plus(Duration.ofMinutes(1))
         Uploader(store, alwaysFailing).flush(t1)
@@ -153,7 +184,7 @@ class UploaderTest {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(1), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val dayAhead = now.plus(Duration.ofDays(1))
-        Uploader(store) { _, _ -> Response(503, "") }.flush(dayAhead) // the clock was a day ahead
+        Uploader(store) { _, _, _ -> Response(503, "") }.flush(dayAhead) // the clock was a day ahead
         assertTrue("due again once the clock is back", store.next(now) != null)
         assertNull(store.next(dayAhead))
     }
@@ -162,7 +193,7 @@ class UploaderTest {
     fun anOkThatIsNotJsonStillCounts() {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
-        val result = Uploader(store) { _, _ -> Response(200, "ok") }.flush(now)
+        val result = Uploader(store) { _, _, _ -> Response(200, "ok") }.flush(now)
 
         assertEquals(Uploader.Outcome.EMPTY, result.outcome)
         assertEquals(2, result.uploaded)
@@ -172,7 +203,7 @@ class UploaderTest {
     fun aFailingSourceIsReportedAndTheQueueStillGoes() = runBlocking {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t0", emptyMap(), emptyMap())
-        val status = SyncRunner(store, { _, _ -> ok(2) }, ZoneId.of("UTC")).run({ _, _, _ ->
+        val status = SyncRunner(store, { _, _, _ -> ok(2) }, ZoneId.of("UTC")).run({ _, _, _ ->
             throw IllegalStateException("rate limited")
         }, Trigger.MANUAL, now)
 
@@ -187,7 +218,7 @@ class UploaderTest {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(4), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         var calls = 0
-        val result = Uploader(store) { body, _ ->
+        val result = Uploader(store) { _, body, _ ->
             calls++
             val n = JSONObject(body).getJSONArray("entries").length()
             if (n == 4) {
@@ -207,7 +238,7 @@ class UploaderTest {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         var calls = 0
-        Uploader(store) { _, _ ->
+        Uploader(store) { _, _, _ ->
             calls++
             // Index 7 is not in this batch: resending it unchanged would loop.
             Response(422, """{"details":{"issues":[{"path":"entries.7"}]}}""")
@@ -231,7 +262,7 @@ class UploaderTest {
         val day = LocalDate.of(2026, 11, 1)
         val steps = Sample(Kind.STEPS, "s1", "p", Instant.parse("2026-11-01T08:00:00Z"), Instant.parse("2026-11-01T08:10:00Z"), 300.0)
 
-        val status = SyncRunner(store, { _, _ -> Response(0, "offline") }, zone).run({ cursor, _, _ ->
+        val status = SyncRunner(store, { _, _, _ -> Response(0, "offline") }, zone).run({ cursor, _, _ ->
             assertNull(cursor)
             HealthConnectSource.Read(listOf(steps), "token-1", mapOf("s1" to setOf(day)))
         }, Trigger.MANUAL, now)

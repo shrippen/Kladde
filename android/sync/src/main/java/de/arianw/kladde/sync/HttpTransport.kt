@@ -12,9 +12,9 @@ class HealthLogHttp(server: String, private val deviceId: String) : TokenVault.R
 
     private val base = server.trimEnd('/')
 
-    /** POST /api/measurements/batch with the session's access token. */
-    fun postBatch(access: String, body: String, key: String): Response =
-        post(BATCH_PATH, body, mapOf("Authorization" to "Bearer $access", "Idempotency-Key" to key))
+    /** POST to the target's batch endpoint with the session's access token. */
+    fun postBatch(access: String, target: Target, body: String, key: String): Response =
+        post(target.path, body, mapOf("Authorization" to "Bearer $access", "Idempotency-Key" to key))
 
     override fun refresh(refreshToken: String): Response =
         try {
@@ -52,7 +52,6 @@ class HealthLogHttp(server: String, private val deviceId: String) : TokenVault.R
     }
 
     private companion object {
-        const val BATCH_PATH = "/api/measurements/batch"
         const val REFRESH_PATH = "/api/auth/refresh"
         const val TIMEOUT_MS = 30_000
         // Never "Mozilla/…": HealthLog takes that for a browser and refuses its refresh.
@@ -66,10 +65,10 @@ class HealthLogHttp(server: String, private val deviceId: String) : TokenVault.R
  */
 class SessionTransport(
     private val access: (stale: String?) -> TokenVault.Answer,
-    private val send: (access: String, body: String, key: String) -> Response,
+    private val send: (access: String, target: Target, body: String, key: String) -> Response,
 ) : Transport {
 
-    override fun postBatch(body: String, key: String): Response {
+    override fun postBatch(target: Target, body: String, key: String): Response {
         var stale: String? = null
         repeat(2) {
             val token = when (val answer = access(stale)) {
@@ -77,7 +76,7 @@ class SessionTransport(
                 is TokenVault.Answer.Refused -> return Response(HTTP_UNAUTHORIZED, answer.response.body)
                 is TokenVault.Answer.Unavailable -> return Response(0, answer.response.body)
             }
-            val response = send(token, body, key)
+            val response = send(token, target, body, key)
             if (response.status != HTTP_UNAUTHORIZED) {
                 return response
             }

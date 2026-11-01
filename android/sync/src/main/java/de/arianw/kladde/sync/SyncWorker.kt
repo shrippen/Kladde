@@ -2,6 +2,8 @@ package de.arianw.kladde.sync
 
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 
@@ -25,13 +27,21 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
         val trigger = Trigger.entries.firstOrNull { it.wire == inputData.getString(KEY_TRIGGER) } ?: Trigger.BACKGROUND
         val store = SqliteQueueStore(applicationContext)
-        val source = HealthConnectSource(HealthConnectClient.getOrCreate(applicationContext))
+        val client = HealthConnectClient.getOrCreate(applicationContext)
+        val source = HealthConnectSource(client)
         val backfill = KladdeSync.backfillDays(applicationContext)
+        // Trainings only once allowed: an update to 0.2 asks for the new permission in the app.
+        val exercise = HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+        // Not asked (Health Connect busy): no trainings this run, the measurements still go.
+        val granted = runCatching { client.permissionController.getGrantedPermissions() }.getOrDefault(emptySet())
+        val workouts = WorkoutSource(client).takeIf { exercise in granted }
 
         store.use {
             SyncRunner(it, transport).run({ cursor, zone, now ->
                 source.read(cursor, zone, backfill, it::daysOf, now)
-            }, trigger)
+            }, trigger, workouts = workouts?.let { w ->
+                SyncRunner.WorkoutReader { cursor, since, zone, now -> w.read(cursor, since, zone, backfill, now) }
+            })
         }
         return Result.success()
     }

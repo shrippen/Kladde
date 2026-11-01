@@ -79,6 +79,38 @@ Aufbau nach der iOS-App ([ios-aufbau.md](ios-aufbau.md)).
 - [ ] Android-Schlüsselspeicher für das Refresh-Token: QtKeychain (Android Keystore) ist im
       APK, auf dem Telefon ungeprüft.
 
+## 0.2: Alles aus Health Connect (Owner, 1.11.2026)
+
+Kladde liest jede Art, die HealthLog speichern kann, von jeder App (z. B. Training aus
+Freeletics), nicht nur von der Pebble-App. Entscheidungen des Owners:
+
+- Doppelte über Health Connects App-Reihenfolge: Tagessummen (Schritte, Strecke, aktive
+  Kalorien, Stockwerke) und die 10-Minuten-Blöcke der Herzfrequenz rechnet Health Connect
+  selbst (`aggregateGroupByPeriod` / `…ByDuration`, beachtet die Reihenfolge in den
+  Health-Connect-Einstellungen). Schlaf und Training: bei Überschneidung gewinnt die App, die
+  in Kladde je Art vorne steht (Training: Freeletics, Pebble-App, Google Fit; Schlaf:
+  Pebble-App, Sleep as Android, Google Fit). Einzelwerte (Gewicht, Blutdruck …) von
+  jeder App.
+- Rücklesen wie eingestellt (30 Tage); davor deckt der Import des Owners ab.
+
+```
+Changes-API (alle Apps) ─▶ geänderte Tage ─▶ aggregate je Tag/10 min ─▶ Tagessummen, Puls
+                        └▶ Sitzungen (Schlaf, Training) ─▶ Überschneidung nach App-Wahl
+                        └▶ Einzelwerte ─────────────────────────────────────────────────▶ Mapper
+Mapper ─▶ /api/measurements/batch   |   Training ─▶ /api/workouts/batch (dieselbe Warteschlange)
+```
+
+- [x] Probe: welche App schreibt was (alle Typen, 30 Tage), vor allem Freeletics.
+- [ ] Tagessummen und Puls über `aggregate…` statt Summe der Pebble-Datensätze.
+- [ ] Einzelwerte: Gewicht, Körperfett, Magermasse, Blutdruck, Blutzucker, SpO₂, HRV,
+      Atemfrequenz, VO₂max, Körpertemperatur, Ruhepuls (HealthKit-Ids wie HealthLogs Import).
+- [ ] Schlaf aller Apps, Überschneidung nach App-Wahl.
+- [x] Training → `/api/workouts/batch` (Sportart, Pause, Puls, Schritte, Strecke), eigener
+      Changes-Token, Batches mit Ziel in derselben Warteschlange (`WorkoutSource`, `WorkoutMapper`).
+- [ ] Training: Energie (braucht `READ_*_CALORIES_BURNED`), gelöschte Sitzungen.
+- [ ] Berechtigungen je Art, Status je Art, Einstellung „App-Wahl“ für Schlaf und Training.
+- [ ] C++-Abbildung (`core/mapper.cpp`) und Fixture nachziehen; Lastenheft LF-14/LF-15.
+
 ## Phase 2: Anzeige und Plasma Mobile (LF-30 … LF-33)
 
 Hypnogramm der letzten Nacht (neuer Baustein in Kante; die Phasen liegen schon in der

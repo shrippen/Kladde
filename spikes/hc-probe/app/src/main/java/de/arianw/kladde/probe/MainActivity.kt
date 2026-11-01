@@ -12,7 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.*
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.Record
@@ -40,12 +40,38 @@ import kotlin.reflect.KClass
 class MainActivity : ComponentActivity() {
 
     private val types: List<KClass<out Record>> = listOf(
-        StepsRecord::class,
+        ActiveCaloriesBurnedRecord::class,
+        BasalBodyTemperatureRecord::class,
+        BasalMetabolicRateRecord::class,
+        BloodGlucoseRecord::class,
+        BloodPressureRecord::class,
+        BodyFatRecord::class,
+        BodyTemperatureRecord::class,
+        BodyWaterMassRecord::class,
+        BoneMassRecord::class,
+        CyclingPedalingCadenceRecord::class,
         DistanceRecord::class,
+        ElevationGainedRecord::class,
+        ExerciseSessionRecord::class,
+        FloorsClimbedRecord::class,
         HeartRateRecord::class,
+        HeartRateVariabilityRmssdRecord::class,
+        HeightRecord::class,
+        HydrationRecord::class,
+        LeanBodyMassRecord::class,
+        NutritionRecord::class,
+        OxygenSaturationRecord::class,
+        PowerRecord::class,
+        RespiratoryRateRecord::class,
         RestingHeartRateRecord::class,
         SleepSessionRecord::class,
-        ExerciseSessionRecord::class,
+        SpeedRecord::class,
+        StepsCadenceRecord::class,
+        StepsRecord::class,
+        TotalCaloriesBurnedRecord::class,
+        Vo2MaxRecord::class,
+        WeightRecord::class,
+        WheelchairPushesRecord::class,
     )
     private val permissions: Set<String> =
         types.map { HealthPermission.getReadPermission(it) }.toSet() +
@@ -143,7 +169,17 @@ class MainActivity : ComponentActivity() {
                         for ((app, n) in perApp) append("  ").append(app).append(": ").append(n).append('\n')
                     }
                 }
-                show(summary)
+                val sessions = all.filterIsInstance<ExerciseSessionRecord>().sortedBy { it.startTime }
+                val detail = buildString {
+                    append("\nEXERCISE\n")
+                    for (s in sessions) {
+                        append(s.metadata.dataOrigin.packageName).append(' ')
+                        append(s.exerciseType).append(' ')
+                        append(s.startTime).append(' ').append(s.endTime).append(' ')
+                        append(s.title ?: "").append('\n')
+                    }
+                }
+                show(summary + detail)
                 if (export) {
                     lastExport = toJson(all, from, zone).toString(1)
                     saveExport.launch("health-connect-$days-days.json")

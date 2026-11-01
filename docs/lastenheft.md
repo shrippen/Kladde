@@ -73,7 +73,8 @@ Pebble-Daemon liefert später das Austauschformat (`core/hcjson.h`) an `core/`.
   Distance. Kann: RestingHeartRate, ActiveCaloriesBurned, Weight, BloodPressure, BloodGlucose,
   OxygenSaturation, HeartRateVariabilityRmssd.
 - **LF-15** Quellenfilter nach App (Standard: nur `coredevices.coreapp`), damit nichts doppelt
-  zählt.
+  zählt. Training von jeder App; überschneiden sich zwei, gilt die App, die in Kladde vorne steht
+  (Standard Freeletics, Pebble-App, Google Fit).
 - **LF-16** Pebble-Daemon (Plasma Mobile, später): dieselben Typen, über die D-Bus-Schnittstelle
   des Daemons.
 

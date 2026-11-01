@@ -12,7 +12,7 @@ für beide. [English](../README.md) · [Landing Page](https://shrippen.github.io
 ## Was abgeglichen wird
 
 Auf Android liest Kladde Health Connect, dort nur die Datensätze der Pebble-App (`coredevices.coreapp`), damit nichts
-doppelt zählt. Was die Pebble-App nicht schreibt, bleibt draußen: derzeit schreibt sie weder Strecke noch Ruhepuls. HealthLogs Batch-Endpunkt spricht HealthKit, darum kommen die Werte in Apples Einheiten und mit der Quelle
+doppelt zählt; Training von jeder App. Was die Pebble-App nicht schreibt, bleibt draußen: derzeit schreibt sie weder Strecke noch Ruhepuls. HealthLogs Batch-Endpunkt spricht HealthKit, darum kommen die Werte in Apples Einheiten und mit der Quelle
 „Apple Health“ an.
 
 | Health Connect | In HealthLog | Wie |
@@ -22,6 +22,7 @@ doppelt zählt. Was die Pebble-App nicht schreibt, bleibt draußen: derzeit schr
 | Herzfrequenz | Puls | 10-Minuten-Blöcke mit Mittel, Minimum und Maximum |
 | Ruhepuls | Ruhepuls | ein Eintrag je Messung (wenn die Quelle ihn schreibt) |
 | Schlaf mit Phasen | Schlaf | Minuten je Phase (wach, Kern, tief, REM) |
+| Training (Freeletics, Pebble-App, Google Fit …) | Workout | Sportart, Zeit, Pause, Puls, Schritte; Abschnitte eines Trainings (Freeletics) als eines; bei Überschneidung gilt die App, die vorne steht (Freeletics, Pebble-App, Google Fit); gesendet zwei Stunden nach dem Ende |
 
 ## Die App
 
@@ -48,7 +49,7 @@ android/sync  Kotlin, nur Android: der Abgleich aus Health Connect im Hintergrun
 ```
 
 Auf Android liest das Kotlin-Modul `android/sync` Health Connect in einem WorkManager-Job, bildet die Datensätze ab wie
-`core/mapper.cpp` (gemeinsame Fixtures halten beide gleich), reiht sie ein und schickt sie an `/api/measurements/batch`.
+`core/mapper.cpp` (gemeinsame Fixtures halten beide gleich), reiht sie ein und schickt sie an `/api/measurements/batch`, Training an `/api/workouts/batch`.
 `core/` bildet ab und schickt für `kladde-push` (ohne Warteschlange: es hört beim ersten Fehler auf) und später den Pebble-Daemon.
 Anforderungen: [lastenheft.md](lastenheft.md), Plan: [plan.md](plan.md).
 

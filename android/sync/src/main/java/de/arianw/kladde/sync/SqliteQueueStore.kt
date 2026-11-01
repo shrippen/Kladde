@@ -12,35 +12,33 @@ class SqliteQueueStore(context: Context) :
     SQLiteOpenHelper(context, NAME, null, VERSION), QueueStore {
 
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE pending (key TEXT PRIMARY KEY, body TEXT NOT NULL, size INTEGER NOT NULL, created INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, due INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE pending (key TEXT PRIMARY KEY, body TEXT NOT NULL, size INTEGER NOT NULL, created INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, due INTEGER NOT NULL, $TARGET_COLUMN)")
         db.execSQL("CREATE TABLE kv (name TEXT PRIMARY KEY, value TEXT)")
         db.execSQL("CREATE TABLE record_day (id TEXT NOT NULL, day TEXT NOT NULL, PRIMARY KEY (id, day))")
         db.execSQL("CREATE TABLE seen (kind TEXT PRIMARY KEY, at INTEGER NOT NULL)")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Before the first release: no migrations, start over (agent.md, breaking changes).
-        db.execSQL("DROP TABLE IF EXISTS pending")
-        db.execSQL("DROP TABLE IF EXISTS kv")
-        db.execSQL("DROP TABLE IF EXISTS record_day")
-        db.execSQL("DROP TABLE IF EXISTS seen")
-        onCreate(db)
+        if (oldVersion < RELEASED_VERSION) {
+            // Builds before 0.1.0: no migrations, start over.
+            db.execSQL("DROP TABLE IF EXISTS pending")
+            db.execSQL("DROP TABLE IF EXISTS kv")
+            db.execSQL("DROP TABLE IF EXISTS record_day")
+            db.execSQL("DROP TABLE IF EXISTS seen")
+            onCreate(db)
+            return
+        }
+        // 0.1.0 -> 0.2: batches name their endpoint; the queued ones are all measurements.
+        if (oldVersion < TARGET_VERSION) {
+            db.execSQL("ALTER TABLE pending ADD COLUMN $TARGET_COLUMN")
+        }
     }
 
     override fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, Set<LocalDate>>, seen: Map<Kind, Instant>) {
         val db = writableDatabase
-        val now = System.currentTimeMillis()
         db.beginTransaction()
         try {
-            for (b in batches) {
-                db.insertWithOnConflict("pending", null, ContentValues().apply {
-                    put("key", b.key)
-                    put("body", b.body)
-                    put("size", b.size)
-                    put("created", now)
-                    put("due", 0L)
-                }, SQLiteDatabase.CONFLICT_IGNORE)
-            }
+            insert(db, batches)
             for ((id, days) in recordDays) {
                 db.delete("record_day", "id = ?", arrayOf(id))
                 for (day in days) {
@@ -63,16 +61,44 @@ class SqliteQueueStore(context: Context) :
         }
     }
 
+    override fun enqueueWorkouts(batches: List<Batch>, cursor: String, readAt: Instant) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            insert(db, batches)
+            putValue(db, KEY_WORKOUT_CURSOR, cursor)
+            putValue(db, KEY_WORKOUT_READ, readAt.toString())
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    private fun insert(db: SQLiteDatabase, batches: List<Batch>) {
+        val now = System.currentTimeMillis()
+        for (b in batches) {
+            db.insertWithOnConflict("pending", null, ContentValues().apply {
+                put("key", b.key)
+                put("body", b.body)
+                put("size", b.size)
+                put("created", now)
+                put("due", 0L)
+                put("target", b.target.name)
+            }, SQLiteDatabase.CONFLICT_IGNORE)
+        }
+    }
+
     override fun next(now: Instant): Pending? =
         readableDatabase.rawQuery(
             // rowid, not created: the wall clock can go back, a new row's rowid cannot.
-            "SELECT body, key, size, attempts, due FROM pending ORDER BY rowid LIMIT 1",
+            "SELECT body, key, size, attempts, due, target FROM pending ORDER BY rowid LIMIT 1",
             null,
         ).use { c ->
             if (!c.moveToFirst() || !QueueStore.isDue(Instant.ofEpochMilli(c.getLong(4)), now)) {
                 return null
             }
-            Pending(Batch(c.getString(0), c.getString(1), c.getInt(2)), c.getInt(3))
+            val target = Target.entries.firstOrNull { it.name == c.getString(5) } ?: Target.MEASUREMENTS
+            Pending(Batch(c.getString(0), c.getString(1), c.getInt(2), target), c.getInt(3))
         }
 
     override fun done(key: String) {
@@ -97,8 +123,12 @@ class SqliteQueueStore(context: Context) :
 
     override fun cursor(): String? = value(KEY_CURSOR)
 
+    override fun workoutCursor(): String? = value(KEY_WORKOUT_CURSOR)
+
+    override fun workoutReadAt(): Instant? = value(KEY_WORKOUT_READ)?.let(Instant::parse)
+
     override fun resetCursor() {
-        writableDatabase.delete("kv", "name = ?", arrayOf(KEY_CURSOR))
+        writableDatabase.delete("kv", "name IN (?, ?, ?)", arrayOf(KEY_CURSOR, KEY_WORKOUT_CURSOR, KEY_WORKOUT_READ))
     }
 
     override fun daysOf(recordId: String): Set<LocalDate> =
@@ -154,7 +184,12 @@ class SqliteQueueStore(context: Context) :
 
     companion object {
         const val NAME = "kladde-sync.db"
-        private const val VERSION = 2
+        private const val RELEASED_VERSION = 2 // the schema of 0.1.0
+        private const val TARGET_VERSION = 3 // pending.target
+        private const val VERSION = TARGET_VERSION
         private const val KEY_CURSOR = "hc.changesToken"
+        private const val KEY_WORKOUT_CURSOR = "hc.workoutsToken"
+        private const val KEY_WORKOUT_READ = "hc.workoutsReadAt"
+        private const val TARGET_COLUMN = "target TEXT NOT NULL DEFAULT 'MEASUREMENTS'"
     }
 }

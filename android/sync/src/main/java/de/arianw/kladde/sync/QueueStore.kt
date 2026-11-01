@@ -18,6 +18,12 @@ interface QueueStore {
     fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, Set<LocalDate>>, seen: Map<Kind, Instant>)
 
     /**
+     * Workout batches, the workout reader's cursor and when it read ([readAt]), in one
+     * transaction like [enqueue].
+     */
+    fun enqueueWorkouts(batches: List<Batch>, cursor: String, readAt: Instant)
+
+    /**
      * The oldest batch if it is due at [now], else null: the queue goes strictly in order,
      * a newer day total must not overtake an older one in backoff.
      */
@@ -35,6 +41,12 @@ interface QueueStore {
 
     fun cursor(): String?
 
+    fun workoutCursor(): String?
+
+    /** When the workouts were last read; trainings held then are due later. */
+    fun workoutReadAt(): Instant?
+
+    /** Both cursors: the next run reads everything again. */
     fun resetCursor()
 
     /** The days a record went into, for re-reading them when it is deleted. */

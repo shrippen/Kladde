@@ -10,7 +10,7 @@ class Response(val status: Int, val body: String)
 
 /** Sends a batch to HealthLog. HttpTransport in the app, a fake in the tests. */
 fun interface Transport {
-    fun postBatch(body: String, key: String): Response
+    fun postBatch(target: Target, body: String, key: String): Response
 }
 
 /**
@@ -85,7 +85,7 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
     }
 
     private fun post(batch: Batch): Response = try {
-        transport.postBatch(batch.body, batch.key)
+        transport.postBatch(batch.target, batch.body, batch.key)
     } catch (e: IOException) {
         Response(0, e.message ?: "network error")
     }
@@ -138,8 +138,8 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
         }
 
         /**
-         * The entries a 422 names: issues whose path starts `entries.<n>`. An issue about the
-         * batch itself (path "", "entries", "syncTrigger") names none.
+         * The entries a 422 names: issues whose path starts `entries.<n>` (`workouts.<n>`). An
+         * issue about the batch itself (path "", "entries", "syncTrigger") names none.
          */
         fun invalidEntries(body: String): Set<Int> {
             val issues = try {
@@ -157,7 +157,7 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
             return out
         }
 
-        private val ENTRY_PATH = Regex("""^entries\.(\d+)(\.|$)""")
+        private val ENTRY_PATH = Regex("""^(?:entries|workouts)\.(\d+)(\.|$)""")
 
         private fun describe(r: Response): String {
             if (r.status == 0) {

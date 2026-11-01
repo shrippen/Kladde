@@ -37,7 +37,7 @@ object KladdeSync {
     const val PERMISSION_REQUEST = 4711
 
     val READ_PERMISSIONS: Set<String> =
-        HealthConnectSource.TYPES.map { HealthPermission.getReadPermission(it) }.toSet() +
+        (HealthConnectSource.TYPES + WorkoutSource.TYPES).map { HealthPermission.getReadPermission(it) }.toSet() +
             HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY +
             HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
 

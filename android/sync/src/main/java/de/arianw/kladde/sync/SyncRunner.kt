@@ -11,6 +11,7 @@ import java.time.ZoneId
  *
  *   Health Connect ──read──▶ samples ──Mapper──▶ batches ──QueueStore──▶ Uploader ──▶ HealthLog
  *                     cursor ───────────────────────────────┘ (same transaction)
+ *                 └──read──▶ trainings (WorkoutSource, own cursor) ──▶ workout batches ┘
  */
 class SyncRunner(
     private val store: QueueStore,
@@ -23,7 +24,12 @@ class SyncRunner(
         suspend fun read(cursor: String?, zone: ZoneId, now: Instant): HealthConnectSource.Read
     }
 
-    suspend fun run(reader: Reader, trigger: Trigger, now: Instant = Instant.now()): SyncStatus {
+    fun interface WorkoutReader {
+        suspend fun read(cursor: String?, since: Instant?, zone: ZoneId, now: Instant): WorkoutSource.Read
+    }
+
+    /** [workouts] null: not read (no permission for exercise yet). */
+    suspend fun run(reader: Reader, trigger: Trigger, now: Instant = Instant.now(), workouts: WorkoutReader? = null): SyncStatus {
         val before = store.status()
         var error: String? = null
 
@@ -34,13 +40,19 @@ class SyncRunner(
             store.enqueue(Batches.make(mapped.entries, trigger), read.cursor, read.recordDays, seen)
         } catch (e: CancellationException) {
             throw e
-        } catch (e: SecurityException) {
-            // Permission withdrawn in Health Connect: upload what is queued, report it.
-            error = "Health Connect: ${e.message ?: "no permission"}"
         } catch (e: Exception) {
-            // Health Connect busy or rate-limited (IllegalStateException, RemoteException …):
-            // the cursor did not move, the next run reads again; upload what is queued.
-            error = "Health Connect: ${e.javaClass.simpleName}: ${e.message ?: ""}".trimEnd(' ', ':')
+            error = describe(e)
+        }
+
+        // Apart from the measurements: a failing training read must not hold them back.
+        try {
+            workouts?.read(store.workoutCursor(), store.workoutReadAt(), zone, now)?.let {
+                store.enqueueWorkouts(Batches.make(it.entries, trigger, Target.WORKOUTS), it.cursor, now)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = error ?: describe(e)
         }
 
         val upload = Uploader(store, transport).flush(now)
@@ -53,6 +65,18 @@ class SyncRunner(
         )
         store.setStatus(status)
         return status
+    }
+
+    /**
+     * Permission withdrawn (SecurityException), or Health Connect busy or rate-limited
+     * (IllegalStateException, RemoteException …): the cursor did not move, the next run reads
+     * again; what is queued is uploaded anyway.
+     */
+    private fun describe(e: Exception): String {
+        if (e is SecurityException) {
+            return "Health Connect: ${e.message ?: "no permission"}"
+        }
+        return "Health Connect: ${e.javaClass.simpleName}: ${e.message ?: ""}".trimEnd(' ', ':')
     }
 
     companion object {
