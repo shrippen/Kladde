@@ -2,24 +2,25 @@
 
 # Kladde
 
-_Die Gesundheitsdaten deiner Pebble in deinem eigenen HealthLog_
+_Deine Gesundheitsdaten in deinem eigenen HealthLog_
 
-Kladde ist eine Android-App, die, was deine **Pebble** nach **Health Connect** schreibt, im Hintergrund in deine eigene
-[HealthLog](https://healthlog.dev)-Instanz bringt und deine Werte auf dem Telefon zeigt. Später läuft sie auf
-**Plasma Mobile** und liest die Uhr direkt. Eine Qt-/Kirigami-App im Design [Kante](https://github.com/shrippen/Kante)
+Kladde bringt deine Gesundheitsdaten im Hintergrund in deine eigene [HealthLog](https://healthlog.dev)-Instanz und
+zeigt deine Werte auf dem Telefon. Auf **Android** kommen die Daten aus **Health Connect**, auf **Plasma Mobile**
+(später) direkt von der **Pebble**. Eine Qt-/Kirigami-App im Design [Kante](https://github.com/shrippen/Kante)
 für beide. [English](../README.md) · [Landing Page](https://shrippen.github.io/Kladde/)
 
 ## Was abgeglichen wird
 
-Nur Datensätze der Pebble-App (`coredevices.coreapp`), damit nichts doppelt zählt. HealthLogs Batch-Endpunkt spricht
-HealthKit, darum kommen die Werte in Apples Einheiten und mit der Quelle „Apple Health“ an.
+Auf Android liest Kladde Health Connect, dort nur die Datensätze der Pebble-App (`coredevices.coreapp`), damit nichts
+doppelt zählt. Was die Pebble-App nicht schreibt, bleibt draußen: derzeit schreibt sie weder Strecke noch Ruhepuls. HealthLogs Batch-Endpunkt spricht HealthKit, darum kommen die Werte in Apples Einheiten und mit der Quelle
+„Apple Health“ an.
 
 | Health Connect | In HealthLog | Wie |
 |---|---|---|
 | Schritte | Schritte | eine Summe je Tag (Ortszeit), bei jedem Lauf der ganze Tag |
-| Strecke | Geh- und Laufstrecke | eine Summe je Tag, in Metern |
+| Strecke | Geh- und Laufstrecke | eine Summe je Tag, in Metern (wenn die Quelle sie schreibt) |
 | Herzfrequenz | Puls | 10-Minuten-Blöcke mit Mittel, Minimum und Maximum |
-| Ruhepuls | Ruhepuls | ein Eintrag je Messung |
+| Ruhepuls | Ruhepuls | ein Eintrag je Messung (wenn die Quelle ihn schreibt) |
 | Schlaf mit Phasen | Schlaf | Minuten je Phase (wach, Kern, tief, REM) |
 
 ## Die App
@@ -38,16 +39,18 @@ HealthKit, darum kommen die Werte in Apples Einheiten und mit der Quelle „Appl
 ## So funktioniert es (kurz)
 
 ```
-app/        Kirigami-Oberfläche (QML mit Kante)
+app/          Kirigami-Oberfläche (QML mit Kante)
   ↓
-core/       Abbildung, Batches, Warteschlange, HealthLog-Client   (nur Qt Core + Network)
-  ↑
-Quellen     Health Connect (Kotlin, Android) | Pebble-Daemon (D-Bus, Linux, später)
+core/         HealthLog-Client (Anmeldung, Werte, Erfassen), Abbildung, Batches
+              (nur Qt Core + Network; auch kladde-push, später der Pebble-Daemon)
+
+android/sync  Kotlin, nur Android: der Abgleich aus Health Connect im Hintergrund
 ```
 
-Das Kotlin-Modul `android/sync` liest Health Connect in einem WorkManager-Job und gibt die Datensätze in einem
-neutralen Austauschformat (`core/hcjson.h`) an `core/`; `core/` bildet sie auf HealthKit-Einträge ab und schickt sie an
-`/api/measurements/batch`. Anforderungen: [lastenheft.md](lastenheft.md), Plan: [plan.md](plan.md).
+Auf Android liest das Kotlin-Modul `android/sync` Health Connect in einem WorkManager-Job, bildet die Datensätze ab wie
+`core/mapper.cpp` (gemeinsame Fixtures halten beide gleich), reiht sie ein und schickt sie an `/api/measurements/batch`.
+`core/` bildet ab und schickt für `kladde-push` (ohne Warteschlange: es hört beim ersten Fehler auf) und später den Pebble-Daemon.
+Anforderungen: [lastenheft.md](lastenheft.md), Plan: [plan.md](plan.md).
 
 ## Installieren
 
