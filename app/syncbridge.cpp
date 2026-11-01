@@ -92,6 +92,16 @@ void SyncBridge::applyStatus(const QByteArray &status, const QByteArray &permiss
         && p.value(QLatin1String("missing")).toArray().isEmpty();
     m_complete = m_permitted && p.value(QLatin1String("optional")).toArray().isEmpty();
 
+    // Allowed more or less (back from Health Connect's screen): other apps to order.
+    QStringList granted;
+    for (const QJsonValue &g : p.value(QLatin1String("granted")).toArray()) {
+        granted << g.toString();
+    }
+    if (granted != m_granted) {
+        m_granted = granted;
+        loadApps();
+    }
+
     // The background job writes its status into its own database and tells no one: while it
     // runs, read again until it is done.
     if (m_running) {

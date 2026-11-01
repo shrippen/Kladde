@@ -45,7 +45,10 @@
   <file>Kante/KanteKeycap.qml</file>
   <file>Kante/KanteKpi.qml</file>
   <file>Kante/KanteLamp.qml</file>
+  <file>Kante/KanteLegend.qml</file>
+  <file>Kante/KanteLevelDots.qml</file>
   <file>Kante/KanteLevelMeter.qml</file>
+  <file>Kante/KanteLevelPicker.qml</file>
   <file>Kante/KanteLineChart.qml</file>
   <file>Kante/KanteListRow.qml</file>
   <file>Kante/KanteLiveLine.qml</file>

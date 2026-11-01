@@ -509,6 +509,20 @@ QtObject {
     function tint(c, alpha) {
         return Qt.rgba(c.r, c.g, c.b, alpha)
     }
+    /**
+     * (1.61) The colour of a level 0..count on a scale, as KanteHeatmap draws it: 0 (or no
+     * number) the sunken ground, then `base` (the focus colour unless given) in steps of
+     * 0.88 / count opacity, full at `count` (4 unless given). For shares by level
+     * (KanteProgressBar.parts) with a KanteLegend.
+     */
+    function levelColor(level, count, base) {
+        var n = count > 0 ? count : 4
+        var c = base !== undefined ? base : focusColor
+        if (!(level > 0)) {
+            return sunkenColor
+        }
+        return level >= n ? c : tint(c, level * (0.88 / n))
+    }
 
     // ── Fonts ────────────────────────────────────────────────────────────
     // Bundled (SIL OFL, fonts/OFL.txt); loaded for the process, never installed.

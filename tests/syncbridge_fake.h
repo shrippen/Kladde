@@ -21,6 +21,7 @@ inline int syncs = 0;
 inline int queueDrops = 0;
 // What appsJson answers, and the orders stored per kind ("sleep" → app ids).
 inline QByteArray apps;
+inline int appLoads = 0;
 inline QHash<QString, QStringList> orders;
 
 } // namespace FakeSync

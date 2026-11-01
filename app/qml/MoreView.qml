@@ -44,14 +44,15 @@ QQC2.ScrollView {
                 text: modelData.label
                 subtitle: modelData.app
                 focusOnClick: false
-                trailing: [
+                // The slot stacks its items; side by side in a row.
+                trailing: Row {
                     KanteToolButton {
                         icon.name: "go-up"
                         text: qsTr("Up")
                         display: QQC2.AbstractButton.IconOnly
                         enabled: index > 0
                         onClicked: sync.moveApp(order.kind, index, index - 1)
-                    },
+                    }
                     KanteToolButton {
                         icon.name: "go-down"
                         text: qsTr("Down")
@@ -59,7 +60,7 @@ QQC2.ScrollView {
                         enabled: index < order.apps.length - 1
                         onClicked: sync.moveApp(order.kind, index, index + 1)
                     }
-                ]
+                }
             }
         }
     }

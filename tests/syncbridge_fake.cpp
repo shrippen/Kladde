@@ -66,6 +66,7 @@ void SyncBridge::refresh()
 
 void SyncBridge::loadApps()
 {
+    ++FakeSync::appLoads;
     applyApps(FakeSync::apps);
 }
 

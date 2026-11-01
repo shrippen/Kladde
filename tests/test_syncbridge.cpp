@@ -70,6 +70,25 @@ private Q_SLOTS:
         QVERIFY(sync.property("complete").toBool());
     }
 
+    void aNewPermissionReadsTheAppsAgain()
+    {
+        // Only "Training" allowed of the optional kinds: neither permitted nor complete
+        // changes, the training apps must still show (review of #17).
+        FakeSync::status = Done;
+        FakeSync::permissions = R"({"available": true, "missing": [], "granted": ["READ_SLEEP"], "optional": ["READ_EXERCISE", "READ_WEIGHT"]})";
+        SyncBridge sync;
+        sync.refresh();
+        const int loads = FakeSync::appLoads;
+
+        FakeSync::permissions = R"({"available": true, "missing": [], "granted": ["READ_EXERCISE", "READ_SLEEP"], "optional": ["READ_WEIGHT"]})";
+        sync.refresh();
+        QCOMPARE(FakeSync::appLoads, loads + 1);
+
+        // The same again: nothing new to read.
+        sync.refresh();
+        QCOMPARE(FakeSync::appLoads, loads + 1);
+    }
+
     void aMovedAppIsStoredInItsOrder()
     {
         FakeSync::apps = R"({"sleep": [{"app": "coredevices.coreapp", "label": "Pebble"},

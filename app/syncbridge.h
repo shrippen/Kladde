@@ -119,6 +119,8 @@ private:
     int m_pending = 0;
     QStringList m_silent;
     QHash<Ranked, QVariantList> m_apps;
+    // The read permissions granted at the last refresh; a new one may bring new apps.
+    QStringList m_granted;
     int m_interval = 60;
     int m_backfill = 30;
     // Asks again while a sync runs (applyStatus).

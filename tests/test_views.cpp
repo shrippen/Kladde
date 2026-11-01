@@ -10,6 +10,7 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQuickItem>
+#include <QQuickWindow>
 #include <QTest>
 
 using kladde::MemorySecretStore;
@@ -34,6 +35,25 @@ class TestViews : public QObject
             out << child << itemsBelow(child);
         }
         return out;
+    }
+
+    static constexpr auto Apps = R"({"sleep": [{"app": "coredevices.coreapp", "label": "Pebble"},
+                                               {"app": "com.urbandroid.sleep", "label": "Sleep as Android"}],
+                                     "workouts": [{"app": "com.freeletics.lite", "label": "Freeletics"}]})";
+
+    // The More page with its C++ objects.
+    static QQuickItem *more(QQmlEngine &engine, SyncBridge &sync, Account &account)
+    {
+        qmlRegisterUncreatableType<SyncBridge>("Kladde.Core", 1, 0, "SyncBridge", QStringLiteral("test"));
+        engine.addImportPath(QStringLiteral(KLADDE_QML));
+        engine.rootContext()->setContextProperty(QStringLiteral("sync"), &sync);
+        engine.rootContext()->setContextProperty(QStringLiteral("account"), &account);
+        QQmlComponent component(&engine, page("MoreView.qml"));
+        auto *view = qobject_cast<QQuickItem *>(component.create());
+        if (!view) {
+            qWarning() << component.errorString();
+        }
+        return view;
     }
 
     // Kante's loader somewhere below `root`, shown.
@@ -86,30 +106,68 @@ private Q_SLOTS:
 
     void moreShowsTheAppOrder()
     {
-        FakeSync::apps = R"({"sleep": [{"app": "coredevices.coreapp", "label": "Pebble"},
-                                       {"app": "com.urbandroid.sleep", "label": "Sleep as Android"}],
-                             "workouts": [{"app": "com.freeletics.lite", "label": "Freeletics"}]})";
+        FakeSync::apps = Apps;
         MemorySecretStore secrets;
         SyncBridge sync;
         Account account(&secrets, &sync);
-        qmlRegisterUncreatableType<SyncBridge>("Kladde.Core", 1, 0, "SyncBridge", QStringLiteral("test"));
-
         QQmlEngine engine;
-        engine.addImportPath(QStringLiteral(KLADDE_QML));
-        engine.rootContext()->setContextProperty(QStringLiteral("sync"), &sync);
-        engine.rootContext()->setContextProperty(QStringLiteral("account"), &account);
-        QQmlComponent component(&engine, page("MoreView.qml"));
-        std::unique_ptr<QObject> view(component.create());
-        QVERIFY2(view, qPrintable(component.errorString()));
+        std::unique_ptr<QQuickItem> view(more(engine, sync, account));
+        QVERIFY(view);
 
         // Sleep has two apps to order, trainings one: only sleep's rows are there.
         QStringList rows;
-        for (QQuickItem *i : itemsBelow(qobject_cast<QQuickItem *>(view.get()))) {
+        for (QQuickItem *i : itemsBelow(view.get())) {
             if (QByteArray(i->metaObject()->className()).startsWith("KanteListRow") && i->isVisible()) {
                 rows << i->property("text").toString();
             }
         }
         QCOMPARE(rows, QStringList({QStringLiteral("Pebble"), QStringLiteral("Sleep as Android")}));
+    }
+
+    void theArrowsOfARowSitSideBySide()
+    {
+        // Seen on the phone, 1.11.2026: up and down drawn on top of each other, an "X".
+        FakeSync::apps = Apps;
+        MemorySecretStore secrets;
+        SyncBridge sync;
+        Account account(&secrets, &sync);
+        QQmlEngine engine;
+        QQuickWindow window;
+        window.resize(400, 2000);
+        std::unique_ptr<QQuickItem> view(more(engine, sync, account));
+        QVERIFY(view);
+        view->setParentItem(window.contentItem());
+        view->setSize(window.size());
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+
+        QList<qreal> lefts;
+        for (QQuickItem *i : itemsBelow(view.get())) {
+            if (QByteArray(i->metaObject()->className()).startsWith("KanteToolButton") && i->isVisible()) {
+                lefts << i->mapToScene(QPointF()).x();
+            }
+        }
+        QVERIFY(lefts.size() >= 2);
+        QVERIFY2(lefts[0] != lefts[1], "up and down on top of each other");
+    }
+
+    void newAccessShowsTheAppsAgain()
+    {
+        // Seen on the phone, 1.11.2026: the list stayed empty after allowing Health Connect,
+        // until the app was started again.
+        FakeSync::apps = Apps;
+        FakeSync::permissions = R"({"available": true, "granted": [], "missing": ["android.permission.health.READ_SLEEP"]})";
+        MemorySecretStore secrets;
+        SyncBridge sync;
+        Account account(&secrets, &sync);
+        QQmlEngine engine;
+        std::unique_ptr<QQuickItem> view(more(engine, sync, account));
+        QVERIFY(view);
+        const int loads = FakeSync::appLoads;
+
+        FakeSync::permissions = R"({"available": true, "granted": ["android.permission.health.READ_SLEEP"], "missing": []})";
+        sync.refresh();
+        QCOMPARE(FakeSync::appLoads, loads + 1);
     }
 };
 
