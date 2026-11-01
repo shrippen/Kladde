@@ -9,9 +9,9 @@
 // A manual entry (Lastenheft LF-30, LF-33): weight, blood pressure (with pulse), pulse,
 // body fat or mood, checked against plausible ranges before anything is sent.
 //
-// Every measurement gets its own Idempotency-Key, kept until the entry is saved: blood
-// pressure is two or three POSTs, and if one fails, "save" again repeats only the request
-// the server has not seen (the others come back as replays, nothing doubles).
+// One POST per entry: blood pressure goes as one array (systolic, diastolic, pulse), so it
+// is saved whole or not at all. Its Idempotency-Key is kept until the entry is saved: "save"
+// again after a lost answer is a replay, nothing doubles.
 class Entry : public QObject
 {
     Q_OBJECT
@@ -40,13 +40,13 @@ Q_SIGNALS:
     void saved();
 
 private:
-    void sendNext();
+    void send();
 
     kladde::Session *m_session;
     bool m_busy = false;
     QString m_error;
     QByteArray m_signature; // what the keys belong to
-    QList<QPair<QString, QJsonObject>> m_requests; // path, body
-    QList<QByteArray> m_keys;
-    int m_next = 0;
+    QString m_path;
+    QJsonValue m_body;
+    QByteArray m_key;
 };

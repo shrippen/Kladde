@@ -35,13 +35,14 @@ int main(int argc, char **argv)
 #endif
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Kladde"));
 
-    // German where the system speaks it (the demo: DEMO_LANG), English otherwise.
+    // German where the system speaks it, English otherwise.
     QTranslator translator;
-    const QString demoLang = qEnvironmentVariable("DEMO_LANG");
-    const QLocale locale = demoLang.isEmpty() ? QLocale() : QLocale(demoLang);
-    if (!demoLang.isEmpty())
-        QLocale::setDefault(locale);
-    if (translator.load(locale, QStringLiteral("kladde"), QStringLiteral("_"), QStringLiteral(":/i18n")))
+#ifdef KLADDE_DEMO
+    // The screenshot tool picks the language.
+    if (const QString lang = qEnvironmentVariable("DEMO_LANG"); !lang.isEmpty())
+        QLocale::setDefault(QLocale(lang));
+#endif
+    if (translator.load(QLocale(), QStringLiteral("kladde"), QStringLiteral("_"), QStringLiteral(":/i18n")))
         QCoreApplication::installTranslator(&translator);
 
     QCommandLineParser cli;

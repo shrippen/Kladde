@@ -7,6 +7,7 @@ qt_add_executable(kladde
     dashboard.h dashboard.cpp
     history.h history.cpp
     entry.h entry.cpp
+    errors.h errors.cpp
     syncbridge.h syncbridge.cpp
     qml/kante.qrc
     qml/kladde.qrc
@@ -17,7 +18,7 @@ target_link_libraries(kladde PRIVATE kladde-core Qt6::Quick Qt6::QuickControls2)
 # after changing a text, then translate in i18n/kladde_de.ts).
 file(GLOB kladde_qml CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/qml/*.qml ${CMAKE_CURRENT_SOURCE_DIR}/qml/*.js)
 qt_add_lupdate(kladde TS_FILES i18n/kladde_de.ts SOURCES
-    ${kladde_qml} account.cpp entry.cpp syncbridge.cpp NO_GLOBAL_TARGET)
+    ${kladde_qml} account.cpp entry.cpp errors.cpp syncbridge.cpp NO_GLOBAL_TARGET OPTIONS -no-obsolete)
 qt_add_lrelease(kladde TS_FILES i18n/kladde_de.ts QM_FILES_OUTPUT_VARIABLE kladde_qm NO_GLOBAL_TARGET)
 qt_add_resources(kladde kladde_i18n PREFIX /i18n BASE ${CMAKE_CURRENT_BINARY_DIR} FILES ${kladde_qm})
 

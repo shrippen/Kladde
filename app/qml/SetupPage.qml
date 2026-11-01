@@ -121,7 +121,7 @@ Kirigami.ScrollablePage {
             Layout.topMargin: Kirigami.Units.largeSpacing
             wrapMode: Text.Wrap
             color: KanteStyle.mutedTextColor
-            text: qsTr("Kladde keeps only a renewable sign-in in the system keychain, never the password. For the background upload it creates its own measurement token, visible and revocable in HealthLog.")
+            text: qsTr("Kladde keeps only a renewable sign-in in the system keychain, never the password. On Android it creates its own measurement token for the upload in the background, visible and revocable in HealthLog.")
         }
     }
 }

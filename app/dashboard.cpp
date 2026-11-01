@@ -1,6 +1,7 @@
 #include "dashboard.h"
 
 #include "api.h"
+#include "errors.h"
 
 #include <QJsonObject>
 
@@ -27,7 +28,7 @@ void Dashboard::reload()
     m_session->get(QStringLiteral("/api/dashboard/summary"), [this](const ApiReply &r) {
         m_loading = false;
         if (!r.ok()) {
-            m_error = r.error();
+            m_error = Errors::describe(r);
             Q_EMIT changed();
             return;
         }

@@ -40,13 +40,20 @@ Auswertungen, das bleibt HealthLog.
 
 ### Verbindung
 
-- **LF-01** Serveradresse und Token eingeben. Phase 1: ein HealthLog-API-Token mit dem Scope
-  `measurements:write` (eine Brücke, die nicht das Telefon ist; Werte landen als Quelle
-  `EXTERNAL`). Später, wenn HealthLog es anbietet: Anmeldung wie die iOS-App mit eigener
-  Quelle `HEALTH_CONNECT` (siehe Plan, Upstream).
+- **LF-01** Anmeldung wie die iOS-App: Serveradresse, Benutzer und Passwort, zweiter Faktor
+  (TOTP oder Wiederherstellungscode); später Web-Login mit PKCE. Für den Hintergrund legt die
+  App ein eigenes Token mit dem Scope `measurements:write` an (Werte landen als Quelle
+  `EXTERNAL`; eine eigene Quelle `HEALTH_CONNECT` erst, wenn HealthLog sie anbietet, siehe
+  Plan, Upstream).
 - **LF-02** Tokens liegen im Android Keystore bzw. in KWallet / Secret Service (QtKeychain), nie
   in einer Klartextdatei.
 - **LF-03** Kann: TLS-Zertifikat-Pinning.
+- **LF-04** Muss: Beim ersten Start führt ein Assistent Schritt für Schritt durch die
+  Einrichtung: Server prüfen, anmelden (mit zweitem Faktor), unter Android Zugriff auf Health
+  Connect und den Hintergrund-Sync erlauben, Rückblick und Abstand wählen. Pflichtschritte
+  zuerst, Optionales zuletzt und überspringbar; ein falsches Passwort oder Token erreicht den
+  Schlüsselbund nie. Ob der Assistent erscheint, folgt aus dem Zustand (kein Konto, keine
+  Anmeldung), nicht aus einer eigenen Markierung: Nach dem Abmelden erscheint er wieder.
 
 ### Datenquellen
 
@@ -126,3 +133,5 @@ und Upload sind für alle gleich.
 3. Flugmodus mitten im Sync: kein Datenverlust, der Rest kommt beim nächsten Lauf.
 4. Dieselbe App läuft auf Plasma Mobile und zeigt das Dashboard aus HealthLog.
 5. Das Release-APK enthält keinen Demo-Code; der Build bricht sonst ab.
+6. Eine frische Installation ist mit dem Assistenten ohne Anleitung eingerichtet und lädt
+   Pebble-Daten hoch.

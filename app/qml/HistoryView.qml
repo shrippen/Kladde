@@ -112,7 +112,8 @@ QQC2.ScrollView {
             }
             KanteKpi {
                 Layout.fillWidth: true
-                label: view.withUnit(qsTr("Change"))
+                // HealthLog's change is that of the first value (systolic for blood pressure).
+                label: view.withUnit(history.kind === "bloodPressure" ? qsTr("Change, systolic") : qsTr("Change"))
                 value: history.change.length > 0 ? history.change : "–"
                 trend: history.changeTrend
                 good: history.changeGood !== 0 ? history.changeGood : Metrics.goodDirection(history.kind)

@@ -2,6 +2,7 @@
 #include "session.h"
 
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -17,6 +18,7 @@ struct Auth {
     QString refresh;
     int refreshCalls = 0;
     bool down = false;
+    int downStatus = 503;
 
     FakeServer::Answer tokens()
     {
@@ -42,7 +44,7 @@ struct Auth {
     FakeServer::Answer handle(const FakeServer::Request &r)
     {
         if (down)
-            return {503, {}};
+            return {downStatus, {}};
         if (r.path == QLatin1String("/api/auth/login")) {
             if (r.body.value(QLatin1String("password")).toString() != QLatin1String("pw"))
                 return refused(401, "auth.invalid_credentials");
@@ -230,6 +232,58 @@ private Q_SLOTS:
         // Back up: the next call refreshes with the kept token.
         rig.auth.down = false;
         QVERIFY(rig.get(QStringLiteral("/api/x")).ok());
+        QCOMPARE(rig.storedRefresh(), QStringLiteral("r1"));
+    }
+
+    void logoutDuringARefreshStaysSignedOut()
+    {
+        // The access token runs out, Home reloads, the user taps "sign out": the refresh
+        // answer that comes after must neither sign in again nor stay valid on the server.
+        MemorySecretStore secrets;
+        Session session(&secrets);
+        session.setServer(QUrl(QStringLiteral("https://hl.example.org")));
+        QList<QPair<QString, Session::Callback>> pending;
+        QList<QJsonObject> bodies;
+        session.setTransport([&](const QByteArray &, const QString &path, const QByteArray &body, Session::Callback done) {
+            bodies << QJsonDocument::fromJson(body).object();
+            pending << qMakePair(path, done);
+        });
+        const QString key = QStringLiteral("refresh-token@https://hl.example.org");
+        secrets.write(key, QStringLiteral("r0"), [](bool) {});
+        session.restore();
+        QVERIFY(QTest::qWaitFor([&] { return pending.size() == 1; }, 5000));
+        QCOMPARE(pending[0].first, QStringLiteral("/api/auth/refresh"));
+
+        session.logout();
+        QCOMPARE(session.state(), Session::State::SignedOut);
+        Auth auth;
+        auth.refresh = QStringLiteral("r0");
+        const FakeServer::Answer late = auth.tokens();
+        ApiReply r;
+        r.status = late.status;
+        r.root = late.body;
+        pending[0].second(r);
+
+        QCOMPARE(session.state(), Session::State::SignedOut);
+        QVERIFY(!secrets.values().contains(key));
+        QVERIFY(QTest::qWaitFor([&] {
+            return std::any_of(bodies.begin(), bodies.end(), [](const QJsonObject &b) {
+                return b.value(QLatin1String("refreshToken")).toString() == QLatin1String("r1")
+                    && b.value(QLatin1String("revoke")).toBool();
+            });
+        }, 5000));
+    }
+
+    void aProxyAnsweringTheRefreshDoesNotSignOut()
+    {
+        Rig rig;
+        rig.session.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
+        QVERIFY(rig.waitFor(Session::State::SignedIn));
+        rig.auth.access = QStringLiteral("revoked");
+        rig.auth.down = true;
+        rig.auth.downStatus = 404; // a proxy or a maintenance page never saw the token
+        QVERIFY(!rig.get(QStringLiteral("/api/x")).ok());
+        QCOMPARE(rig.session.state(), Session::State::SignedIn);
         QCOMPARE(rig.storedRefresh(), QStringLiteral("r1"));
     }
 

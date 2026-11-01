@@ -24,6 +24,7 @@ struct ApiReply {
     bool ok() const { return status >= 200 && status < 300; }
     QJsonValue data() const { return root.value(QLatin1String("data")); }
     // meta.errorCode, else the error text, else the transport error or "HTTP <status>".
+    // For people: the app's Errors::describe, translated.
     QString error() const;
 };
 
@@ -59,9 +60,15 @@ public:
     void setTransport(Transport transport) { m_transport = std::move(transport); }
 
     State state() const { return m_state; }
+    // Counts sign-ins, sign-outs and server changes: an answer that arrives after one
+    // belongs to a session that is gone (Account checks it for the sync token).
+    quint64 generation() const { return m_generation; }
     QString username() const { return m_username; }
     QStringList mfaMethods() const { return m_mfaMethods; }
+    // The last problem as an error code (the server's meta.errorCode, kladde.no_tokens,
+    // kladde.keychain) or text, with the HTTP status (0: no answer, -1: not from the server).
     QString lastError() const { return m_lastError; }
+    int lastErrorStatus() const { return m_lastErrorStatus; }
 
     void restore();
     void login(const QString &email, const QString &password);
@@ -92,10 +99,13 @@ private:
     void transmit(Call call);
     void refresh();
     void finishRefresh(const ApiReply &reply);
+    void revoke(const QString &refreshToken);
+    void endGeneration();
     void signIn(const ApiReply &reply);
     bool acceptTokens(const QJsonObject &data);
     void dropTokens();
-    void setState(State state, const QString &error = {});
+    void setState(State state, const QString &error = {}, int status = -1);
+    void setState(State state, const ApiReply &failure);
     void raw(const QByteArray &verb, const QString &path, const QByteArray &body, bool withToken,
              const QByteArray &idempotencyKey, Callback done);
     QString secretKey() const;
@@ -110,11 +120,13 @@ private:
     QStringList m_mfaMethods;
     QString m_mfaTicket;
     QString m_lastError;
+    int m_lastErrorStatus = -1;
 
     QString m_accessToken;
     QDateTime m_accessExpires;
     QString m_refreshToken;
     bool m_refreshing = false;
+    quint64 m_generation = 0;
     QList<Call> m_waiting;
 };
 

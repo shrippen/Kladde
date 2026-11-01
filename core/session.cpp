@@ -55,6 +55,7 @@ void Session::setServer(const QUrl &server)
     if (server == m_server)
         return;
     // Tokens belong to one server; a new address starts signed out.
+    endGeneration();
     m_server = server;
     m_accessToken.clear();
     m_refreshToken.clear();
@@ -67,9 +68,15 @@ QString Session::secretKey() const
     return QStringLiteral("refresh-token@") + m_server.toString(QUrl::RemoveUserInfo | QUrl::StripTrailingSlash);
 }
 
-void Session::setState(State state, const QString &error)
+void Session::setState(State state, const ApiReply &failure)
+{
+    setState(state, failure.error(), failure.status);
+}
+
+void Session::setState(State state, const QString &error, int status)
 {
     m_lastError = error;
+    m_lastErrorStatus = error.isEmpty() ? -1 : status;
     m_state = state;
     Q_EMIT stateChanged();
 }
@@ -128,8 +135,10 @@ bool Session::acceptTokens(const QJsonObject &data)
         m_username = name;
     // The old refresh token is spent now: the new one has to reach the keychain.
     m_secrets->write(secretKey(), refresh, [this](bool ok) {
-        if (!ok)
-            m_lastError = QStringLiteral("keychain: the sign-in is not kept for the next start");
+        if (!ok) {
+            m_lastError = QStringLiteral("kladde.keychain");
+            m_lastErrorStatus = -1;
+        }
     });
     return true;
 }
@@ -157,12 +166,16 @@ void Session::restore()
 
 void Session::login(const QString &email, const QString &password)
 {
+    endGeneration();
     dropTokens();
     m_mfaTicket.clear();
     setState(State::SigningIn);
     const QJsonObject body{{QStringLiteral("email"), email}, {QStringLiteral("password"), password}};
     raw("POST", QStringLiteral("/api/auth/login"), QJsonDocument(body).toJson(QJsonDocument::Compact),
-        false, {}, [this](const ApiReply &r) { signIn(r); });
+        false, {}, [this, g = m_generation](const ApiReply &r) {
+            if (g == m_generation)
+                signIn(r);
+        });
 }
 
 void Session::verifyMfa(const QString &code, const QString &method)
@@ -174,21 +187,26 @@ void Session::verifyMfa(const QString &code, const QString &method)
                            {QStringLiteral("method"), method},
                            {QStringLiteral("code"), code.simplified().remove(QLatin1Char(' '))}};
     raw("POST", QStringLiteral("/api/auth/mfa/verify"), QJsonDocument(body).toJson(QJsonDocument::Compact),
-        false, {}, [this](const ApiReply &r) {
+        false, {}, [this, g = m_generation](const ApiReply &r) {
+            if (g != m_generation)
+                return;
             if (r.ok() && acceptTokens(r.data().toObject())) {
                 m_mfaTicket.clear();
                 setState(State::SignedIn);
                 return;
             }
             // A wrong code: stay at the second factor and say so.
-            setState(State::NeedsMfa, r.ok() ? QStringLiteral("answer without tokens") : r.error());
+            if (r.ok())
+                setState(State::NeedsMfa, QStringLiteral("kladde.no_tokens"));
+            else
+                setState(State::NeedsMfa, r);
         });
 }
 
 void Session::signIn(const ApiReply &r)
 {
     if (!r.ok()) {
-        setState(State::SignedOut, r.error());
+        setState(State::SignedOut, r);
         return;
     }
     const QJsonObject meta = r.root.value(QLatin1String("meta")).toObject();
@@ -201,7 +219,7 @@ void Session::signIn(const ApiReply &r)
         return;
     }
     if (!acceptTokens(r.data().toObject())) {
-        setState(State::SignedOut, QStringLiteral("answer without tokens"));
+        setState(State::SignedOut, QStringLiteral("kladde.no_tokens"));
         return;
     }
     setState(State::SignedIn);
@@ -210,23 +228,35 @@ void Session::signIn(const ApiReply &r)
 void Session::logout()
 {
     // End the session on the server and spend the refresh token; the answers do not matter,
-    // the tokens are gone here either way.
+    // the tokens are gone here either way. A refresh still under way spends the token
+    // itself: its answer is dropped and the token it brings revoked (finishRefresh).
     if (!m_accessToken.isEmpty())
         raw("POST", QStringLiteral("/api/auth/logout"), "{}", true, {}, [](const ApiReply &) {});
-    if (!m_refreshToken.isEmpty()) {
-        const QJsonObject body{{QStringLiteral("refreshToken"), m_refreshToken}, {QStringLiteral("revoke"), true}};
-        raw("POST", QStringLiteral("/api/auth/refresh"), QJsonDocument(body).toJson(QJsonDocument::Compact),
-            false, {}, [](const ApiReply &) {});
-    }
+    if (!m_refreshToken.isEmpty() && !m_refreshing)
+        revoke(m_refreshToken);
+    endGeneration();
     dropTokens();
     m_username.clear();
+    setState(State::SignedOut);
+}
+
+void Session::revoke(const QString &refreshToken)
+{
+    const QJsonObject body{{QStringLiteral("refreshToken"), refreshToken}, {QStringLiteral("revoke"), true}};
+    raw("POST", QStringLiteral("/api/auth/refresh"), QJsonDocument(body).toJson(QJsonDocument::Compact),
+        false, {}, [](const ApiReply &) {});
+}
+
+void Session::endGeneration()
+{
+    ++m_generation;
+    m_refreshing = false;
     const QList<Call> waiting = std::exchange(m_waiting, {});
     for (const Call &c : waiting) {
         ApiReply r;
         r.status = 401;
         c.done(r);
     }
-    setState(State::SignedOut);
 }
 
 void Session::get(const QString &path, Callback done)
@@ -278,7 +308,17 @@ void Session::refresh()
     m_refreshing = true;
     const QJsonObject body{{QStringLiteral("refreshToken"), m_refreshToken}};
     raw("POST", QStringLiteral("/api/auth/refresh"), QJsonDocument(body).toJson(QJsonDocument::Compact),
-        false, {}, [this](const ApiReply &r) { finishRefresh(r); });
+        false, {}, [this, g = m_generation](const ApiReply &r) {
+            if (g == m_generation) {
+                finishRefresh(r);
+                return;
+            }
+            // Signed out (or another server) meanwhile: never sign in again with this answer,
+            // and do not leave the token it brings valid on the server.
+            const QString late = r.data().toObject().value(QLatin1String("refreshToken")).toString();
+            if (r.ok() && !late.isEmpty())
+                revoke(late);
+        });
 }
 
 void Session::finishRefresh(const ApiReply &r)
@@ -294,15 +334,16 @@ void Session::finishRefresh(const ApiReply &r)
         return;
     }
 
-    const bool offline = r.status == 0 || r.status == 429 || r.status >= 500;
-    if (offline) {
-        // The refresh token was not spent: keep it, try again with the next call.
+    // Only the server's no signs out. Anything else (no answer, 429, 5xx, a proxy's 404 or
+    // 308, a maintenance page) never judged the token: keep it, try again with the next call.
+    const bool refused = r.status == 401 || r.status == 403;
+    if (!refused) {
         if (m_state == State::Restoring)
-            setState(State::SignedIn, r.error());
+            setState(State::SignedIn, r);
     } else {
         // Refused (expired, revoked, already used): sign in again.
         dropTokens();
-        setState(State::SignedOut, r.error());
+        setState(State::SignedOut, r);
         Q_EMIT signedOutByServer();
     }
     for (const Call &c : waiting)

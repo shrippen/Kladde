@@ -1,4 +1,5 @@
 #include "account.h"
+#include "errors.h"
 #include "syncbridge.h"
 
 #include <QJsonObject>
@@ -37,6 +38,11 @@ Account::Account(kladde::SecretStore *secrets, SyncBridge *sync, QObject *parent
         Q_EMIT stateChanged();
     });
     connect(&m_session, &Session::signedOutByServer, m_sync, &SyncBridge::forget);
+}
+
+QString Account::error() const
+{
+    return Errors::describe(m_session.lastErrorStatus(), m_session.lastError());
 }
 
 Account::State Account::state() const
@@ -89,7 +95,7 @@ void Account::checkServer()
         if (r.ok() && !version.isEmpty())
             setProbe(Probe::Reachable, version);
         else
-            setProbe(Probe::Unreachable, {}, r.ok() ? tr("No HealthLog at this address") : r.error());
+            setProbe(Probe::Unreachable, {}, r.ok() ? tr("No HealthLog at this address") : Errors::describe(r));
     });
 }
 
@@ -114,7 +120,11 @@ void Account::mintSyncToken()
     // A token of its own for the background sync, named after the device, so the user can
     // see and revoke it in HealthLog's settings. No expiry: the sync runs unattended.
     const QJsonObject body{{QStringLiteral("name"), QStringLiteral("Kladde (%1)").arg(QSysInfo::machineHostName())}};
-    m_session.post(QStringLiteral("/api/tokens/measurements"), body, [this](const ApiReply &r) {
+    m_session.post(QStringLiteral("/api/tokens/measurements"), body,
+                   [this, g = m_session.generation()](const ApiReply &r) {
+        // Signed out meanwhile: the sync must not get a token of the old session.
+        if (g != m_session.generation())
+            return;
         const QString token = r.data().toObject().value(QLatin1String("token")).toString();
         if (r.ok() && !token.isEmpty())
             m_sync->configure(m_server, token);

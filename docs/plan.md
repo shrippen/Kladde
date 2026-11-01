@@ -48,8 +48,9 @@ Aufbau nach der iOS-App ([ios-aufbau.md](ios-aufbau.md)).
       Eintrag, Token im Android Keystore, WorkManager, Statusdaten (LF-10 … LF-24).
 - [ ] Qt für Android bauen (Vorlage Plasmai), JNI zu `KladdeSync`.
 - [x] Einrichtung: Server prüfen, Anmeldung mit Passwort und zweitem Faktor; Refresh-Token im
-      Schlüsselbund (QtKeychain), Erneuerung einzeln und mit Rotation; nach der Anmeldung legt
-      die App ihr eigenes Mess-Token für den Hintergrund an.
+      Schlüsselbund (QtKeychain), Erneuerung einzeln und mit Rotation. Wo es den Hintergrund-Sync
+      gibt (Android), legt die App nach der Anmeldung ihr eigenes Mess-Token an; scharf erst mit
+      dem Android-Build.
 - [ ] Web-Login mit PKCE (`healthlog://login-callback`), Health-Connect-Rechte im Ablauf.
 - [x] Start (Kacheln mit letzten 7 Tagen), Erfassen (Gewicht, Blutdruck mit Puls, Puls,
       Körperfett, Stimmung; Bereiche geprüft), Verlauf (Woche bis Jahr, Achse, Kennzahlen),

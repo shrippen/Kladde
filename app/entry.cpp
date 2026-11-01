@@ -1,7 +1,9 @@
 #include "entry.h"
 
 #include "api.h"
+#include "errors.h"
 
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QLocale>
 #include <QUuid>
@@ -54,9 +56,7 @@ QString Entry::range(Kind kind, const QString &field) const
 void Entry::reset()
 {
     m_signature.clear();
-    m_requests.clear();
-    m_keys.clear();
-    m_next = 0;
+    m_key.clear();
     m_error.clear();
     Q_EMIT changed();
 }
@@ -69,55 +69,47 @@ void Entry::save(Kind kind, const QVariantMap &values, const QDateTime &at, cons
     if (!kladde::validateEntry(core(kind), v).isEmpty())
         return;
 
-    QList<QPair<QString, QJsonObject>> requests;
     if (kind == Kind::Mood) {
-        requests << qMakePair(QStringLiteral("/api/mood-entries"),
-                              kladde::moodBody(qRound(v.value(QStringLiteral("value"))), at, note.trimmed()));
+        m_path = QStringLiteral("/api/mood-entries");
+        m_body = kladde::moodBody(qRound(v.value(QStringLiteral("value"))), at, note.trimmed());
     } else {
-        for (const QJsonObject &body : kladde::measurementBodies(core(kind), v, at, note.trimmed()))
-            requests << qMakePair(QStringLiteral("/api/measurements"), body);
+        m_path = QStringLiteral("/api/measurements");
+        const QList<QJsonObject> bodies = kladde::measurementBodies(core(kind), v, at, note.trimmed());
+        if (bodies.size() == 1) {
+            m_body = bodies.first();
+        } else {
+            QJsonArray array;
+            for (const QJsonObject &b : bodies)
+                array << b;
+            m_body = array;
+        }
     }
 
-    // Same entry as the failed try: keep its keys and go on where it stopped.
-    QByteArray signature;
-    for (const auto &r : requests)
-        signature += r.first.toUtf8() + QJsonDocument(r.second).toJson(QJsonDocument::Compact);
+    // The same entry as a try whose answer got lost: the same key, the server replays.
+    const QByteArray signature = m_path.toUtf8()
+        + (m_body.isArray() ? QJsonDocument(m_body.toArray()) : QJsonDocument(m_body.toObject())).toJson(QJsonDocument::Compact);
     if (signature != m_signature) {
         m_signature = signature;
-        m_requests = requests;
-        m_keys.clear();
-        for (qsizetype i = 0; i < requests.size(); ++i)
-            m_keys << QUuid::createUuid().toByteArray(QUuid::WithoutBraces);
-        m_next = 0;
+        m_key = QUuid::createUuid().toByteArray(QUuid::WithoutBraces);
     }
     m_busy = true;
     m_error.clear();
     Q_EMIT changed();
-    sendNext();
+    send();
 }
 
-void Entry::sendNext()
+void Entry::send()
 {
-    if (m_next >= m_requests.size()) {
+    m_session->post(m_path, m_body, [this](const ApiReply &r) {
         m_busy = false;
-        m_signature.clear();
-        m_requests.clear();
-        m_keys.clear();
-        m_next = 0;
-        Q_EMIT changed();
-        Q_EMIT saved();
-        return;
-    }
-    const auto &request = m_requests.at(m_next);
-    m_session->post(request.first, request.second, [this](const ApiReply &r) {
         if (!r.ok()) {
-            m_busy = false;
-            m_error = m_next > 0 ? tr("Partly saved (%1 of %2): %3").arg(m_next).arg(m_requests.size()).arg(r.error())
-                                 : r.error();
+            m_error = Errors::describe(r);
             Q_EMIT changed();
             return;
         }
-        ++m_next;
-        sendNext();
-    }, m_keys.at(m_next));
+        m_signature.clear();
+        m_key.clear();
+        Q_EMIT changed();
+        Q_EMIT saved();
+    }, m_key);
 }

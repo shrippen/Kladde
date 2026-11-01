@@ -15,7 +15,7 @@ Kirigami.ApplicationWindow {
     KanteScope { target: root.contentItem }
 
     // Signed in: the four tabs; otherwise where the server is and who signs in.
-    // The open tab of the main page (also set by the demo's screenshot plan).
+    // The open tab of the main page.
     property int tab: 0
 
     readonly property bool signedIn: account.state === Account.SignedIn

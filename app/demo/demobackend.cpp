@@ -238,7 +238,8 @@ void DemoBackend::answer(const QByteArray &verb, const QString &path, const QByt
 {
     const QUrl url(path);
     const QString route = url.path();
-    const QJsonObject request = QJsonDocument::fromJson(body).object();
+    const QJsonDocument document = QJsonDocument::fromJson(body);
+    const QJsonObject request = document.object();
 
     if (route == QLatin1String("/api/version")) {
         done(ok(QJsonObject{{QStringLiteral("version"),
@@ -255,8 +256,14 @@ void DemoBackend::answer(const QByteArray &verb, const QString &path, const QByt
         const QUrlQuery q(url);
         done(ok(series(q.queryItemValue(QStringLiteral("kind")), q.queryItemValue(QStringLiteral("days")).toInt())));
     } else if (verb == "POST" && route == QLatin1String("/api/measurements")) {
-        store(request);
-        done(ok(request));
+        if (document.isArray()) {
+            for (const QJsonValue &v : document.array())
+                store(v.toObject());
+            done(ok(document.array()));
+        } else {
+            store(request);
+            done(ok(request));
+        }
     } else if (verb == "POST" && route == QLatin1String("/api/mood-entries")) {
         m_moodToday = MoodScale.indexOf(request.value(QLatin1String("mood")).toString()) + 1;
         done(ok(request));

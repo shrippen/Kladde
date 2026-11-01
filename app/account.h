@@ -38,7 +38,7 @@ public:
     void setServer(const QString &server);
     State state() const;
     QString username() const { return m_session.username(); }
-    QString error() const { return m_session.lastError(); }
+    QString error() const;
     bool recoveryAllowed() const { return m_session.mfaMethods().contains(QLatin1String("recovery")); }
     Probe probe() const { return m_probe; }
     QString serverVersion() const { return m_version; }
