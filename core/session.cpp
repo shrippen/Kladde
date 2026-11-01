@@ -75,6 +75,13 @@ void Session::setState(State state, const ApiReply &failure)
 
 void Session::setState(State state, const QString &error, int status)
 {
+    if (error.isEmpty() && m_keychainFailed && state == State::SignedIn) {
+        m_lastError = QStringLiteral("kladde.keychain");
+        m_lastErrorStatus = -1;
+        m_state = state;
+        Q_EMIT stateChanged();
+        return;
+    }
     m_lastError = error;
     m_lastErrorStatus = error.isEmpty() ? -1 : status;
     m_state = state;
@@ -134,17 +141,23 @@ bool Session::acceptTokens(const QJsonObject &data)
     if (!name.isEmpty())
         m_username = name;
     // The old refresh token is spent now: the new one has to reach the keychain.
-    m_secrets->write(secretKey(), refresh, [this](bool ok) {
-        if (!ok) {
-            m_lastError = QStringLiteral("kladde.keychain");
-            m_lastErrorStatus = -1;
-        }
+    m_keychainFailed = false;
+    // A failure shows (stays signed in, but not across a restart). The store may answer at
+    // once, before the caller's setState: keep it from being cleared there.
+    m_secrets->write(secretKey(), refresh, [this, g = m_generation](bool ok) {
+        if (ok || g != m_generation)
+            return;
+        m_keychainFailed = true;
+        m_lastError = QStringLiteral("kladde.keychain");
+        m_lastErrorStatus = -1;
+        Q_EMIT stateChanged();
     });
     return true;
 }
 
 void Session::dropTokens()
 {
+    m_keychainFailed = false;
     m_accessToken.clear();
     m_refreshToken.clear();
     m_accessExpires = {};
@@ -257,6 +270,7 @@ void Session::endGeneration()
         r.status = 401;
         c.done(r);
     }
+    Q_EMIT generationChanged();
 }
 
 void Session::get(const QString &path, Callback done)
@@ -290,8 +304,9 @@ void Session::transmit(Call call)
     const QString path = call.path;
     const QByteArray body = call.body;
     const QByteArray key = call.idempotencyKey;
-    raw(verb, path, body, true, key, [this, call = std::move(call)](const ApiReply &r) mutable {
-        if (r.status == 401 && !call.retried && !m_refreshToken.isEmpty()) {
+    raw(verb, path, body, true, key, [this, g = m_generation, call = std::move(call)](const ApiReply &r) mutable {
+        // Only a call of this session may use its refresh token; an old one gets its answer.
+        if (r.status == 401 && !call.retried && g == m_generation && !m_refreshToken.isEmpty()) {
             call.retried = true;
             m_waiting << std::move(call);
             refresh();

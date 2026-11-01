@@ -4,12 +4,12 @@
 <context>
     <name>Account</name>
     <message>
-        <location filename="../account.cpp" line="86"/>
+        <location filename="../account.cpp" line="93"/>
         <source>The address must start with https://</source>
         <translation>Die Adresse muss mit https:// beginnen</translation>
     </message>
     <message>
-        <location filename="../account.cpp" line="98"/>
+        <location filename="../account.cpp" line="105"/>
         <source>No HealthLog at this address</source>
         <translation>Unter dieser Adresse antwortet kein HealthLog</translation>
     </message>
@@ -38,36 +38,37 @@
     </message>
     <message>
         <location filename="../errors.cpp" line="21"/>
+        <location filename="../errors.cpp" line="25"/>
         <source>The sign-in has ended. Please sign in again.</source>
         <translation>Die Anmeldung ist abgelaufen. Bitte neu anmelden.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="24"/>
+        <location filename="../errors.cpp" line="47"/>
         <source>Not accepted: the e-mail, user name or password is not right.</source>
         <translation>Nicht angenommen: E-Mail, Benutzername oder Passwort stimmen nicht.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="26"/>
+        <location filename="../errors.cpp" line="27"/>
         <source>This account may not do that (%1).</source>
         <translation>Dieses Konto darf das nicht (%1).</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="28"/>
+        <location filename="../errors.cpp" line="29"/>
         <source>Not found at this address. Is it a HealthLog?</source>
         <translation>Unter dieser Adresse nicht gefunden. Ist es ein HealthLog?</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="30"/>
+        <location filename="../errors.cpp" line="31"/>
         <source>Too many attempts. Please wait a moment.</source>
         <translation>Zu viele Versuche. Bitte einen Moment warten.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="35"/>
+        <location filename="../errors.cpp" line="36"/>
         <source>The server has a problem (HTTP %1). Please try again later.</source>
         <translation>Der Server hat ein Problem (HTTP %1). Bitte später noch einmal versuchen.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="36"/>
+        <location filename="../errors.cpp" line="37"/>
         <source>Error: %1</source>
         <translation>Fehler: %1</translation>
     </message>
@@ -567,14 +568,14 @@
 <context>
     <name>SyncBridge</name>
     <message>
-        <location filename="../syncbridge.cpp" line="33"/>
-        <source>This build has no Health Connect sync yet.</source>
-        <translation>Diese Version gleicht noch nicht mit Health Connect ab.</translation>
-    </message>
-    <message>
-        <location filename="../syncbridge.cpp" line="35"/>
+        <location filename="../syncbridge_none.cpp" line="19"/>
         <source>Health Connect exists only on Android. On Linux the watch will connect directly (planned).</source>
         <translation>Health Connect gibt es nur unter Android. Unter Linux verbindet sich die Uhr künftig direkt (geplant).</translation>
+    </message>
+    <message>
+        <location filename="../syncbridge_android.cpp" line="50"/>
+        <source>Health Connect is not installed or not up to date on this phone.</source>
+        <translation>Health Connect ist auf diesem Telefon nicht installiert oder nicht aktuell.</translation>
     </message>
 </context>
 </TS>

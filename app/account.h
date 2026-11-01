@@ -59,6 +59,7 @@ Q_SIGNALS:
 
 private:
     void setProbe(Probe probe, const QString &version = {}, const QString &error = {});
+    void signedIn();
     void mintSyncToken();
 
     kladde::Session m_session;
@@ -67,4 +68,8 @@ private:
     Probe m_probe = Probe::Unknown;
     QString m_version;
     QString m_probeError;
+    // A sign-in with password or code is under way: a 401 means wrong input, not an ended session.
+    bool m_signingIn = false;
+    // The session generation whose sync token is being minted, 0 for none: one token per sign-in.
+    quint64 m_minting = 0;
 };

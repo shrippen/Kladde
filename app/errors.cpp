@@ -21,7 +21,8 @@ QString describe(int status, const QString &code)
         return tr("The sign-in has ended. Please sign in again.");
     switch (status) {
     case 401:
-        return tr("Not accepted: the e-mail, user name or password is not right.");
+        // Anywhere but at the sign-in itself (describeSignIn): the session is gone.
+        return tr("The sign-in has ended. Please sign in again.");
     case 403:
         return tr("This account may not do that (%1).").arg(code);
     case 404:
@@ -34,6 +35,18 @@ QString describe(int status, const QString &code)
     if (status >= 500)
         return tr("The server has a problem (HTTP %1). Please try again later.").arg(status);
     return tr("Error: %1").arg(code);
+}
+
+QString describeSignIn(int status, const QString &code, bool secondFactor)
+{
+    // HealthLog names a wrong password too (auth.invalid_credentials): only a wrong code
+    // has a text of its own.
+    if (status != 401 || code.startsWith(QLatin1String("auth.mfa")))
+        return describe(status, code);
+    // HealthLog may refuse a wrong second-factor code with a plain 401 as well.
+    if (secondFactor)
+        return describe(status, QStringLiteral("auth.mfa"));
+    return QCoreApplication::translate("Errors", "Not accepted: the e-mail, user name or password is not right.");
 }
 
 } // namespace Errors

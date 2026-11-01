@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<!-- After Qt's template (<Qt>/android_arm64_v8a/src/android/templates/AndroidManifest.xml):
+     androiddeployqt fills in the %%INSERT_…%% parts, the version from app/CMakeLists.txt. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="de.arianw.kladde"
+    android:installLocation="auto"
+    android:versionCode="-- %%INSERT_VERSION_CODE%% --"
+    android:versionName="-- %%INSERT_VERSION_NAME%% --">
+
+    <supports-screens
+        android:anyDensity="true"
+        android:largeScreens="true"
+        android:normalScreens="true"
+        android:smallScreens="true" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Read only: the data the Pebble app writes (android/sync, HealthConnectSource.TYPES). -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
+    <application
+        android:hardwareAccelerated="true"
+        android:name="org.qtproject.qt.android.bindings.QtApplication"
+        android:label="${appLabel}"
+        android:icon="@drawable/icon"
+        android:allowBackup="false"
+        android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="false">
+
+        <activity
+            android:name="org.qtproject.qt.android.bindings.QtActivity"
+            android:label="${appLabel}"
+            android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density"
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTop"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="android.app.lib_name" android:value="-- %%INSERT_APP_LIB_NAME%% --" />
+            <meta-data android:name="android.app.arguments" android:value="-- %%INSERT_APP_ARGUMENTS%% --" />
+        </activity>
+
+        <!-- Health Connect shows this when someone asks why Kladde wants the data; without
+             it the permission screen does not open at all. -->
+        <activity
+            android:name="de.arianw.kladde.PrivacyActivity"
+            android:label="${appLabel}"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Android 14+: the same text, from the system's permission settings. -->
+        <activity-alias
+            android:name="de.arianw.kladde.ViewPermissionUsageActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity="de.arianw.kladde.PrivacyActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+    </application>
+</manifest>

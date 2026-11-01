@@ -9,7 +9,7 @@ import java.time.LocalDate
 
 /** QueueStore in the app's private SQLite database (kladde-sync.db). */
 class SqliteQueueStore(context: Context) :
-    SQLiteOpenHelper(context, "kladde-sync.db", null, VERSION), QueueStore {
+    SQLiteOpenHelper(context, NAME, null, VERSION), QueueStore {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE pending (key TEXT PRIMARY KEY, body TEXT NOT NULL, size INTEGER NOT NULL, created INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, due INTEGER NOT NULL)")
@@ -152,8 +152,9 @@ class SqliteQueueStore(context: Context) :
         }, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
-    private companion object {
-        const val VERSION = 2
-        const val KEY_CURSOR = "hc.changesToken"
+    companion object {
+        const val NAME = "kladde-sync.db"
+        private const val VERSION = 2
+        private const val KEY_CURSOR = "hc.changesToken"
     }
 }

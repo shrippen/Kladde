@@ -10,12 +10,17 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
-#elif !defined(Q_OS_ANDROID)
+#else
 #include "keychainstore.h"
+#endif
+
+#ifdef Q_OS_ANDROID
+#include "platform/androidbackfilter.h"
 #endif
 
 #include <QCommandLineParser>
 #include <QGuiApplication>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
@@ -25,6 +30,11 @@
 
 int main(int argc, char **argv)
 {
+#ifdef Q_OS_ANDROID
+    // Android has no Kirigami platform theme: Material Dark, coloured by Kante (Main.qml).
+    qputenv("QT_QUICK_CONTROLS_STYLE", "Material");
+    qputenv("QT_QUICK_CONTROLS_MATERIAL_THEME", "Dark");
+#endif
     QGuiApplication app(argc, argv);
     QGuiApplication::setOrganizationName(QStringLiteral("shrippen"));
 #ifdef KLADDE_DEMO
@@ -34,6 +44,10 @@ int main(int argc, char **argv)
     QGuiApplication::setApplicationName(QStringLiteral("kladde"));
 #endif
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Kladde"));
+#ifdef Q_OS_ANDROID
+    QIcon::setThemeSearchPaths(QIcon::themeSearchPaths() << QStringLiteral(":/icons"));
+    QIcon::setThemeName(QStringLiteral("breeze-dark"));
+#endif
 
     // German where the system speaks it, English otherwise.
     QTranslator translator;
@@ -54,9 +68,8 @@ int main(int argc, char **argv)
     cli.addOption(shotOpt);
     cli.process(app);
 
-#if defined(KLADDE_DEMO) || defined(Q_OS_ANDROID)
-    // Demo: nothing goes to the keychain. Android: the Keystore store comes with the
-    // Android build (JNI into android/sync).
+#ifdef KLADDE_DEMO
+    // Nothing goes to the keychain.
     kladde::MemorySecretStore secrets;
 #else
     KeychainStore secrets;
@@ -92,11 +105,18 @@ int main(int argc, char **argv)
     engine.rootContext()->setContextProperty(QStringLiteral("history"), &history);
     engine.rootContext()->setContextProperty(QStringLiteral("entry"), &entry);
     engine.rootContext()->setContextProperty(QStringLiteral("sync"), &sync);
+#ifdef Q_OS_ANDROID
+    // Kirigami's style modules sit in the resources there.
+    engine.addImportPath(QStringLiteral("qrc:/qt/qml"));
+#endif
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
     engine.load(QUrl(QStringLiteral("qrc:/qt/qml/Kladde/Main.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;
+#ifdef Q_OS_ANDROID
+    app.installEventFilter(new AndroidBackFilter(&engine));
+#endif
 
 #ifdef KLADDE_DEMO
     // Signed in from the start; with SHOT_PLAN/SHOT_DIR (demo/tools/screenshots.py) every

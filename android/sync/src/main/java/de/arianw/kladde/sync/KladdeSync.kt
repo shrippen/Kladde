@@ -3,6 +3,7 @@ package de.arianw.kladde.sync
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -53,6 +54,12 @@ object KladdeSync {
             credentials.token = token.trim()
         }
     }
+
+    /** Names the sync's measurement token in HealthLog's settings. */
+    @JvmStatic
+    fun deviceName(): String =
+        if (Build.MODEL.startsWith(Build.MANUFACTURER, ignoreCase = true)) Build.MODEL
+        else "${Build.MANUFACTURER} ${Build.MODEL}"
 
     @JvmStatic
     fun server(context: Context): String = Credentials(context).server ?: ""
@@ -109,6 +116,7 @@ object KladdeSync {
     }
 
     /** How far the first sync reaches back (LF-11). */
+    @JvmStatic
     fun backfillDays(context: Context): Long =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_BACKFILL, DEFAULT_BACKFILL)
 
@@ -137,6 +145,19 @@ object KladdeSync {
             }))
             .put("now", Instant.now().toString())
             .toString()
+    }
+
+    /**
+     * Sign-out: stop the background work, drop the token and everything queued or
+     * remembered for this account. Signing in again reads the backfill window anew.
+     */
+    @JvmStatic
+    fun forget(context: Context) {
+        val work = WorkManager.getInstance(context)
+        work.cancelUniqueWork(PERIODIC)
+        work.cancelUniqueWork(ONCE)
+        Credentials(context).token = null
+        context.deleteDatabase(SqliteQueueStore.NAME)
     }
 
     /** Forget the cursor: the next sync reads the backfill window again (the server dedups). */

@@ -4,7 +4,7 @@
 # pull requests on GitHub, so everything runs on push.
 #
 # Stays local (needs a phone or a watch): the probe's run against Health
-# Connect, the real sync.
+# Connect, the real sync, the APK on a device.
 #
 # Needs the secret GITEA_TOKEN: a Gitea token with write access to the
 # repository (commit statuses).
@@ -112,22 +112,61 @@ jobs:
           name: hc-probe-debug-apk
           path: spikes/hc-probe/app/build/outputs/apk/debug/*.apk
 
+  # The app for Android: the debug APK (de.arianw.kladde.dev, "Kladde Dev", installs next
+  # to a release) as an artifact of every push, for trying a branch on the phone. Built by
+  # the same script as on a developer machine; Qt and the dependencies (Kirigami,
+  # QtKeychain, OpenSSL) come from the cache while the scripts stay the same.
+  android:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: 17
+      # Qt's host tools (qsb for Kirigami's shaders) need the GL libraries of a desktop.
+      - name: Host libraries for Qt tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libegl1 libgl1 libopengl0 libxkbcommon0 libfontconfig1 > /dev/null
+      - name: Android SDK packages
+        run: |
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/Qt
+            ~/kf6-android
+          key: android-deps-${{ hashFiles('scripts/build-android.sh', 'scripts/build-deps-android.sh') }}
+      - name: Build the APK
+        env:
+          KLADDE_VERBOSE: 1
+        run: scripts/build-android.sh debug
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: kladde-debug-apk
+          path: dist/android/kladde-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
   # Also runs when a check failed or was cancelled, so Gitea never keeps a
   # stale "pending".
   report:
-    needs: [test, hc-probe]
+    needs: [test, hc-probe, android]
     if: always()
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - name: Report result to Gitea
         run: |
-          if [ "$TEST" = success ] && [ "$PROBE" = success ]; then
+          if [ "$TEST" = success ] && [ "$PROBE" = success ] && [ "$APK" = success ]; then
             state=success; result=success
-          elif [ "$TEST" = failure ] || [ "$PROBE" = failure ]; then
+          elif [ "$TEST" = failure ] || [ "$PROBE" = failure ] || [ "$APK" = failure ]; then
             state=failure; result=failure
           else
-            state=error; result="test $TEST, hc-probe $PROBE"
+            state=error; result="test $TEST, hc-probe $PROBE, android $APK"
           fi
           desc=$result
           if [ -n "$STARTED" ]; then desc="$result in $(( ($(date +%s) - STARTED) / 60 )) min"; fi
@@ -137,5 +176,6 @@ jobs:
         env:
           TEST: ${{ needs.test.result }}
           PROBE: ${{ needs.hc-probe.result }}
+          APK: ${{ needs.android.result }}
           STARTED: ${{ needs.test.outputs.started }}
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}

@@ -61,7 +61,8 @@ public:
 
     State state() const { return m_state; }
     // Counts sign-ins, sign-outs and server changes: an answer that arrives after one
-    // belongs to a session that is gone (Account checks it for the sync token).
+    // belongs to a session that is gone. Callers compare it before using an answer
+    // (generationChanged: drop what is under way).
     quint64 generation() const { return m_generation; }
     QString username() const { return m_username; }
     QStringList mfaMethods() const { return m_mfaMethods; }
@@ -84,6 +85,8 @@ Q_SIGNALS:
     void stateChanged();
     // The refresh token was refused: the user has to sign in again.
     void signedOutByServer();
+    // Signed in, out or to another server: answers still under way are stale.
+    void generationChanged();
 
 private:
     struct Call {
@@ -126,6 +129,7 @@ private:
     QDateTime m_accessExpires;
     QString m_refreshToken;
     bool m_refreshing = false;
+    bool m_keychainFailed = false; // the last refresh token did not reach the keychain
     quint64 m_generation = 0;
     QList<Call> m_waiting;
 };

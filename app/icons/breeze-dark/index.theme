@@ -1,0 +1,11 @@
+[Icon Theme]
+Name=Breeze Dark (Kladde subset)
+Comment=The Breeze Dark icons Kladde uses, for Android (no icon theme there). Breeze icons: LGPL-3.0-or-later, KDE.
+Directories=actions/22
+
+[actions/22]
+Size=22
+Context=Actions
+Type=Scalable
+MinSize=8
+MaxSize=512

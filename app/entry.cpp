@@ -36,6 +36,15 @@ Entry::Entry(kladde::Session *session, QObject *parent)
     : QObject(parent)
     , m_session(session)
 {
+    // Signed out or in again: a save under way belongs to the old session (its answer is
+    // dropped in send), and its Idempotency-Key is not reused for another account.
+    connect(session, &kladde::Session::generationChanged, this, [this] {
+        m_busy = false;
+        m_error.clear();
+        m_signature.clear();
+        m_key.clear();
+        Q_EMIT changed();
+    });
 }
 
 QStringList Entry::invalidFields(Kind kind, const QVariantMap &values) const
@@ -100,7 +109,9 @@ void Entry::save(Kind kind, const QVariantMap &values, const QDateTime &at, cons
 
 void Entry::send()
 {
-    m_session->post(m_path, m_body, [this](const ApiReply &r) {
+    m_session->post(m_path, m_body, [this, g = m_session->generation()](const ApiReply &r) {
+        if (g != m_session->generation())
+            return;
         m_busy = false;
         if (!r.ok()) {
             m_error = Errors::describe(r);

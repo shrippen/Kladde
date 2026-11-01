@@ -23,9 +23,13 @@ History::History(kladde::Session *session, QObject *parent)
     : QObject(parent)
     , m_session(session)
 {
-    connect(session, &kladde::Session::stateChanged, this, [this] {
-        if (m_session->state() == kladde::Session::State::SignedOut)
-            clear();
+    // Signed out or in again: the last user's series goes, an answer under way for them
+    // is dropped (a new request number).
+    connect(session, &kladde::Session::generationChanged, this, [this] {
+        ++m_request;
+        m_loading = false;
+        m_error.clear();
+        clear();
     });
 }
 

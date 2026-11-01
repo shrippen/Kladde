@@ -4,7 +4,6 @@
 
 #include <QJsonObject>
 #include <QSettings>
-#include <QSysInfo>
 #include <QUuid>
 
 using kladde::ApiReply;
@@ -33,8 +32,8 @@ Account::Account(kladde::SecretStore *secrets, SyncBridge *sync, QObject *parent
     m_session.setServer(QUrl(m_server));
 
     connect(&m_session, &Session::stateChanged, this, [this] {
-        if (m_session.state() == Session::State::SignedIn && m_sync->available() && !m_sync->configured())
-            mintSyncToken();
+        if (m_session.state() == Session::State::SignedIn)
+            signedIn();
         Q_EMIT stateChanged();
     });
     connect(&m_session, &Session::signedOutByServer, m_sync, &SyncBridge::forget);
@@ -42,7 +41,11 @@ Account::Account(kladde::SecretStore *secrets, SyncBridge *sync, QObject *parent
 
 QString Account::error() const
 {
-    return Errors::describe(m_session.lastErrorStatus(), m_session.lastError());
+    const int status = m_session.lastErrorStatus();
+    const QString code = m_session.lastError();
+    if (m_signingIn)
+        return Errors::describeSignIn(status, code, m_session.state() == Session::State::NeedsMfa);
+    return Errors::describe(status, code);
 }
 
 Account::State Account::state() const
@@ -68,6 +71,7 @@ void Account::setServer(const QString &server)
 
 void Account::restore()
 {
+    m_signingIn = false;
     if (!m_server.isEmpty())
         m_session.restore();
 }
@@ -101,6 +105,7 @@ void Account::checkServer()
 
 void Account::login(const QString &email, const QString &password)
 {
+    m_signingIn = true;
     m_session.login(email.trimmed(), password);
 }
 
@@ -111,20 +116,43 @@ void Account::verifyMfa(const QString &code, bool recoveryCode)
 
 void Account::logout()
 {
+    m_signingIn = false;
     m_sync->forget();
     m_session.logout();
 }
 
+void Account::signedIn()
+{
+    // From here on a 401 means the session ended, not a wrong password.
+    const bool fresh = m_signingIn;
+    m_signingIn = false;
+    if (!m_sync->available() || m_minting == m_session.generation()) {
+        return;
+    }
+
+    // A sign-in with password or code gets a sync token of its own: the sync may still
+    // carry one of an earlier sign-in (another account or server) that no sign-out forgot,
+    // e.g. when the keychain lost the session.
+    if (fresh && m_sync->configured()) {
+        m_sync->forget();
+    }
+    if (!m_sync->configured()) {
+        mintSyncToken();
+    }
+}
+
 void Account::mintSyncToken()
 {
+    m_minting = m_session.generation();
     // A token of its own for the background sync, named after the device, so the user can
     // see and revoke it in HealthLog's settings. No expiry: the sync runs unattended.
-    const QJsonObject body{{QStringLiteral("name"), QStringLiteral("Kladde (%1)").arg(QSysInfo::machineHostName())}};
+    const QJsonObject body{{QStringLiteral("name"), QStringLiteral("Kladde (%1)").arg(m_sync->deviceName())}};
     m_session.post(QStringLiteral("/api/tokens/measurements"), body,
                    [this, g = m_session.generation()](const ApiReply &r) {
         // Signed out meanwhile: the sync must not get a token of the old session.
         if (g != m_session.generation())
             return;
+        m_minting = 0;
         const QString token = r.data().toObject().value(QLatin1String("token")).toString();
         if (r.ok() && !token.isEmpty())
             m_sync->configure(m_server, token);

@@ -46,7 +46,11 @@ Aufbau nach der iOS-App ([ios-aufbau.md](ios-aufbau.md)).
 - [x] `android/sync`: Health Connect mit Changes-Token, ganze Tage für Summen und Blöcke,
       Warteschlange in SQLite (Cursor in derselben Transaktion), Upload mit Backoff, 422 je
       Eintrag, Token im Android Keystore, WorkManager, Statusdaten (LF-10 … LF-24).
-- [ ] Qt für Android bauen (Vorlage Plasmai), JNI zu `KladdeSync`.
+- [x] Qt für Android bauen (Vorlage Plasmai, `scripts/build-android.sh`), JNI zu `KladdeSync`
+      (`app/syncbridge_android.cpp`); Debug-APK `de.arianw.kladde.dev` aus der CI.
+- [ ] APK auf dem Telefon: Anmeldung, Health-Connect-Rechte, Sync.
+- [ ] Abmelden widerruft das Mess-Token des Syncs nur auf dem Telefon; auf dem Server bleibt es
+      gültig, bis der Nutzer es in HealthLog löscht. Widerrufen, sobald die API es erlaubt.
 - [x] Einrichtung: Server prüfen, Anmeldung mit Passwort und zweitem Faktor; Refresh-Token im
       Schlüsselbund (QtKeychain), Erneuerung einzeln und mit Rotation. Wo es den Hintergrund-Sync
       gibt (Android), legt die App nach der Anmeldung ihr eigenes Mess-Token an; scharf erst mit
@@ -57,7 +61,8 @@ Aufbau nach der iOS-App ([ios-aufbau.md](ios-aufbau.md)).
       Mehr (Sync-Status, Konto). Deutsch und Englisch.
 - [x] Demo-Modus mit Studio-Weber-Gesundheitsdaten (`demo/start.sh`, `demo/shots.json`), ein
       Test hält die Demo aus normalen Builds.
-- [ ] Android-Schlüsselspeicher für das Refresh-Token (JNI zu `Credentials`).
+- [ ] Android-Schlüsselspeicher für das Refresh-Token: QtKeychain (Android Keystore) ist im
+      APK, auf dem Telefon ungeprüft.
 
 ## Phase 2: Anzeige und Plasma Mobile (LF-30 … LF-33)
 

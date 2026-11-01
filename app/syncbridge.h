@@ -42,6 +42,10 @@ public:
     int backfillDays() const { return m_backfill; }
     void setBackfillDays(int days);
 
+    // How the sync's measurement token is named in HealthLog's settings: the phone's model
+    // on Android, the host name elsewhere.
+    QString deviceName() const;
+
     // Hands the server and a measurements:write token to the background sync; the token
     // goes straight into the platform's keystore and is not kept here.
     void configure(const QString &server, const QString &token);
@@ -64,6 +68,13 @@ Q_SIGNALS:
     void changed();
 
 private:
+    // Platform side (syncbridge_android.cpp, syncbridge_none.cpp).
+    void platformInit();
+    void storeInterval();
+    void storeBackfill();
+    // Takes KladdeSync's statusJson and permissionsJson (see there).
+    void applyStatus(const QByteArray &status, const QByteArray &permissions);
+
     bool m_demo = false;
     bool m_configured = false;
     bool m_permitted = false;

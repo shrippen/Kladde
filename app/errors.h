@@ -12,5 +12,7 @@ namespace Errors {
 // status: HTTP status, 0 for no answer, -1 for a problem of the app itself.
 QString describe(int status, const QString &code);
 inline QString describe(const kladde::ApiReply &r) { return describe(r.status, r.error()); }
+// The answer to a sign-in (password or second factor): there a 401 means wrong input.
+QString describeSignIn(int status, const QString &code, bool secondFactor);
 
 } // namespace Errors

@@ -303,6 +303,74 @@ private Q_SLOTS:
             return false;
         }, 5000));
     }
+
+    void aKeychainThatFailsIsReported()
+    {
+        // A store that refuses at once, before login's own setState(SignedIn).
+        struct Refusing : MemorySecretStore {
+            void write(const QString &, const QString &, Done done) override { done(false); }
+        };
+        Auth auth;
+        FakeServer server([&](const FakeServer::Request &r) { return auth.handle(r); });
+        Refusing secrets;
+        Session session(&secrets);
+        session.setServer(server.url());
+        session.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
+        QVERIFY(QTest::qWaitFor([&] { return session.state() == Session::State::SignedIn; }, 5000));
+        QCOMPARE(session.lastError(), QStringLiteral("kladde.keychain"));
+    }
+
+    void anOldCallsAnswerDoesNotRefreshTheNewSession()
+    {
+        // A request of the first sign-in is still under way when the user signs out and in
+        // again; its 401 arrives afterwards. It is answered as is, without spending the new
+        // session's refresh token.
+        MemorySecretStore secrets;
+        Session session(&secrets);
+        session.setServer(QUrl(QStringLiteral("https://hl.example.org")));
+        QList<QPair<QString, Session::Callback>> pending;
+        session.setTransport([&](const QByteArray &, const QString &path, const QByteArray &, Session::Callback done) {
+            pending << qMakePair(path, done);
+        });
+        Auth auth;
+        auto answer = [&](int i, const FakeServer::Answer &a) {
+            ApiReply r;
+            r.status = a.status;
+            r.root = a.body;
+            pending[i].second(r);
+        };
+        QSignalSpy generations(&session, &Session::generationChanged);
+
+        session.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
+        QVERIFY(QTest::qWaitFor([&] { return pending.size() == 1; }, 5000));
+        answer(0, auth.tokens());
+        QCOMPARE(session.state(), Session::State::SignedIn);
+
+        ApiReply old;
+        bool oldDone = false;
+        session.get(QStringLiteral("/api/x"), [&](const ApiReply &r) { old = r; oldDone = true; });
+        QVERIFY(QTest::qWaitFor([&] { return pending.size() == 2; }, 5000));
+
+        session.logout();
+        session.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
+        QVERIFY(QTest::qWaitFor([&] {
+            return std::any_of(pending.begin(), pending.end(), [](const auto &p) {
+                return p.first == QLatin1String("/api/auth/login");
+            }) && pending.last().first == QLatin1String("/api/auth/login");
+        }, 5000));
+        answer(int(pending.size()) - 1, auth.tokens());
+        QCOMPARE(session.state(), Session::State::SignedIn);
+        QVERIFY(generations.size() >= 2);
+
+        const qsizetype before = pending.size();
+        answer(1, Auth::refused(401, "auth.unauthorized"));
+        QVERIFY(oldDone);
+        QCOMPARE(old.status, 401);
+        QTest::qWait(50);
+        for (qsizetype i = before; i < pending.size(); ++i)
+            QVERIFY(pending[i].first != QLatin1String("/api/auth/refresh"));
+        QCOMPARE(session.state(), Session::State::SignedIn);
+    }
 };
 
 QTEST_GUILESS_MAIN(TestSession)

@@ -1,0 +1,125 @@
+// The Gradle file of the APK, in place of the one androiddeployqt would write. Kept close to
+// Qt's template (Qt 6.11: <Qt>/android_arm64_v8a/src/android/templates/build.gradle); what
+// differs is marked "Kladde". app/CMakeLists.txt fills in @…@ and hands the result to Qt as
+// the package source (QT_ANDROID_PACKAGE_SOURCE_DIR).
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        //noinspection AndroidGradlePluginVersion
+        classpath 'com.android.tools.build:gradle:9.0.0'
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+apply plugin: qtGradlePluginType
+
+// Kladde: the background sync (android/sync) is compiled into the APK from its sources,
+// with the libraries it needs (versions as in android/sync/build.gradle.kts).
+def syncDir = '@KLADDE_SYNC_DIR@'
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+    //noinspection GradleDependency
+    implementation 'androidx.core:core:1.17.0'
+    implementation 'androidx.health.connect:connect-client:1.1.0'
+    implementation 'androidx.work:work-runtime-ktx:2.10.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+}
+
+// Kladde: signing for releases from four Gradle properties (RELEASE_STORE_FILE,
+// RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD), which
+// scripts/build-android.sh writes from the KLADDE_KEYSTORE_* environment. Without them a
+// release build is unsigned.
+def hasReleaseSigning = project.hasProperty('RELEASE_STORE_FILE')
+
+android {
+    // androidBuildToolsVersion, androidCompileSdkVersion, qtAndroidDir, qtGradlePluginType …
+    // come from gradle.properties, which androiddeployqt writes.
+    namespace = androidPackageName
+    compileSdkVersion androidCompileSdkVersion
+    buildToolsVersion androidBuildToolsVersion
+    ndkVersion = androidNdkVersion
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = [qtAndroidDir + '/src', 'src', 'java', syncDir + '/src/main/java']
+            kotlin.srcDirs = [qtAndroidDir + '/src', 'src', 'kotlin', syncDir + '/src/main/java']
+            aidl.srcDirs = [qtAndroidDir + '/src', 'src', 'aidl']
+            res.srcDirs = [qtAndroidDir + '/res', 'res']
+            resources.srcDirs = ['resources']
+            renderscript.srcDirs = ['src']
+            assets.srcDirs = ['assets']
+            jniLibs.srcDirs = ['libs']
+       }
+    }
+
+    tasks.withType(JavaCompile) {
+        options.incremental = true
+        options.compilerArgs += ['-Xlint:all']
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lintOptions {
+        abortOnError = false
+    }
+
+    aaptOptions {
+        // Do not compress Qt binary resources file
+        noCompress 'rcc'
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = legacyPackaging.toBoolean()
+        }
+    }
+
+    defaultConfig {
+        // Kladde: German and English. Qt's template keeps "en" only, which also drops the
+        // app's own German strings (the Health Connect privacy text).
+        resConfigs 'en', 'de'
+        minSdkVersion qtMinSdkVersion
+        targetSdkVersion qtTargetSdkVersion
+        ndk.abiFilters = qtTargetAbiList.split(",")
+        manifestPlaceholders = [appLabel: "Kladde"]
+    }
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            release {
+                storeFile file(RELEASE_STORE_FILE)
+                storePassword RELEASE_STORE_PASSWORD
+                keyAlias RELEASE_KEY_ALIAS
+                keyPassword RELEASE_KEY_PASSWORD
+            }
+        }
+    }
+
+    buildTypes {
+        // Kladde: a debug build installs next to the release (own id, data, keystore entry
+        // and name), so trying a branch never touches the real sync.
+        debug {
+            applicationIdSuffix ".dev"
+            versionNameSuffix "-dev"
+            manifestPlaceholders = [appLabel: "Kladde Dev"]
+        }
+        release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
