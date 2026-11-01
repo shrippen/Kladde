@@ -92,13 +92,15 @@ void SyncBridge::applyStatus(const QByteArray &status, const QByteArray &permiss
         && p.value(QLatin1String("missing")).toArray().isEmpty();
     m_complete = m_permitted && p.value(QLatin1String("optional")).toArray().isEmpty();
 
-    // Allowed more or less (back from Health Connect's screen): other apps to order.
+    // Allowed more or less (back from Health Connect's screen): other apps to order. The
+    // first status after the start only notes it; More reads the apps when shown.
     QStringList granted;
     for (const QJsonValue &g : p.value(QLatin1String("granted")).toArray()) {
         granted << g.toString();
     }
-    if (granted != m_granted) {
-        m_granted = granted;
+    const bool grantsChanged = m_granted && *m_granted != granted;
+    m_granted = granted;
+    if (grantsChanged) {
         loadApps();
     }
 

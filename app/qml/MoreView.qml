@@ -17,7 +17,15 @@ QQC2.ScrollView {
 
     Component.onCompleted: {
         sync.refresh()
-        sync.loadApps()
+        if (visible) {
+            sync.loadApps()
+        }
+    }
+    // The tabs create every page at the start: read Health Connect only once shown.
+    onVisibleChanged: {
+        if (visible) {
+            sync.loadApps()
+        }
     }
 
     // One kind's apps, first wins an overlap; moved with the arrows. Two apps at the least,

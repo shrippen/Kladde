@@ -7,6 +7,8 @@
 #include <QTimer>
 #include <QVariantList>
 
+#include <optional>
+
 // The background sync as the app sees it (Lastenheft LF-10 … LF-24). On Android it drives
 // the Kotlin module `android/sync` (KladdeSync) through JNI: Health Connect, WorkManager,
 // the queue and the token in the Android Keystore all live there, so the sync runs without
@@ -119,8 +121,9 @@ private:
     int m_pending = 0;
     QStringList m_silent;
     QHash<Ranked, QVariantList> m_apps;
-    // The read permissions granted at the last refresh; a new one may bring new apps.
-    QStringList m_granted;
+    // The read permissions granted at the last refresh, none before the first; a new one
+    // may bring new apps.
+    std::optional<QStringList> m_granted;
     int m_interval = 60;
     int m_backfill = 30;
     // Asks again while a sync runs (applyStatus).

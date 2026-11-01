@@ -41,18 +41,23 @@ class TestViews : public QObject
                                                {"app": "com.urbandroid.sleep", "label": "Sleep as Android"}],
                                      "workouts": [{"app": "com.freeletics.lite", "label": "Freeletics"}]})";
 
-    // The More page with its C++ objects.
-    static QQuickItem *more(QQmlEngine &engine, SyncBridge &sync, Account &account)
+    enum class Shown { Visible, Hidden };
+
+    // The More page with its C++ objects; Hidden as a tab not shown yet.
+    static QQuickItem *more(QQmlEngine &engine, SyncBridge &sync, Account &account, Shown shown = Shown::Visible)
     {
         qmlRegisterUncreatableType<SyncBridge>("Kladde.Core", 1, 0, "SyncBridge", QStringLiteral("test"));
         engine.addImportPath(QStringLiteral(KLADDE_QML));
         engine.rootContext()->setContextProperty(QStringLiteral("sync"), &sync);
         engine.rootContext()->setContextProperty(QStringLiteral("account"), &account);
         QQmlComponent component(&engine, page("MoreView.qml"));
-        auto *view = qobject_cast<QQuickItem *>(component.create());
+        auto *view = qobject_cast<QQuickItem *>(component.beginCreate(engine.rootContext()));
         if (!view) {
             qWarning() << component.errorString();
+            return nullptr;
         }
+        view->setVisible(shown == Shown::Visible);
+        component.completeCreate();
         return view;
     }
 
@@ -149,6 +154,25 @@ private Q_SLOTS:
         }
         QVERIFY(lefts.size() >= 2);
         QVERIFY2(lefts[0] != lefts[1], "up and down on top of each other");
+    }
+
+    void moreReadsTheAppsOnlyWhenShown()
+    {
+        // The tabs create every page at the start; a hidden More reads nothing.
+        FakeSync::apps = Apps;
+        MemorySecretStore secrets;
+        SyncBridge sync;
+        Account account(&secrets, &sync);
+        QQmlEngine engine;
+        QQuickItem tabs;
+        const int loads = FakeSync::appLoads;
+        std::unique_ptr<QQuickItem> view(more(engine, sync, account, Shown::Hidden));
+        QVERIFY(view);
+        view->setParentItem(&tabs);
+        QCOMPARE(FakeSync::appLoads, loads);
+
+        view->setVisible(true);
+        QCOMPARE(FakeSync::appLoads, loads + 1);
     }
 
     void newAccessShowsTheAppsAgain()

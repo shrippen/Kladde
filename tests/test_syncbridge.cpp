@@ -70,6 +70,18 @@ private Q_SLOTS:
         QVERIFY(sync.property("complete").toBool());
     }
 
+    void theFirstStatusReadsNoApps()
+    {
+        // Each start read every app's sessions of the backfill window, More opened or not
+        // (review of #17): the first status only notes what is granted.
+        FakeSync::status = Done;
+        FakeSync::permissions = R"({"available": true, "missing": [], "granted": ["READ_SLEEP"]})";
+        const int loads = FakeSync::appLoads;
+        SyncBridge sync;
+        sync.refresh();
+        QCOMPARE(FakeSync::appLoads, loads);
+    }
+
     void aNewPermissionReadsTheAppsAgain()
     {
         // Only "Training" allowed of the optional kinds: neither permitted nor complete
