@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- A plain Activity like Qt's QtActivity, not a ComponentActivity. -->
+        <activity android:name="de.arianw.kladde.sync.PlainActivity" android:exported="false" />
+    </application>
+</manifest>

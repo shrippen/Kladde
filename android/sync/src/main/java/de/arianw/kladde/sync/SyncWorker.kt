@@ -10,11 +10,15 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
     override suspend fun doWork(): Result {
         val credentials = Credentials(applicationContext)
-        val server = credentials.server
-        val token = credentials.token
-        if (server.isNullOrEmpty() || token.isNullOrEmpty()) {
+        if (!credentials.complete()) {
             return Result.success()
         }
+        // The app's session, renewed in the vault when it runs out (owner: no token of its own).
+        val http = HealthLogHttp(credentials.server!!, credentials.deviceId!!)
+        val vault = KladdeSync.vault(applicationContext)
+        // Only this session's token: after a sign-out and in, the rest of this run is refused.
+        val session = vault.session()
+        val transport = SessionTransport({ stale -> vault.current(stale, session = session) }, http::postBatch)
         if (HealthConnectClient.getSdkStatus(applicationContext) != HealthConnectClient.SDK_AVAILABLE) {
             return Result.success()
         }
@@ -25,7 +29,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         val backfill = KladdeSync.backfillDays(applicationContext)
 
         store.use {
-            SyncRunner(it, HttpTransport(server, token)).run({ cursor, zone, now ->
+            SyncRunner(it, transport).run({ cursor, zone, now ->
                 source.read(cursor, zone, backfill, it::daysOf, now)
             }, trigger)
         }

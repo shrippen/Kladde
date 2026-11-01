@@ -1,0 +1,60 @@
+#include "syncbridge.h"
+#include "syncbridge_fake.h"
+
+#include <QTest>
+
+// The status the app shows follows a sync under way to its end, without the page being
+// opened again (seen on the phone, 1.11.2026: "Health Connect: …Exception" from the run
+// before the permissions stayed on screen after the next run had uploaded 3487 entries).
+class TestSyncBridge : public QObject
+{
+    Q_OBJECT
+
+    static constexpr auto Permitted = R"({"available": true, "missing": []})";
+    static constexpr auto Running = R"({"running": true, "lastError": "HealthConnectException"})";
+    static constexpr auto Done = R"({"running": false, "lastError": null, "uploaded": 3487})";
+    static constexpr int Uploaded = 3487;
+
+private Q_SLOTS:
+    void init()
+    {
+        FakeSync::refreshes = 0;
+        FakeSync::syncs = 0;
+        FakeSync::permissions = Permitted;
+    }
+
+    void aRunningSyncIsWatchedUntilItEnds()
+    {
+        FakeSync::status = Running;
+        SyncBridge sync;
+        sync.refresh();
+        QVERIFY(sync.property("running").toBool());
+        QCOMPARE(sync.lastError(), QStringLiteral("HealthConnectException"));
+
+        FakeSync::status = Done;
+        QTRY_COMPARE(sync.uploaded(), Uploaded);
+        QVERIFY(!sync.property("running").toBool());
+        QVERIFY(sync.lastError().isEmpty());
+
+        // Done: no more asking.
+        const int asked = FakeSync::refreshes;
+        QTest::qWait(3000);
+        QCOMPARE(FakeSync::refreshes, asked);
+    }
+
+    void syncNowShowsTheRun()
+    {
+        FakeSync::status = Running;
+        SyncBridge sync;
+        sync.syncNow();
+        QCOMPARE(FakeSync::syncs, 1);
+        QVERIFY(FakeSync::refreshes > 0);
+        QTRY_VERIFY(sync.property("running").toBool());
+
+        FakeSync::status = Done;
+        QTRY_COMPARE(sync.uploaded(), Uploaded);
+    }
+};
+
+QTEST_GUILESS_MAIN(TestSyncBridge)
+#include "test_syncbridge.moc"

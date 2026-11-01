@@ -33,6 +33,8 @@ struct ApiReply {
 // refresh token that rotates on every use.
 //
 //   login ──▶ (NeedsMfa ──verifyMfa──▶) SignedIn ──logout──▶ SignedOut
+//   startSso ─ browser ─▶ finishSso(healthlog://oidc-callback?code=…) ─▶ SignedIn
+//                                        (?mfa_ticket=…) ─▶ NeedsMfa
 //   restore: refresh token from the keychain ──refresh──▶ SignedIn | SignedOut
 //
 // Every call goes through send(): an access token close to expiry is refreshed first, a
@@ -57,7 +59,13 @@ public:
     void setServer(const QUrl &server);
     QUrl server() const { return m_server; }
     void setDeviceId(const QString &id) { m_deviceId = id; }
+    QString deviceId() const { return m_deviceId; }
     void setTransport(Transport transport) { m_transport = std::move(transport); }
+    // Renews the session in place of POST /api/auth/refresh and answers like it. Android: the
+    // sync module keeps the token pair for the app and the background job, so the single-use
+    // refresh token is never spent twice. Gets the access token that was refused (or empty).
+    using Renewer = std::function<void(const QString &stale, Callback)>;
+    void setRenewer(Renewer renewer) { m_renewer = std::move(renewer); }
 
     State state() const { return m_state; }
     // Counts sign-ins, sign-outs and server changes: an answer that arrives after one
@@ -74,6 +82,10 @@ public:
     void restore();
     void login(const QString &email, const QString &password);
     void verifyMfa(const QString &code, const QString &method = QStringLiteral("totp"));
+    // Sign-in with the server's SSO (OIDC) in the browser: returns the address to open.
+    // The browser comes back on healthlog://oidc-callback, which goes to finishSso.
+    QUrl startSso();
+    void finishSso(const QUrl &callback);
     void logout();
 
     void get(const QString &path, Callback done);
@@ -101,6 +113,7 @@ private:
     void send(Call call);
     void transmit(Call call);
     void refresh();
+    void fetchUser();
     void finishRefresh(const ApiReply &reply);
     void revoke(const QString &refreshToken);
     void endGeneration();
@@ -122,6 +135,8 @@ private:
     QString m_username;
     QStringList m_mfaMethods;
     QString m_mfaTicket;
+    Renewer m_renewer;
+    QByteArray m_ssoVerifier; // PKCE verifier of the SSO sign-in under way, single-use
     QString m_lastError;
     int m_lastErrorStatus = -1;
 

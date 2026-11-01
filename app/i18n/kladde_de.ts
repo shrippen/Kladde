@@ -4,12 +4,12 @@
 <context>
     <name>Account</name>
     <message>
-        <location filename="../account.cpp" line="93"/>
+        <location filename="../account.cpp" line="106"/>
         <source>The address must start with https://</source>
         <translation>Die Adresse muss mit https:// beginnen</translation>
     </message>
     <message>
-        <location filename="../account.cpp" line="105"/>
+        <location filename="../account.cpp" line="119"/>
         <source>No HealthLog at this address</source>
         <translation>Unter dieser Adresse antwortet kein HealthLog</translation>
     </message>
@@ -17,58 +17,68 @@
 <context>
     <name>Errors</name>
     <message>
-        <location filename="../errors.cpp" line="13"/>
+        <location filename="../errors.cpp" line="20"/>
         <source>The sign-in is not kept for the next start: the system keychain did not answer.</source>
         <translation>Die Anmeldung bleibt nicht bis zum nächsten Start: Der Schlüsselbund des Systems hat nicht geantwortet.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="15"/>
+        <location filename="../errors.cpp" line="22"/>
         <source>The server answered without a sign-in.</source>
         <translation>Der Server hat ohne Anmeldung geantwortet.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="17"/>
+        <location filename="../errors.cpp" line="24"/>
+        <source>Link this account with the SSO once in HealthLog&apos;s web app (sign in there with the password), then try again.</source>
+        <translation>Verknüpfe das Konto einmal in der Web-App von HealthLog mit dem SSO (dort mit Passwort anmelden), dann erneut versuchen.</translation>
+    </message>
+    <message>
+        <location filename="../errors.cpp" line="26"/>
+        <source>The SSO sign-in did not work (%1).</source>
+        <translation>Die SSO-Anmeldung hat nicht geklappt (%1).</translation>
+    </message>
+    <message>
+        <location filename="../errors.cpp" line="28"/>
         <source>No connection to the server.</source>
         <translation>Keine Verbindung zum Server.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="19"/>
+        <location filename="../errors.cpp" line="30"/>
         <source>The code is not right or has expired.</source>
         <translation>Der Code stimmt nicht oder ist abgelaufen.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="21"/>
-        <location filename="../errors.cpp" line="25"/>
+        <location filename="../errors.cpp" line="32"/>
+        <location filename="../errors.cpp" line="36"/>
         <source>The sign-in has ended. Please sign in again.</source>
         <translation>Die Anmeldung ist abgelaufen. Bitte neu anmelden.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="47"/>
+        <location filename="../errors.cpp" line="60"/>
         <source>Not accepted: the e-mail, user name or password is not right.</source>
         <translation>Nicht angenommen: E-Mail, Benutzername oder Passwort stimmen nicht.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="27"/>
+        <location filename="../errors.cpp" line="38"/>
         <source>This account may not do that (%1).</source>
         <translation>Dieses Konto darf das nicht (%1).</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="29"/>
+        <location filename="../errors.cpp" line="40"/>
         <source>Not found at this address. Is it a HealthLog?</source>
         <translation>Unter dieser Adresse nicht gefunden. Ist es ein HealthLog?</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="31"/>
+        <location filename="../errors.cpp" line="42"/>
         <source>Too many attempts. Please wait a moment.</source>
         <translation>Zu viele Versuche. Bitte einen Moment warten.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="36"/>
+        <location filename="../errors.cpp" line="47"/>
         <source>The server has a problem (HTTP %1). Please try again later.</source>
         <translation>Der Server hat ein Problem (HTTP %1). Bitte später noch einmal versuchen.</translation>
     </message>
     <message>
-        <location filename="../errors.cpp" line="37"/>
+        <location filename="../errors.cpp" line="48"/>
         <source>Error: %1</source>
         <translation>Fehler: %1</translation>
     </message>
@@ -485,90 +495,95 @@
         <translation>HealthLog verbinden</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="22"/>
+        <location filename="../qml/SetupPage.qml" line="29"/>
         <source>Server</source>
         <translation>Server</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="32"/>
+        <location filename="../qml/SetupPage.qml" line="39"/>
         <source>Server address</source>
         <translation>Serveradresse</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="37"/>
+        <location filename="../qml/SetupPage.qml" line="44"/>
         <source>Check</source>
         <translation>Prüfen</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="51"/>
+        <location filename="../qml/SetupPage.qml" line="58"/>
         <source>HealthLog</source>
         <translation>HealthLog</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="52"/>
+        <location filename="../qml/SetupPage.qml" line="59"/>
         <source>Version %1</source>
         <translation>Version %1</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="53"/>
+        <location filename="../qml/SetupPage.qml" line="60"/>
         <source>Checking …</source>
         <translation>Prüfe …</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="60"/>
+        <location filename="../qml/SetupPage.qml" line="67"/>
         <source>Second factor</source>
         <translation>Zweiter Faktor</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="60"/>
+        <location filename="../qml/SetupPage.qml" line="67"/>
         <source>Account</source>
         <translation>Konto</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="66"/>
+        <location filename="../qml/SetupPage.qml" line="73"/>
         <source>E-mail or user name</source>
         <translation>E-Mail oder Benutzername</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="74"/>
+        <location filename="../qml/SetupPage.qml" line="81"/>
         <source>Password</source>
         <translation>Passwort</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="83"/>
+        <location filename="../qml/SetupPage.qml" line="90"/>
         <source>Recovery code</source>
         <translation>Wiederherstellungscode</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="83"/>
+        <location filename="../qml/SetupPage.qml" line="90"/>
         <source>Code from the authenticator app</source>
         <translation>Code aus der Authenticator-App</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="91"/>
+        <location filename="../qml/SetupPage.qml" line="98"/>
         <source>Use a recovery code</source>
         <translation>Wiederherstellungscode verwenden</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="96"/>
+        <location filename="../qml/SetupPage.qml" line="103"/>
         <source>Confirm</source>
         <translation>Bestätigen</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="96"/>
+        <location filename="../qml/SetupPage.qml" line="103"/>
         <source>Sign in</source>
         <translation>Anmelden</translation>
     </message>
     <message>
-        <location filename="../qml/SetupPage.qml" line="124"/>
-        <source>Kladde keeps only a renewable sign-in in the system keychain, never the password. On Android it creates its own measurement token for the upload in the background, visible and revocable in HealthLog.</source>
-        <translation>Kladde behält nur eine erneuerbare Anmeldung im Schlüsselbund des Systems, nie das Passwort. Unter Android legt es für das Hochladen im Hintergrund ein eigenes Mess-Token an, sichtbar und widerrufbar in HealthLog.</translation>
+        <location filename="../qml/SetupPage.qml" line="123"/>
+        <source>Sign in with %1</source>
+        <translation>Mit %1 anmelden</translation>
+    </message>
+    <message>
+        <location filename="../qml/SetupPage.qml" line="138"/>
+        <source>Kladde keeps only a renewable sign-in in the system keychain, never the password. On Android the upload in the background uses this sign-in too.</source>
+        <translation>Kladde behält nur eine erneuerbare Anmeldung im Schlüsselbund des Systems, nie das Passwort. Unter Android lädt der Abgleich im Hintergrund mit derselben Anmeldung hoch.</translation>
     </message>
 </context>
 <context>
     <name>SyncBridge</name>
     <message>
-        <location filename="../syncbridge_none.cpp" line="19"/>
+        <location filename="../syncbridge_none.cpp" line="18"/>
         <source>Health Connect exists only on Android. On Linux the watch will connect directly (planned).</source>
         <translation>Health Connect gibt es nur unter Android. Unter Linux verbindet sich die Uhr künftig direkt (geplant).</translation>
     </message>

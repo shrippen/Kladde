@@ -1,5 +1,7 @@
 #include "session.h"
+#include "pkce.h"
 
+#include <QCoreApplication>
 #include <QHostAddress>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -7,12 +9,24 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QTimer>
+#include <QUrlQuery>
+
+#include <utility>
 
 namespace kladde {
 
 namespace {
 
 constexpr int TransferTimeoutMs = 30000;
+// Error codes of the SSO callback (?error=…) become "sso.<reason>".
+const auto SsoErrorPrefix = QStringLiteral("sso.");
+
+// e.g. "Kladde/0.1.0"
+QString userAgent()
+{
+    const QString version = QCoreApplication::applicationVersion();
+    return version.isEmpty() ? QStringLiteral("Kladde") : QStringLiteral("Kladde/") + version;
+}
 // Refresh this long before the access token runs out, not on the first 401.
 constexpr qint64 RefreshMarginSecs = 60;
 
@@ -109,6 +123,11 @@ void Session::raw(const QByteArray &verb, const QString &path, const QByteArray 
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setRawHeader("Accept", "application/json");
     req.setRawHeader("X-Client-Type", "native");
+    // Not Qt's "Mozilla/5.0" and no cookies: HealthLog takes either for a browser and
+    // gives it no refresh token.
+    req.setHeader(QNetworkRequest::UserAgentHeader, userAgent());
+    req.setAttribute(QNetworkRequest::CookieLoadControlAttribute, QNetworkRequest::Manual);
+    req.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
     if (!m_deviceId.isEmpty())
         req.setRawHeader("X-Device-Id", m_deviceId.toUtf8());
     if (withToken && !m_accessToken.isEmpty())
@@ -158,6 +177,7 @@ bool Session::acceptTokens(const QJsonObject &data)
 void Session::dropTokens()
 {
     m_keychainFailed = false;
+    m_ssoVerifier.clear();
     m_accessToken.clear();
     m_refreshToken.clear();
     m_accessExpires = {};
@@ -238,6 +258,63 @@ void Session::signIn(const ApiReply &r)
     setState(State::SignedIn);
 }
 
+QUrl Session::startSso()
+{
+    endGeneration();
+    dropTokens();
+    m_mfaTicket.clear();
+    // The state stays: the browser may never come back (closed, cancelled).
+    m_ssoVerifier = pkceVerifier();
+
+    // The native arm of HealthLog's SSO start; the callback address is fixed on the server.
+    QUrl url = m_server.resolved(QUrl(QStringLiteral("/api/auth/oidc/login")));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("client"), QStringLiteral("native"));
+    query.addQueryItem(QStringLiteral("code_challenge"), QString::fromLatin1(pkceChallenge(m_ssoVerifier)));
+    url.setQuery(query);
+    return url;
+}
+
+void Session::finishSso(const QUrl &callback)
+{
+    // Only the answer to our own start: a stray or repeated callback finds no verifier.
+    if (m_ssoVerifier.isEmpty()) {
+        return;
+    }
+    const QByteArray verifier = std::exchange(m_ssoVerifier, {});
+    const QUrlQuery query(callback);
+
+    // e.g. ?error=oidc_link_required: the account is linked to the SSO once on the web.
+    const QString error = query.queryItemValue(QStringLiteral("error"));
+    if (!error.isEmpty()) {
+        setState(State::SignedOut, SsoErrorPrefix + error);
+        return;
+    }
+
+    // An account with a second factor: the ticket continues at verifyMfa.
+    const QString ticket = query.queryItemValue(QStringLiteral("mfa_ticket"));
+    if (!ticket.isEmpty()) {
+        m_mfaTicket = ticket;
+        m_mfaMethods.clear();
+        setState(State::NeedsMfa);
+        return;
+    }
+
+    const QString code = query.queryItemValue(QStringLiteral("code"));
+    if (code.isEmpty()) {
+        setState(State::SignedOut, QStringLiteral("kladde.no_tokens"));
+        return;
+    }
+    setState(State::SigningIn);
+    const QJsonObject body{{QStringLiteral("code"), code}, {QStringLiteral("codeVerifier"), QString::fromLatin1(verifier)}};
+    raw("POST", QStringLiteral("/api/auth/oidc/native/token"), QJsonDocument(body).toJson(QJsonDocument::Compact),
+        false, {}, [this, g = m_generation](const ApiReply &r) {
+            if (g == m_generation) {
+                signIn(r);
+            }
+        });
+}
+
 void Session::logout()
 {
     // End the session on the server and spend the refresh token; the answers do not matter,
@@ -245,8 +322,14 @@ void Session::logout()
     // itself: its answer is dropped and the token it brings revoked (finishRefresh).
     if (!m_accessToken.isEmpty())
         raw("POST", QStringLiteral("/api/auth/logout"), "{}", true, {}, [](const ApiReply &) {});
-    if (!m_refreshToken.isEmpty() && !m_refreshing)
-        revoke(m_refreshToken);
+
+    // The store may hold a newer token than ours (Android: the background job renewed);
+    // ours is spent then, and a spent one coming back revokes every token of the user.
+    if (!m_refreshToken.isEmpty() && !m_refreshing) {
+        m_secrets->read(secretKey(), [this, ours = m_refreshToken](bool ok, const QString &kept) {
+            revoke(ok && !kept.isEmpty() ? kept : ours);
+        });
+    }
     endGeneration();
     dropTokens();
     m_username.clear();
@@ -321,9 +404,7 @@ void Session::refresh()
     if (m_refreshing)
         return;
     m_refreshing = true;
-    const QJsonObject body{{QStringLiteral("refreshToken"), m_refreshToken}};
-    raw("POST", QStringLiteral("/api/auth/refresh"), QJsonDocument(body).toJson(QJsonDocument::Compact),
-        false, {}, [this, g = m_generation](const ApiReply &r) {
+    auto done = [this, g = m_generation](const ApiReply &r) {
             if (g == m_generation) {
                 finishRefresh(r);
                 return;
@@ -333,7 +414,26 @@ void Session::refresh()
             const QString late = r.data().toObject().value(QLatin1String("refreshToken")).toString();
             if (r.ok() && !late.isEmpty())
                 revoke(late);
-        });
+        };
+    if (m_renewer) {
+        m_renewer(m_accessToken, done);
+        return;
+    }
+    const QJsonObject body{{QStringLiteral("refreshToken"), m_refreshToken}};
+    raw("POST", QStringLiteral("/api/auth/refresh"), QJsonDocument(body).toJson(QJsonDocument::Compact),
+        false, {}, done);
+}
+
+void Session::fetchUser()
+{
+    // A refresh does not name the user (restart): ask who it is.
+    get(QStringLiteral("/api/auth/me"), [this, g = m_generation](const ApiReply &r) {
+        if (g != m_generation || !r.ok()) {
+            return;
+        }
+        m_username = r.data().toObject().value(QLatin1String("username")).toString();
+        Q_EMIT stateChanged();
+    });
 }
 
 void Session::finishRefresh(const ApiReply &r)
@@ -346,6 +446,9 @@ void Session::finishRefresh(const ApiReply &r)
             setState(State::SignedIn);
         for (Call &c : waiting)
             transmit(std::move(c));
+        if (m_username.isEmpty()) {
+            fetchUser();
+        }
         return;
     }
 

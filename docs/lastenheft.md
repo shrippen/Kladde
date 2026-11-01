@@ -41,10 +41,10 @@ Auswertungen, das bleibt HealthLog.
 ### Verbindung
 
 - **LF-01** Anmeldung wie die iOS-App: Serveradresse, Benutzer und Passwort, zweiter Faktor
-  (TOTP oder Wiederherstellungscode); später Web-Login mit PKCE. Für den Hintergrund legt die
-  App ein eigenes Token mit dem Scope `measurements:write` an (Werte landen als Quelle
-  `EXTERNAL`; eine eigene Quelle `HEALTH_CONNECT` erst, wenn HealthLog sie anbietet, siehe
-  Plan, Upstream).
+  (TOTP oder Wiederherstellungscode) oder SSO (OIDC) im Browser mit PKCE. Der Hintergrund-Sync
+  lädt mit derselben Sitzung hoch (Owner, 1.11.2026; kein eigenes Token). Werte landen damit
+  als `APPLE_HEALTH`, bis HealthLog eine eigene Quelle wie `HEALTH_CONNECT` anbietet (Plan,
+  Upstream).
 - **LF-02** Tokens liegen im Android Keystore bzw. in KWallet / Secret Service (QtKeychain), nie
   in einer Klartextdatei.
 - **LF-03** Kann: TLS-Zertifikat-Pinning.

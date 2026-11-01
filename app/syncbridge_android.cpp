@@ -30,7 +30,7 @@ QJniObject string(const QString &s)
 void SyncBridge::platformInit()
 {
     const QJniObject ctx = context();
-    m_configured = QJniObject::callStaticMethod<jboolean>(Sync, "hasToken", "(Landroid/content/Context;)Z", ctx.object());
+    m_configured = QJniObject::callStaticMethod<jboolean>(Sync, "configured", "(Landroid/content/Context;)Z", ctx.object());
     m_interval = int(QJniObject::callStaticMethod<jlong>(Sync, "intervalMinutes", "(Landroid/content/Context;)J", ctx.object()));
     m_backfill = int(QJniObject::callStaticMethod<jlong>(Sync, "backfillDays", "(Landroid/content/Context;)J", ctx.object()));
     // Back from Health Connect's permission screen (or from anywhere): show what changed.
@@ -50,11 +50,6 @@ QString SyncBridge::reason() const
     return tr("Health Connect is not installed or not up to date on this phone.");
 }
 
-QString SyncBridge::deviceName() const
-{
-    return QJniObject::callStaticMethod<jstring>(Sync, "deviceName", "()Ljava/lang/String;").toString();
-}
-
 void SyncBridge::storeInterval()
 {
     // Rescheduling only once there is something to run.
@@ -67,11 +62,12 @@ void SyncBridge::storeBackfill()
     QJniObject::callStaticMethod<void>(Sync, "setBackfillDays", "(Landroid/content/Context;J)V", context().object(), jlong(m_backfill));
 }
 
-void SyncBridge::configure(const QString &server, const QString &token)
+void SyncBridge::configure(const QString &server, const QString &deviceId, Start start)
 {
     const QJniObject ctx = context();
-    QJniObject::callStaticMethod<void>(Sync, "configure", "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)V",
-                                       ctx.object(), string(server).object<jstring>(), string(token).object<jstring>());
+    QJniObject::callStaticMethod<void>(Sync, "configure", "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;Z)V",
+                                       ctx.object(), string(server).object<jstring>(), string(deviceId).object<jstring>(),
+                                       jboolean(start == Start::Fresh));
     QJniObject::callStaticMethod<void>(Sync, "schedule", "(Landroid/content/Context;J)V", ctx.object(), jlong(m_interval));
     m_configured = true;
     Q_EMIT changed();
@@ -98,7 +94,7 @@ void SyncBridge::requestPermissions()
     });
 }
 
-void SyncBridge::syncNow()
+void SyncBridge::startSync()
 {
     QJniObject::callStaticMethod<void>(Sync, "syncNow", "(Landroid/content/Context;)V", context().object());
 }

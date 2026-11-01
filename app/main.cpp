@@ -12,6 +12,9 @@
 #include <QJsonDocument>
 #else
 #include "keychainstore.h"
+#ifdef Q_OS_ANDROID
+#include "sessionvault.h"
+#endif
 #endif
 
 #ifdef Q_OS_ANDROID
@@ -71,11 +74,19 @@ int main(int argc, char **argv)
 #ifdef KLADDE_DEMO
     // Nothing goes to the keychain.
     kladde::MemorySecretStore secrets;
+#elif defined(Q_OS_ANDROID)
+    // The sync module keeps and renews the session for the app and the background job.
+    SessionVault secrets;
 #else
     KeychainStore secrets;
 #endif
     SyncBridge sync;
     Account account(&secrets, &sync);
+#if defined(Q_OS_ANDROID) && !defined(KLADDE_DEMO)
+    account.session()->setRenewer([&secrets](const QString &stale, kladde::Session::Callback done) {
+        secrets.renew(stale, std::move(done));
+    });
+#endif
     Dashboard dashboard(account.session());
     History history(account.session());
     Entry entry(account.session());

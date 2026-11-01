@@ -2,10 +2,7 @@ package de.arianw.kladde.sync
 
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
-import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -13,8 +10,10 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -46,33 +45,93 @@ object KladdeSync {
     fun available(context: Context): Boolean =
         HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
 
+    /**
+     * Where the session lives and the app's device id; the tokens come through begin().
+     * `fresh`, a new sign-in: drop what an earlier session left (queue, cursor, status), it
+     * may belong to another account or server. The vault already holds the new session.
+     */
     @JvmStatic
-    fun configure(context: Context, server: String, token: String) {
+    fun configure(context: Context, server: String, deviceId: String, fresh: Boolean) {
+        if (fresh) {
+            val work = WorkManager.getInstance(context)
+            work.cancelUniqueWork(PERIODIC)
+            work.cancelUniqueWork(ONCE)
+            context.deleteDatabase(SqliteQueueStore.NAME)
+        }
         val credentials = Credentials(context)
         credentials.server = server.trim().trimEnd('/')
-        if (token.isNotEmpty()) {
-            credentials.token = token.trim()
-        }
+        credentials.deviceId = deviceId
     }
 
-    /** Names the sync's measurement token in HealthLog's settings. */
+    @Volatile
+    private var vault: TokenVault? = null
+
+    /** The one vault of the process: the app and the background job share its lock. */
     @JvmStatic
-    fun deviceName(): String =
-        if (Build.MODEL.startsWith(Build.MANUFACTURER, ignoreCase = true)) Build.MODEL
-        else "${Build.MANUFACTURER} ${Build.MODEL}"
+    fun vault(context: Context): TokenVault =
+        vault ?: synchronized(this) {
+            vault ?: Credentials(context.applicationContext).let { credentials ->
+                TokenVault(credentials) { refreshToken ->
+                    val server = credentials.server.orEmpty()
+                    val device = credentials.deviceId.orEmpty()
+                    if (server.isEmpty() || device.isEmpty()) {
+                        Response(0, "")
+                    } else {
+                        HealthLogHttp(server, device).refresh(refreshToken)
+                    }
+                }
+            }.also { vault = it }
+        }
+
+    // The app's keychain on Android (app/sessionvault_android.cpp): the refresh token.
+
+    @JvmStatic
+    fun refreshToken(context: Context): String = vault(context).refreshToken().orEmpty()
+
+    /** After a sign-in, or the app keeping the token a renewal gave it (then nothing changes). */
+    @JvmStatic
+    fun begin(context: Context, refreshToken: String) {
+        vault(context).begin(refreshToken)
+    }
+
+    @JvmStatic
+    fun endSession(context: Context) {
+        vault(context).forget()
+    }
+
+    /**
+     * The app's renewal (blocks; call off the UI thread). Answers like POST /api/auth/refresh:
+     * {"status": 200, "body": {"data": {token, tokenExpiresAt, refreshToken}}}, or the
+     * server's refusal, or status 0 for no answer.
+     */
+    @JvmStatic
+    fun renewJson(context: Context, stale: String): String {
+        val answer = vault(context).current(stale.ifEmpty { null })
+        val (status, body) = when (answer) {
+            is TokenVault.Answer.Ok -> 200 to JSONObject().put("data", JSONObject()
+                .put("token", answer.pair.access)
+                .put("tokenExpiresAt", answer.pair.expires.toString())
+                .put("refreshToken", answer.pair.refresh)).toString()
+            is TokenVault.Answer.Refused -> answer.response.status to answer.response.body
+            is TokenVault.Answer.Unavailable -> answer.response.status to answer.response.body
+        }
+        return JSONObject().put("status", status).put("body", body).toString()
+    }
 
     @JvmStatic
     fun server(context: Context): String = Credentials(context).server ?: ""
 
     @JvmStatic
-    fun hasToken(context: Context): Boolean = Credentials(context).complete()
+    fun configured(context: Context): Boolean = Credentials(context).complete()
 
-    /** Opens Health Connect's permission screen; the result comes to the activity. */
+    /**
+     * Opens Health Connect's permission screen; the result comes to the activity. From
+     * Android 14 the health permissions are runtime permissions. Not Health Connect's result
+     * contract: its intent needs a ComponentActivity, and Qt's activity is a plain one.
+     */
     @JvmStatic
     fun requestPermissions(activity: Activity) {
-        val intent: Intent = PermissionController.createRequestPermissionResultContract()
-            .createIntent(activity, READ_PERMISSIONS)
-        activity.startActivityForResult(intent, PERMISSION_REQUEST)
+        activity.requestPermissions(READ_PERMISSIONS.toTypedArray(), PERMISSION_REQUEST)
     }
 
     /** JSON: {"granted": [...], "missing": [...]}; blocks briefly, call off the UI thread. */
@@ -137,6 +196,7 @@ object KladdeSync {
             .put("lastError", status.lastError ?: JSONObject.NULL)
             .put("uploaded", status.uploaded)
             .put("pending", store.pendingCount())
+            .put("running", running(context))
             .put("kinds", JSONArray(Kind.entries.map { kind ->
                 JSONObject()
                     .put("kind", kind.name)
@@ -147,8 +207,18 @@ object KladdeSync {
             .toString()
     }
 
+    /** A run under way, or one asked for with "sync now" that has not started yet. */
+    private fun running(context: Context): Boolean {
+        val work = WorkManager.getInstance(context)
+        val (now, periodic) = runBlocking {
+            work.getWorkInfosForUniqueWorkFlow(ONCE).first() to work.getWorkInfosForUniqueWorkFlow(PERIODIC).first()
+        }
+        return now.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+            || periodic.any { it.state == WorkInfo.State.RUNNING }
+    }
+
     /**
-     * Sign-out: stop the background work, drop the token and everything queued or
+     * Sign-out: stop the background work, drop the session and everything queued or
      * remembered for this account. Signing in again reads the backfill window anew.
      */
     @JvmStatic
@@ -156,7 +226,7 @@ object KladdeSync {
         val work = WorkManager.getInstance(context)
         work.cancelUniqueWork(PERIODIC)
         work.cancelUniqueWork(ONCE)
-        Credentials(context).token = null
+        vault(context).forget()
         context.deleteDatabase(SqliteQueueStore.NAME)
     }
 

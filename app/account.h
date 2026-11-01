@@ -8,11 +8,11 @@
 class SyncBridge;
 
 // The HealthLog account as QML sees it: where the server is, whether it answers, the
-// sign-in (password, second factor) and the sign-out. Tokens never reach QML.
+// sign-in (password, second factor, SSO) and the sign-out. The session's tokens never
+// reach QML.
 //
-// After signing in on a platform with the background sync, the account mints its own
-// measurements:write token (POST /api/tokens/measurements) and hands it to the sync: the
-// background job then needs neither the password nor the session (Lastenheft LF-02).
+// The background sync uploads with this session (owner 1.11.2026: no token of its own). On
+// Android the sync module keeps the session's tokens (SessionVault) and renews them for both.
 class Account : public QObject
 {
     Q_OBJECT
@@ -24,6 +24,8 @@ class Account : public QObject
     Q_PROPERTY(Probe probe READ probe NOTIFY probeChanged)
     Q_PROPERTY(QString serverVersion READ serverVersion NOTIFY probeChanged)
     Q_PROPERTY(QString probeError READ probeError NOTIFY probeChanged)
+    // The server's SSO button text ("authentik"), empty where there is no SSO sign-in.
+    Q_PROPERTY(QString ssoLabel READ ssoLabel NOTIFY probeChanged)
 public:
     enum class State { SignedOut, Restoring, SigningIn, NeedsMfa, SignedIn };
     Q_ENUM(State)
@@ -43,12 +45,15 @@ public:
     Probe probe() const { return m_probe; }
     QString serverVersion() const { return m_version; }
     QString probeError() const { return m_probeError; }
+    QString ssoLabel() const { return m_ssoLabel; }
 
     // Keeps the session of the last start, if the keychain still has it.
     void restore();
 
     Q_INVOKABLE void checkServer();
     Q_INVOKABLE void login(const QString &email, const QString &password);
+    // Opens the server's SSO sign-in in the browser; it comes back on healthlog://.
+    Q_INVOKABLE void loginSso();
     Q_INVOKABLE void verifyMfa(const QString &code, bool recoveryCode);
     Q_INVOKABLE void logout();
 
@@ -57,10 +62,14 @@ Q_SIGNALS:
     void stateChanged();
     void probeChanged();
 
+private Q_SLOTS:
+    // QDesktopServices hands it the healthlog:// address the browser opened.
+    void finishSso(const QUrl &callback);
+
 private:
+    void checkSso();
     void setProbe(Probe probe, const QString &version = {}, const QString &error = {});
     void signedIn();
-    void mintSyncToken();
 
     kladde::Session m_session;
     SyncBridge *m_sync;
@@ -68,8 +77,7 @@ private:
     Probe m_probe = Probe::Unknown;
     QString m_version;
     QString m_probeError;
+    QString m_ssoLabel;
     // A sign-in with password or code is under way: a 401 means wrong input, not an ended session.
     bool m_signingIn = false;
-    // The session generation whose sync token is being minted, 0 for none: one token per sign-in.
-    quint64 m_minting = 0;
 };

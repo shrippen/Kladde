@@ -36,8 +36,16 @@ Android, später der Adapter für den Pebble-Daemon auf Plasma Mobile. Ab da ist
       Upload per WorkManager). Den Qt-Kern ohne Oberfläche im Worker zu laden, braucht eine
       eigene QCoreApplication neben der der App und ist ohne Gerät nicht prüfbar. Kotlin und
       C++ bilden gleich ab: beide prüfen gegen `tests/fixtures/pebble-day.expected.json`.
-- [ ] Issue bei MBombeck/HealthLog entwerfen (Text vorher freigeben): Quelle `HEALTH_CONNECT`
-      für native Clients über den Batch-Endpunkt.
+- [ ] **Dringend (Owner, 1.11.2026): Upstream-PR bei MBombeck/HealthLog**, damit native Clients
+      und Mess-Tokens mehr Quellen als `APPLE_HEALTH`/`MANUAL`/`EXTERNAL` nennen können (z. B.
+      `HEALTH_CONNECT`). Heute landet die Uhr nur über ein Mess-Token richtig (`EXTERNAL`); mit
+      der Sitzung der App stünde sie als `APPLE_HEALTH` da. Text und Einreichung vorher freigeben.
+- [ ] Issue bei MBombeck/HealthLog (v1.46.2): `readActivityDayKeys` (`summary-reads.ts`) fragt je
+      Tag `user_id` + `measured_at` ab; Postgres wählte `measurements_live_covering_idx`
+      (`user_id, type, measured_at`) und las für jeden der 365 Tage den ganzen Index des Nutzers.
+      Mit aufgeblähter Tabelle (85 000 Zeilen, 12 GB) lief `/api/dashboard/summary` in den
+      60-s-Timeout (HTTP 500), ausgelöst nach dem ersten Upload von Kladde (1.11.2026).
+      `VACUUM FULL measurements` behob es (82 MB, 2,4 ms). Text vorher freigeben.
 
 ## Phase 1: Android (Muss und Soll, LF-01 … LF-33)
 
@@ -48,14 +56,23 @@ Aufbau nach der iOS-App ([ios-aufbau.md](ios-aufbau.md)).
       Eintrag, Token im Android Keystore, WorkManager, Statusdaten (LF-10 … LF-24).
 - [x] Qt für Android bauen (Vorlage Plasmai, `scripts/build-android.sh`), JNI zu `KladdeSync`
       (`app/syncbridge_android.cpp`); Debug-APK `de.arianw.kladde.dev` aus der CI.
-- [ ] APK auf dem Telefon: Anmeldung, Health-Connect-Rechte, Sync.
-- [ ] Abmelden widerruft das Mess-Token des Syncs nur auf dem Telefon; auf dem Server bleibt es
-      gültig, bis der Nutzer es in HealthLog löscht. Widerrufen, sobald die API es erlaubt.
+- [ ] APK auf dem Telefon: Anmeldung (SSO geht), Health-Connect-Rechte, Sync.
+- [x] SSO-Anmeldung (OIDC) wie die iOS-App: Browser mit PKCE, Rücksprung über
+      `healthlog://oidc-callback`, Code gegen Tokens (Android).
+- [x] Der Sync lädt mit der Sitzung der App hoch, ohne eigenes Mess-Token (Owner, 1.11.2026;
+      HealthLog legt Mess-Tokens nur im Browser an). Das Token-Paar hält `TokenVault` in
+      `android/sync` (Keystore, eine Sperre: App und Job verbrauchen das Refresh-Token nie
+      doppelt). Folge bis zum Upstream-PR: die Werte der Uhr stehen als `APPLE_HEALTH` da.
 - [x] Einrichtung: Server prüfen, Anmeldung mit Passwort und zweitem Faktor; Refresh-Token im
-      Schlüsselbund (QtKeychain), Erneuerung einzeln und mit Rotation. Wo es den Hintergrund-Sync
-      gibt (Android), legt die App nach der Anmeldung ihr eigenes Mess-Token an; scharf erst mit
-      dem Android-Build.
-- [ ] Web-Login mit PKCE (`healthlog://login-callback`), Health-Connect-Rechte im Ablauf.
+      Schlüsselbund (QtKeychain), Erneuerung einzeln und mit Rotation.
+- [ ] Vault (Review #6): `SessionVault` ruft den Vault synchron auf dem UI-Thread auf; läuft
+      gerade eine Erneuerung des Workers (bis 60 s Timeout), droht ein ANR. `TokenVault.begin`
+      übernimmt auch ein älteres Refresh-Token, wenn der Worker zwischen `renew` und
+      `acceptTokens` erneuert hat.
+      Desktop: der Widerruf beim Abmelden wartet auf den Schlüsselbund und nimmt den Server zum
+      Zeitpunkt der Antwort; wechselt der Nutzer ihn vorher, geht das Token an den neuen.
+- [ ] Web-Login mit PKCE für Passwort und Passkey (`healthlog://login-callback`), SSO unter
+      Linux, Health-Connect-Rechte im Ablauf.
 - [x] Start (Kacheln mit letzten 7 Tagen), Erfassen (Gewicht, Blutdruck mit Puls, Puls,
       Körperfett, Stimmung; Bereiche geprüft), Verlauf (Woche bis Jahr, Achse, Kennzahlen),
       Mehr (Sync-Status, Konto). Deutsch und Englisch.

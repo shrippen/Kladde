@@ -8,6 +8,9 @@
 #include <QJsonObject>
 #include <QStandardPaths>
 #include <QTest>
+#include <QThread>
+
+#include <thread>
 
 using kladde::ApiReply;
 using kladde::MemorySecretStore;
@@ -23,6 +26,7 @@ constexpr int Unauthorized = 401;
 struct Pending {
     QString path;
     Session::Callback done;
+    QByteArray body;
 };
 
 ApiReply tokens()
@@ -34,14 +38,6 @@ ApiReply tokens()
         {QStringLiteral("token"), QStringLiteral("access")},
         {QStringLiteral("tokenExpiresAt"), QDateTime::currentDateTimeUtc().addSecs(900).toString(Qt::ISODateWithMs)},
         {QStringLiteral("refreshToken"), QStringLiteral("refresh")}}}};
-    return r;
-}
-
-ApiReply minted(const QString &token)
-{
-    ApiReply r;
-    r.status = 201;
-    r.root = QJsonObject{{QStringLiteral("data"), QJsonObject{{QStringLiteral("token"), token}}}};
     return r;
 }
 
@@ -64,8 +60,8 @@ class TestAccount : public QObject
 
     void capture(Account &account)
     {
-        account.session()->setTransport([this](const QByteArray &, const QString &path, const QByteArray &, Session::Callback done) {
-            m_pending << Pending{path, done};
+        account.session()->setTransport([this](const QByteArray &, const QString &path, const QByteArray &body, Session::Callback done) {
+            m_pending << Pending{path, done, body};
         });
     }
 
@@ -85,7 +81,9 @@ private Q_SLOTS:
         m_pending.clear();
         FakeSync::forgets = 0;
         FakeSync::server.clear();
-        FakeSync::token.clear();
+        FakeSync::device.clear();
+        FakeSync::onForget = nullptr;
+        FakeSync::queueDrops = 0;
     }
 
     void aWrongPasswordIsNamedAsSuch()
@@ -106,38 +104,11 @@ private Q_SLOTS:
         QCOMPARE(account.error(), QStringLiteral("Not accepted: the e-mail, user name or password is not right."));
     }
 
-    void aNewSignInGetsItsOwnSyncToken()
+    void aSignInMintsNoToken()
     {
-        // The sync still carries the token of an earlier sign-in (the keychain lost the
-        // session, so no sign-out forgot it). Signing in to another server must not leave
-        // the sync uploading to the old one.
+        // HealthLog mints measurement tokens only for a browser session with a fresh sign-in
+        // (v1.46); the app's attempt was answered 401 and spent a refresh token.
         MemorySecretStore secrets;
-        SyncBridge sync;
-        sync.configure(ServerA, QStringLiteral("old"));
-        Account account(&secrets, &sync);
-        account.setServer(ServerB);
-        capture(account);
-
-        account.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
-        QVERIFY(QTest::qWaitFor([&] { return m_pending.size() == 1; }, 5000));
-        m_pending[0].done(tokens());
-        QCOMPARE(account.state(), Account::State::SignedIn);
-
-        QVERIFY(QTest::qWaitFor([&] { return count(MintPath) == 1; }, 5000));
-        m_pending.last().done(minted(QStringLiteral("new")));
-        QCOMPARE(FakeSync::server, ServerB);
-        QCOMPARE(FakeSync::token, QStringLiteral("new"));
-    }
-
-    void aKeychainFailureMintsNoSecondToken()
-    {
-        // The keychain refuses the refresh token while the sync token is being minted: the
-        // state change that reports it must not mint a second, unused token.
-        struct Late : MemorySecretStore {
-            Done pending;
-            void write(const QString &, const QString &, Done done) override { pending = std::move(done); }
-        };
-        Late secrets;
         SyncBridge sync;
         Account account(&secrets, &sync);
         account.setServer(ServerA);
@@ -146,12 +117,120 @@ private Q_SLOTS:
         account.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
         QVERIFY(QTest::qWaitFor([&] { return m_pending.size() == 1; }, 5000));
         m_pending[0].done(tokens());
-        QVERIFY(QTest::qWaitFor([&] { return count(MintPath) == 1; }, 5000));
-
-        QVERIFY(secrets.pending);
-        secrets.pending(false);
+        QCOMPARE(account.state(), Account::State::SignedIn);
         QTest::qWait(50);
-        QCOMPARE(count(MintPath), 1);
+        QCOMPARE(count(MintPath), 0);
+    }
+
+    void aSignInConfiguresTheSync()
+    {
+        // The sync uploads with this session: it gets the server and the device id the
+        // session signed in with (HealthLog renews only for that device).
+        MemorySecretStore secrets;
+        SyncBridge sync;
+        Account account(&secrets, &sync);
+        account.setServer(ServerB);
+        capture(account);
+
+        account.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
+        QVERIFY(QTest::qWaitFor([&] { return m_pending.size() == 1; }, 5000));
+        m_pending[0].done(tokens());
+        QCOMPARE(account.state(), Account::State::SignedIn);
+        QVERIFY(sync.configured());
+        QCOMPARE(FakeSync::server, ServerB);
+        QVERIFY(!FakeSync::device.isEmpty());
+        QCOMPARE(FakeSync::device, account.session()->deviceId());
+    }
+
+    void aSignInDropsAnEarlierQueue()
+    {
+        // The vault may have lost an earlier session (refused in the background) while its
+        // queue stayed: a new sign-in, maybe another account or server, must not upload it.
+        MemorySecretStore secrets;
+        SyncBridge sync;
+        Account account(&secrets, &sync);
+        account.setServer(ServerA);
+        capture(account);
+        account.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
+        QVERIFY(QTest::qWaitFor([&] { return m_pending.size() == 1; }, 5000));
+        m_pending[0].done(tokens());
+        QCOMPARE(FakeSync::queueDrops, 1);
+
+        // A restart keeps it.
+        Account again(&secrets, &sync);
+        again.setServer(ServerA);
+        capture(again);
+        again.restore();
+        QVERIFY(QTest::qWaitFor([&] { return count(QStringLiteral("/api/auth/refresh")) == 1; }, 5000));
+        m_pending.last().done(tokens());
+        QCOMPARE(again.state(), Account::State::SignedIn);
+        QCOMPARE(FakeSync::queueDrops, 1);
+    }
+
+    void aSignOutStopsTheSync()
+    {
+        MemorySecretStore secrets;
+        SyncBridge sync;
+        Account account(&secrets, &sync);
+        account.setServer(ServerA);
+        capture(account);
+        account.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
+        QVERIFY(QTest::qWaitFor([&] { return m_pending.size() == 1; }, 5000));
+        m_pending[0].done(tokens());
+
+        account.logout();
+        QVERIFY(!sync.configured());
+        QCOMPARE(FakeSync::forgets, 1);
+    }
+
+    void aSignOutRevokesTheVaultsToken()
+    {
+        // Android: the vault holds the live refresh token (the background job renewed, ours
+        // is spent), and forgetting the sync empties it. Revoke first, then forget.
+        MemorySecretStore secrets;
+        SyncBridge sync;
+        Account account(&secrets, &sync);
+        account.setServer(ServerA);
+        capture(account);
+        account.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
+        QVERIFY(QTest::qWaitFor([&] { return m_pending.size() == 1; }, 5000));
+        m_pending[0].done(tokens());
+
+        const QString key = QStringLiteral("refresh-token@") + ServerA;
+        secrets.write(key, QStringLiteral("r9"), [](bool) {});
+        FakeSync::onForget = [&] { secrets.remove(key, [](bool) {}); };
+        account.logout();
+
+        QVERIFY(QTest::qWaitFor([&] { return count(QStringLiteral("/api/auth/refresh")) == 1; }, 5000));
+        const auto revoke = std::find_if(m_pending.begin(), m_pending.end(), [](const Pending &p) { return p.path == QLatin1String("/api/auth/refresh"); });
+        QCOMPARE(QJsonDocument::fromJson(revoke->body).object().value(QLatin1String("refreshToken")).toString(), QStringLiteral("r9"));
+    }
+
+    void anSsoCallbackFromAnotherThreadIsHandledOnOurs()
+    {
+        // Qt on Android hands healthlog:// to the URL handler on Android's UI thread. The
+        // session lives on the main thread: a network call from there never finishes.
+        MemorySecretStore secrets;
+        SyncBridge sync;
+        Account account(&secrets, &sync);
+        account.setServer(ServerA);
+        capture(account);
+        QThread *sessionThread = nullptr;
+        connect(account.session(), &Session::stateChanged, this, [&] {
+            if (account.session()->state() == Session::State::SigningIn) {
+                sessionThread = QThread::currentThread();
+            }
+        }, Qt::DirectConnection);
+
+        account.session()->startSso();
+        std::thread android([&] {
+            QMetaObject::invokeMethod(&account, "finishSso", Qt::DirectConnection,
+                                      Q_ARG(QUrl, QUrl(QStringLiteral("healthlog://oidc-callback?code=hlh_code"))));
+        });
+        android.join();
+
+        QVERIFY(QTest::qWaitFor([&] { return sessionThread != nullptr; }, 5000));
+        QVERIFY2(sessionThread == QThread::currentThread(), "the session ran on Android's thread");
     }
 };
 

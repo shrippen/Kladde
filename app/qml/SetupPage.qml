@@ -14,6 +14,13 @@ Kirigami.ScrollablePage {
     readonly property bool needsMfa: account.state === Account.NeedsMfa
     readonly property bool working: account.state === Account.SigningIn || account.state === Account.Restoring
 
+    // A known server is checked at once: the SSO button shows only after the check.
+    Component.onCompleted: {
+        if (account.server.length > 0 && account.probe === Account.Unknown) {
+            account.checkServer()
+        }
+    }
+
     ColumnLayout {
         spacing: Kirigami.Units.largeSpacing
 
@@ -110,6 +117,13 @@ Kirigami.ScrollablePage {
                 }
             }
         }
+        KanteButton {
+            Layout.fillWidth: true
+            visible: !page.needsMfa && account.ssoLabel.length > 0
+            text: qsTr("Sign in with %1").arg(account.ssoLabel)
+            enabled: !page.working
+            onClicked: account.loginSso()
+        }
         Kirigami.InlineMessage {
             Layout.fillWidth: true
             type: Kirigami.MessageType.Error
@@ -121,7 +135,7 @@ Kirigami.ScrollablePage {
             Layout.topMargin: Kirigami.Units.largeSpacing
             wrapMode: Text.Wrap
             color: KanteStyle.mutedTextColor
-            text: qsTr("Kladde keeps only a renewable sign-in in the system keychain, never the password. On Android it creates its own measurement token for the upload in the background, visible and revocable in HealthLog.")
+            text: qsTr("Kladde keeps only a renewable sign-in in the system keychain, never the password. On Android the upload in the background uses this sign-in too.")
         }
     }
 }

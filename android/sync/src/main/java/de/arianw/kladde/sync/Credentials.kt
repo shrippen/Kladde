@@ -9,12 +9,15 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import org.json.JSONObject
+import java.time.Instant
 
 /**
- * Server address and token (LF-01, LF-02). The token is encrypted with an AES key that
- * lives in the Android Keystore and never leaves it; the preferences hold only ciphertext.
+ * Server address, the app's device id and the session's token pair (LF-01, LF-02). The pair
+ * is encrypted with an AES key that lives in the Android Keystore and never leaves it; the
+ * preferences hold only ciphertext. TokenVault is the only one that reads and writes it.
  */
-class Credentials(context: Context) {
+class Credentials(context: Context) : TokenVault.Store {
 
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -24,26 +27,41 @@ class Credentials(context: Context) {
             prefs.edit().putString(KEY_SERVER, value).apply()
         }
 
-    var token: String?
-        get() {
-            val stored = prefs.getString(KEY_TOKEN, null) ?: return null
-            val bytes = Base64.decode(stored, Base64.NO_WRAP)
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(TAG_BITS, bytes, 0, IV_BYTES))
-            return String(cipher.doFinal(bytes, IV_BYTES, bytes.size - IV_BYTES))
-        }
+    /** X-Device-Id of the app's sign-in: HealthLog refuses a renewal from another device. */
+    var deviceId: String?
+        get() = prefs.getString(KEY_DEVICE, null)
         set(value) {
-            if (value == null) {
-                prefs.edit().remove(KEY_TOKEN).apply()
-                return
-            }
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.ENCRYPT_MODE, key())
-            val sealed = cipher.iv + cipher.doFinal(value.toByteArray())
-            prefs.edit().putString(KEY_TOKEN, Base64.encodeToString(sealed, Base64.NO_WRAP)).apply()
+            prefs.edit().putString(KEY_DEVICE, value).apply()
         }
 
-    fun complete(): Boolean = !server.isNullOrEmpty() && prefs.contains(KEY_TOKEN)
+    override fun load(): TokenPair? {
+        val json = JSONObject(open(prefs.getString(KEY_PAIR, null) ?: return null))
+        return TokenPair(json.getString("access"), Instant.parse(json.getString("expires")), json.getString("refresh"))
+    }
+
+    override fun save(pair: TokenPair) {
+        val json = JSONObject().put("access", pair.access).put("expires", pair.expires.toString()).put("refresh", pair.refresh)
+        prefs.edit().putString(KEY_PAIR, seal(json.toString())).commit()
+    }
+
+    override fun clear() {
+        prefs.edit().remove(KEY_PAIR).commit()
+    }
+
+    fun complete(): Boolean = !server.isNullOrEmpty() && !deviceId.isNullOrEmpty() && prefs.contains(KEY_PAIR)
+
+    private fun seal(text: String): String {
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        return Base64.encodeToString(cipher.iv + cipher.doFinal(text.toByteArray()), Base64.NO_WRAP)
+    }
+
+    private fun open(sealed: String): String {
+        val bytes = Base64.decode(sealed, Base64.NO_WRAP)
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(TAG_BITS, bytes, 0, IV_BYTES))
+        return String(cipher.doFinal(bytes, IV_BYTES, bytes.size - IV_BYTES))
+    }
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance(KEYSTORE).apply { load(null) }
@@ -62,7 +80,8 @@ class Credentials(context: Context) {
     private companion object {
         const val PREFS = "kladde-sync"
         const val KEY_SERVER = "server"
-        const val KEY_TOKEN = "token.sealed"
+        const val KEY_DEVICE = "deviceId"
+        const val KEY_PAIR = "session.sealed"
         const val KEYSTORE = "AndroidKeyStore"
         const val ALIAS = "kladde-token"
         const val TRANSFORMATION = "AES/GCM/NoPadding"

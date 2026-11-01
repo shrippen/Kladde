@@ -79,7 +79,8 @@ QQC2.ScrollView {
             }
             KanteButton {
                 text: qsTr("Sync now")
-                enabled: sync.permitted
+                busy: sync.running
+                enabled: sync.permitted && !busy
                 onClicked: sync.syncNow()
             }
             KanteSettingRow {

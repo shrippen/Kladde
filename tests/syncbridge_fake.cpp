@@ -17,11 +17,6 @@ QString SyncBridge::reason() const
     return {};
 }
 
-QString SyncBridge::deviceName() const
-{
-    return QStringLiteral("Test");
-}
-
 void SyncBridge::storeInterval()
 {
 }
@@ -30,10 +25,13 @@ void SyncBridge::storeBackfill()
 {
 }
 
-void SyncBridge::configure(const QString &server, const QString &token)
+void SyncBridge::configure(const QString &server, const QString &deviceId, Start start)
 {
+    if (start == Start::Fresh) {
+        ++FakeSync::queueDrops;
+    }
     FakeSync::server = server;
-    FakeSync::token = token;
+    FakeSync::device = deviceId;
     m_configured = true;
     Q_EMIT changed();
 }
@@ -41,8 +39,11 @@ void SyncBridge::configure(const QString &server, const QString &token)
 void SyncBridge::forget()
 {
     ++FakeSync::forgets;
+    if (FakeSync::onForget) {
+        FakeSync::onForget();
+    }
     FakeSync::server.clear();
-    FakeSync::token.clear();
+    FakeSync::device.clear();
     m_configured = false;
     Q_EMIT changed();
 }
@@ -51,8 +52,9 @@ void SyncBridge::requestPermissions()
 {
 }
 
-void SyncBridge::syncNow()
+void SyncBridge::startSync()
 {
+    ++FakeSync::syncs;
 }
 
 void SyncBridge::resync()
@@ -61,4 +63,6 @@ void SyncBridge::resync()
 
 void SyncBridge::refresh()
 {
+    ++FakeSync::refreshes;
+    applyStatus(FakeSync::status, FakeSync::permissions);
 }

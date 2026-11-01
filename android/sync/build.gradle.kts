@@ -11,6 +11,8 @@ android {
     compileSdk = 36
     defaultConfig {
         minSdk = 34 // Health Connect is part of the system from Android 14 (Lastenheft 3)
+        // Tests on a phone (src/androidTest): ./gradlew :sync:connectedDebugAndroidTest
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -39,4 +41,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Android's org.json is a stub in JVM unit tests; the real one for the tests.
     testImplementation("org.json:json:20250517")
+
+    androidTestImplementation("androidx.test:core:1.6.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }

@@ -37,6 +37,13 @@ QQC2.ScrollView {
             text: dashboard.error
         }
 
+        // The first load: say it is coming (the summary can take seconds on a large account).
+        KanteLoader {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.margins: Kirigami.Units.largeSpacing
+            visible: dashboard.loading && dashboard.metrics.length === 0
+        }
+
         KanteEmptyState {
             Layout.fillWidth: true
             Layout.margins: Kirigami.Units.largeSpacing

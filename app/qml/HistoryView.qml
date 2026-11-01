@@ -85,6 +85,10 @@ QQC2.ScrollView {
             }
         }
 
+        KanteLoader {
+            Layout.alignment: Qt.AlignHCenter
+            visible: history.loading && history.count === 0
+        }
         KanteEmptyState {
             Layout.fillWidth: true
             visible: !history.loading && history.count === 0 && history.error.length === 0

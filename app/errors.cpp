@@ -4,6 +4,13 @@
 
 namespace Errors {
 
+namespace {
+
+// Session's codes for the SSO callback's ?error=…
+constexpr QLatin1StringView SsoPrefix("sso.");
+
+} // namespace
+
 QString describe(int status, const QString &code)
 {
     auto tr = [](const char *text) { return QCoreApplication::translate("Errors", text); };
@@ -13,6 +20,10 @@ QString describe(int status, const QString &code)
         return tr("The sign-in is not kept for the next start: the system keychain did not answer.");
     if (code == QLatin1String("kladde.no_tokens"))
         return tr("The server answered without a sign-in.");
+    if (code == QLatin1String("sso.oidc_link_required"))
+        return tr("Link this account with the SSO once in HealthLog's web app (sign in there with the password), then try again.");
+    if (code.startsWith(SsoPrefix))
+        return tr("The SSO sign-in did not work (%1).").arg(code.mid(SsoPrefix.size()));
     if (status == 0)
         return tr("No connection to the server.");
     if (code.startsWith(QLatin1String("auth.mfa")))

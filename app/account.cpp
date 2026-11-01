@@ -2,6 +2,7 @@
 #include "errors.h"
 #include "syncbridge.h"
 
+#include <QDesktopServices>
 #include <QJsonObject>
 #include <QSettings>
 #include <QUuid>
@@ -13,6 +14,16 @@ namespace {
 
 const auto ServerKey = QStringLiteral("server");
 const auto DeviceKey = QStringLiteral("deviceId");
+// The scheme HealthLog sends the SSO sign-in back to (fixed on the server).
+const auto CallbackScheme = QStringLiteral("healthlog");
+
+// Where the browser's return reaches the app: Android routes healthlog:// to it (manifest).
+// Linux has no handler yet.
+#ifdef Q_OS_ANDROID
+constexpr bool SsoCallback = true;
+#else
+constexpr bool SsoCallback = false;
+#endif
 
 } // namespace
 
@@ -37,6 +48,10 @@ Account::Account(kladde::SecretStore *secrets, SyncBridge *sync, QObject *parent
         Q_EMIT stateChanged();
     });
     connect(&m_session, &Session::signedOutByServer, m_sync, &SyncBridge::forget);
+
+    if (SsoCallback) {
+        QDesktopServices::setUrlHandler(CallbackScheme, this, "finishSso");
+    }
 }
 
 QString Account::error() const
@@ -65,6 +80,7 @@ void Account::setServer(const QString &server)
     m_server = s;
     QSettings().setValue(ServerKey, s);
     m_session.setServer(QUrl(s));
+    m_ssoLabel.clear();
     setProbe(Probe::Unknown);
     Q_EMIT serverChanged();
 }
@@ -96,10 +112,35 @@ void Account::checkServer()
         if (server != m_server)
             return;
         const QString version = r.data().toObject().value(QLatin1String("version")).toString();
-        if (r.ok() && !version.isEmpty())
+        if (r.ok() && !version.isEmpty()) {
             setProbe(Probe::Reachable, version);
-        else
+            checkSso();
+        } else {
             setProbe(Probe::Unreachable, {}, r.ok() ? tr("No HealthLog at this address") : Errors::describe(r));
+        }
+    });
+}
+
+void Account::checkSso()
+{
+    m_ssoLabel.clear();
+    if (!SsoCallback) {
+        return;
+    }
+    // e.g. {"enabled": true, "buttonLabel": "authentik"}
+    m_session.get(QStringLiteral("/api/auth/oidc/status"), [this, server = m_server](const ApiReply &r) {
+        if (server != m_server || !r.ok()) {
+            return;
+        }
+        const QJsonObject sso = r.data().toObject();
+        if (!sso.value(QLatin1String("enabled")).toBool()) {
+            return;
+        }
+        m_ssoLabel = sso.value(QLatin1String("buttonLabel")).toString();
+        if (m_ssoLabel.isEmpty()) {
+            m_ssoLabel = QStringLiteral("SSO");
+        }
+        Q_EMIT probeChanged();
     });
 }
 
@@ -107,6 +148,18 @@ void Account::login(const QString &email, const QString &password)
 {
     m_signingIn = true;
     m_session.login(email.trimmed(), password);
+}
+
+void Account::loginSso()
+{
+    m_signingIn = true;
+    QDesktopServices::openUrl(m_session.startSso());
+}
+
+void Account::finishSso(const QUrl &callback)
+{
+    // Qt on Android calls this on Android's UI thread; the session lives on ours.
+    QMetaObject::invokeMethod(this, [this, callback] { m_session.finishSso(callback); }, Qt::QueuedConnection);
 }
 
 void Account::verifyMfa(const QString &code, bool recoveryCode)
@@ -117,44 +170,22 @@ void Account::verifyMfa(const QString &code, bool recoveryCode)
 void Account::logout()
 {
     m_signingIn = false;
-    m_sync->forget();
+    // The session first: it revokes the refresh token the vault holds, which forget empties.
     m_session.logout();
+    m_sync->forget();
 }
 
 void Account::signedIn()
 {
     // From here on a 401 means the session ended, not a wrong password.
-    const bool fresh = m_signingIn;
+    const SyncBridge::Start start = m_signingIn ? SyncBridge::Start::Fresh : SyncBridge::Start::Resume;
     m_signingIn = false;
-    if (!m_sync->available() || m_minting == m_session.generation()) {
+    if (!m_sync->available()) {
         return;
     }
 
-    // A sign-in with password or code gets a sync token of its own: the sync may still
-    // carry one of an earlier sign-in (another account or server) that no sign-out forgot,
-    // e.g. when the keychain lost the session.
-    if (fresh && m_sync->configured()) {
-        m_sync->forget();
-    }
-    if (!m_sync->configured()) {
-        mintSyncToken();
-    }
-}
-
-void Account::mintSyncToken()
-{
-    m_minting = m_session.generation();
-    // A token of its own for the background sync, named after the device, so the user can
-    // see and revoke it in HealthLog's settings. No expiry: the sync runs unattended.
-    const QJsonObject body{{QStringLiteral("name"), QStringLiteral("Kladde (%1)").arg(m_sync->deviceName())}};
-    m_session.post(QStringLiteral("/api/tokens/measurements"), body,
-                   [this, g = m_session.generation()](const ApiReply &r) {
-        // Signed out meanwhile: the sync must not get a token of the old session.
-        if (g != m_session.generation())
-            return;
-        m_minting = 0;
-        const QString token = r.data().toObject().value(QLatin1String("token")).toString();
-        if (r.ok() && !token.isEmpty())
-            m_sync->configure(m_server, token);
-    });
+    // The sync uploads with this very session (owner 1.11.2026: no token of its own); the
+    // vault keeps it. It needs where and as which device: HealthLog renews a session only
+    // for the device it was signed in from.
+    m_sync->configure(m_server, m_session.deviceId(), start);
 }

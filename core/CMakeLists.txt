@@ -6,6 +6,7 @@ add_library(kladde-core STATIC
     healthlogclient.h healthlogclient.cpp
     secretstore.h
     session.h session.cpp
+    pkce.h pkce.cpp
     api.h api.cpp
 )
 target_include_directories(kladde-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
