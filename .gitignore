@@ -1,0 +1,9 @@
+/build/
+/build-*/
+.gradle/
+spikes/hc-probe/app/build/
+spikes/hc-probe/build/
+local.properties
+*.user
+# Exports from the probe are real health data: never commit them.
+health-connect-*.json
