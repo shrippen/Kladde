@@ -11,7 +11,7 @@ namespace kladde {
 // Turns samples into entries for HealthLog's POST /api/measurements/batch, which speaks
 // HealthKit identifiers in Apple's units (docs/referenzen.md):
 //
-// - Steps and distance become one total per local day of the account
+// - Steps, distance, active energy and flights become one total per local day of the account
 //   (`stats:<identifier>:<YYYY-MM-DD>`, a re-post overwrites). The samples of a day must
 //   therefore be complete: the caller passes every sample of each day it maps, not a delta.
 // - Heart rate becomes 10-minute buckets in UTC with average, minimum and maximum

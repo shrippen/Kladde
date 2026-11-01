@@ -1,13 +1,17 @@
 package de.arianw.kladde.sync
 
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.aggregate.AggregateMetric
+import androidx.health.connect.client.aggregate.AggregationResult
 import androidx.health.connect.client.changes.DeletionChange
 import androidx.health.connect.client.changes.UpsertionChange
+import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BloodGlucoseRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.LeanBodyMassRecord
@@ -20,133 +24,176 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.reflect.KClass
 
 /**
- * Reads what one app (the Pebble app by default) wrote to Health Connect (LF-10 … LF-15).
+ * Reads steps, distance, active energy, flights and heart rate of every app, and the sleep
+ * of one (the Pebble app by default), from Health Connect (LF-10 … LF-15); only the [types]
+ * the user allowed.
  *
- * First run: a changes token, then every record of the backfill window. Later runs: the
- * changes since the token. Sleep goes as it is; for steps,
- * distance and heart rate the whole local day of every change is re-read (DayWindow),
- * deletions included, so the day total and buckets come out right.
+ * Day totals and the 10-minute heart-rate buckets come from Health Connect's aggregate: it
+ * takes each app by the order in its own settings, so the phone's and the watch's steps
+ * never count twice. Every day a change touches is aggregated again, deletions included:
+ * the first read notes the days of every record in its window, a later change those of
+ * its record. A deleted record Kladde never saw (older than the window) re-aggregates today
+ * and yesterday.
+ *
+ * First run: a changes token, then the backfill window. The cursor holds the types it was
+ * made for (as ReadingSource): allowing another one reads the window again.
  */
 class HealthConnectSource(
     private val client: HealthConnectClient,
-    private val app: String = PEBBLE_APP,
+    private val types: Set<KClass<out Record>> = TYPES + OPTIONAL_TYPES,
+    private val sleepApp: String = PEBBLE_APP,
 ) {
 
     /** What one read brought, for the store to keep in one transaction. */
     class Read(
         val samples: List<Sample>,
-        val cursor: String,
+        val cursor: String?, // null: unchanged
         val recordDays: Map<String, Set<LocalDate>>,
     )
 
+    private val signature = types.map { it.simpleName }.sortedBy { it }.joinToString(",")
+
     suspend fun read(cursor: String?, zone: ZoneId, backfillDays: Long, daysOf: (String) -> Set<LocalDate>, now: Instant): Read {
-        if (cursor == null) {
+        if (types.isEmpty()) {
+            return Read(emptyList(), null, emptyMap())
+        }
+        val token = cursor?.removePrefix("$signature$SEPARATOR")?.takeIf { it != cursor }
+        if (token == null) {
             return backfill(zone, backfillDays, now)
         }
 
-        var token: String = cursor
+        var next: String = token
         val samples = mutableListOf<Sample>()
         val days = mutableSetOf<LocalDate>()
+        val recordDays = mutableMapOf<String, Set<LocalDate>>()
+        val today = Mapper.dayOf(now, zone)
 
         while (true) {
-            val response = client.getChanges(token)
+            val response = client.getChanges(next)
             if (response.changesTokenExpired) {
                 // Older than Health Connect keeps changes (30 days): read the window again.
                 return backfill(zone, backfillDays, now)
             }
             for (change in response.changes) {
-                when (change) {
-                    is UpsertionChange -> collect(change.record, zone, samples, days, daysOf)
-                    is DeletionChange -> days += daysOf(change.recordId)
+                if (change is DeletionChange) {
+                    days += daysOf(change.recordId).ifEmpty { setOf(today, today.minusDays(1)) }
+                    continue
                 }
+                val record = (change as? UpsertionChange)?.record ?: continue
+                if (record is SleepSessionRecord) {
+                    if (record.metadata.dataOrigin.packageName == sleepApp) {
+                        samples += samplesOf(record)
+                    }
+                    continue
+                }
+                // Its days now and before: a record rewritten to another time leaves its old day.
+                val current = daysOf(record, zone)
+                days += current + daysOf(record.metadata.id)
+                recordDays[record.metadata.id] = current
             }
-            token = response.nextChangesToken
+            next = response.nextChangesToken
             if (!response.hasMore) {
                 break
             }
         }
-
-        val dayRead = readDays(days, zone)
-        return Read(samples + dayRead.first, token, dayRead.second)
+        return Read(samples + aggregate(days, zone, now), cursorOf(next), recordDays)
     }
 
     private suspend fun backfill(zone: ZoneId, backfillDays: Long, now: Instant): Read {
         // The token first: what changes while we read comes again next time (the server dedups).
-        val token = client.getChangesToken(ChangesTokenRequest(TYPES, setOf(DataOrigin(app))))
+        val token = client.getChangesToken(ChangesTokenRequest(types))
         val today = Mapper.dayOf(now, zone)
         val first = today.minusDays(backfillDays - 1)
         val (start, _) = DayWindow.bounds(first, zone)
 
         val samples = mutableListOf<Sample>()
-        for (type in RECORD_TYPES) {
-            for (r in readAll(type, start, now)) {
+        if (SleepSessionRecord::class in types) {
+            for (r in readAll(SleepSessionRecord::class, start, now, setOf(DataOrigin(sleepApp)))) {
                 samples += samplesOf(r)
             }
         }
-        val dayRead = readDays(DayWindow.range(first, today), zone)
-        return Read(samples + dayRead.first, token, dayRead.second)
-    }
 
-    /**
-     * Sleep as it is; for a day-kind record its days now and the
-     * days it went into before (a record rewritten to another time leaves its old day).
-     */
-    private fun collect(
-        record: Record,
-        zone: ZoneId,
-        samples: MutableList<Sample>,
-        days: MutableSet<LocalDate>,
-        daysBefore: (String) -> Set<LocalDate>,
-    ) {
-        when (record) {
-            is SleepSessionRecord -> samples += samplesOf(record)
-            else -> days += daysOf(record, zone) + daysBefore(record.metadata.id)
-        }
-    }
-
-    /**
-     * Every day-kind record of [days], cut to those days (DayWindow), with each record's days.
-     *
-     * Known gap: a day or 10-minute bucket whose records were all deleted brings no sample,
-     * so no entry, and the server keeps its old total. Sending 0 would also write zeros for
-     * days the watch was simply off; deleting by external id needs a session token.
-     */
-    private suspend fun readDays(days: Set<LocalDate>, zone: ZoneId): Pair<List<Sample>, Map<String, Set<LocalDate>>> {
-        val records = mutableListOf<Record>()
-        for (day in days.sorted()) {
-            val (start, end) = DayWindow.bounds(day, zone)
-            for (type in DAY_TYPES) {
-                val kind = if (type == HeartRateRecord::class) Kind.HEART_RATE else Kind.STEPS
-                records += readAll(type, start, DayWindow.readEnd(kind, end))
+        // Each record's days, so its deletion later re-aggregates them.
+        val recordDays = mutableMapOf<String, Set<LocalDate>>()
+        for (type in types - SleepSessionRecord::class) {
+            for (r in readAll(type, start, now)) {
+                recordDays[r.metadata.id] = daysOf(r, zone)
             }
         }
-        // Not the day being read: the days the Mapper counts the record into.
-        val recordDays = records.associate { it.metadata.id to daysOf(it, zone) }
-        return DayWindow.merge(records, { it.metadata.id }, ::samplesOf, days, zone) to recordDays
+        return Read(samples + aggregate(DayWindow.range(first, today), zone, now), cursorOf(token), recordDays)
     }
 
-    private suspend fun <T : Record> readAll(type: KClass<T>, start: Instant, end: Instant): List<T> {
+    /**
+     * Each day's totals and 10-minute heart-rate buckets as Health Connect aggregates them,
+     * one sample each, cut to [days] (DayWindow).
+     *
+     * Known gap: a day or bucket whose records were all deleted brings no sample, so no
+     * entry, and the server keeps its old total; sending 0 would also write zeros for days
+     * the watch was simply off.
+     */
+    private suspend fun aggregate(days: Set<LocalDate>, zone: ZoneId, now: Instant): List<Sample> {
+        val totals = TOTALS.filter { it.type in types }
+        val samples = mutableListOf<Sample>()
+
+        for (day in days.sorted()) {
+            val (start, end) = DayWindow.bounds(day, zone)
+            val id = "day:$day"
+
+            if (totals.isNotEmpty()) {
+                val result = client.aggregate(AggregateRequest(totals.map { it.metric }.toSet(), TimeRangeFilter.between(start, end)))
+                for (t in totals) {
+                    val value = t.value(result) ?: continue
+                    samples += Sample(t.kind, id, AGGREGATE, start, minOf(end, now), value)
+                }
+            }
+
+            if (HeartRateRecord::class !in types) {
+                continue
+            }
+            val from = Mapper.bucketStart(start)
+            val buckets = client.aggregateGroupByDuration(AggregateGroupByDurationRequest(
+                setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MIN, HeartRateRecord.BPM_MAX),
+                TimeRangeFilter.between(from, DayWindow.readEnd(Kind.HEART_RATE, end)),
+                BUCKET,
+            ))
+            for (b in buckets) {
+                val avg = b.result[HeartRateRecord.BPM_AVG] ?: continue
+                samples += Sample(Kind.HEART_RATE, "hr:${b.startTime}", AGGREGATE, b.startTime, b.startTime, avg.toDouble(),
+                    min = b.result[HeartRateRecord.BPM_MIN]?.toDouble(), max = b.result[HeartRateRecord.BPM_MAX]?.toDouble())
+            }
+        }
+        return DayWindow.keep(samples, days, zone)
+    }
+
+    private suspend fun <T : Record> readAll(type: KClass<T>, start: Instant, end: Instant, apps: Set<DataOrigin> = emptySet()): List<T> {
         val out = mutableListOf<T>()
         var page: String? = null
         do {
             val response = client.readRecords(
-                ReadRecordsRequest(type, TimeRangeFilter.between(start, end), setOf(DataOrigin(app)),
-                    pageSize = PAGE_SIZE, pageToken = page)
+                ReadRecordsRequest(type, TimeRangeFilter.between(start, end), apps, pageSize = PAGE_SIZE, pageToken = page)
             )
             out += response.records
             page = response.pageToken
         } while (page != null)
         return out
     }
+
+    private fun cursorOf(token: String) = "$signature$SEPARATOR$token"
+
+    /** A day total: what Health Connect sums, and how its result reads as the sample's unit. */
+    private class Total(val type: KClass<out Record>, val kind: Kind, val metric: AggregateMetric<*>, val value: (AggregationResult) -> Double?)
 
     companion object {
         /**
@@ -157,6 +204,8 @@ class HealthConnectSource(
         fun daysOf(record: Record, zone: ZoneId): Set<LocalDate> = when (record) {
             is StepsRecord -> setOf(Mapper.dayOf(record.startTime, zone))
             is DistanceRecord -> setOf(Mapper.dayOf(record.startTime, zone))
+            is ActiveCaloriesBurnedRecord -> setOf(Mapper.dayOf(record.startTime, zone))
+            is FloorsClimbedRecord -> setOf(Mapper.dayOf(record.startTime, zone))
             is HeartRateRecord -> DayWindow.range(
                 Mapper.dayOf(Mapper.bucketStart(record.startTime), zone),
                 Mapper.dayOf(Mapper.bucketStart(record.endTime), zone),
@@ -169,17 +218,33 @@ class HealthConnectSource(
         private const val STAGE_UNKNOWN = 0
         private const val STAGE_OUT_OF_BED = 3
 
-        /** Sent as they are. */
-        private val RECORD_TYPES: List<KClass<out Record>> = listOf(SleepSessionRecord::class)
+        private const val SEPARATOR = "|"
+        private const val AGGREGATE = "health-connect" // the app of a sample Health Connect summed
+        private val BUCKET: Duration = Duration.ofMinutes(10)
 
-        /** Sent as day totals or buckets: re-read by whole days (DayWindow.DAY_KINDS). */
-        private val DAY_TYPES: List<KClass<out Record>> = listOf(StepsRecord::class, DistanceRecord::class, HeartRateRecord::class)
+        private val TOTALS = listOf(
+            Total(StepsRecord::class, Kind.STEPS, StepsRecord.COUNT_TOTAL) { it[StepsRecord.COUNT_TOTAL]?.toDouble() },
+            Total(DistanceRecord::class, Kind.DISTANCE, DistanceRecord.DISTANCE_TOTAL) { it[DistanceRecord.DISTANCE_TOTAL]?.inMeters },
+            Total(ActiveCaloriesBurnedRecord::class, Kind.ACTIVE_ENERGY, ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL) {
+                it[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+            },
+            Total(FloorsClimbedRecord::class, Kind.FLIGHTS_CLIMBED, FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL) {
+                it[FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL]
+            },
+        )
 
+        /** What the watch writes: required (KladdeSync). */
         val TYPES: Set<KClass<out Record>> = setOf(
             StepsRecord::class,
             DistanceRecord::class,
             HeartRateRecord::class,
             SleepSessionRecord::class,
+        )
+
+        /** Day totals read once allowed. */
+        val OPTIONAL_TYPES: Set<KClass<out Record>> = setOf(
+            ActiveCaloriesBurnedRecord::class,
+            FloorsClimbedRecord::class,
         )
 
         fun samplesOf(r: Record): List<Sample> {
@@ -189,6 +254,8 @@ class HealthConnectSource(
             return when (r) {
                 is StepsRecord -> listOf(Sample(Kind.STEPS, id, app, r.startTime, r.endTime, r.count.toDouble()))
                 is DistanceRecord -> listOf(Sample(Kind.DISTANCE, id, app, r.startTime, r.endTime, r.distance.inMeters))
+                is ActiveCaloriesBurnedRecord -> listOf(Sample(Kind.ACTIVE_ENERGY, id, app, r.startTime, r.endTime, r.energy.inKilocalories))
+                is FloorsClimbedRecord -> listOf(Sample(Kind.FLIGHTS_CLIMBED, id, app, r.startTime, r.endTime, r.floors))
                 is HeartRateRecord -> r.samples.map {
                     Sample(Kind.HEART_RATE, id, app, it.time, it.time, it.beatsPerMinute.toDouble())
                 }

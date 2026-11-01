@@ -11,6 +11,8 @@ namespace {
 
 const QString StepsId = QStringLiteral("HKQuantityTypeIdentifierStepCount");
 const QString DistanceId = QStringLiteral("HKQuantityTypeIdentifierDistanceWalkingRunning");
+const QString ActiveEnergyId = QStringLiteral("HKQuantityTypeIdentifierActiveEnergyBurned");
+const QString FlightsId = QStringLiteral("HKQuantityTypeIdentifierFlightsClimbed");
 const QString HeartRateId = QStringLiteral("HKQuantityTypeIdentifierHeartRate");
 const QString SleepId = QStringLiteral("HKCategoryTypeIdentifierSleepAnalysis");
 
@@ -95,24 +97,27 @@ int hkSleepStage(int healthConnectStage, bool sessionHasKnownStages)
 MapResult mapToBatchEntries(const Samples &samples, const QTimeZone &accountZone)
 {
     MapResult result;
-    QMap<QDate, double> steps;
-    QMap<QDate, double> distance;
+    QMap<Sample::Kind, QMap<QDate, double>> totals; // day kinds: local day -> total
     QMap<qint64, Bucket> heartRate; // bucket start (ms since epoch, UTC) -> stats
 
     for (const Sample &s : samples) {
         switch (s.kind) {
         case Sample::Kind::Steps:
-        case Sample::Kind::Distance: {
+        case Sample::Kind::Distance:
+        case Sample::Kind::ActiveEnergy:
+        case Sample::Kind::FlightsClimbed: {
             // A sample counts for the local day it starts on.
-            const QDate day = s.start.toTimeZone(accountZone).date();
-            (s.kind == Sample::Kind::Steps ? steps : distance)[day] += s.value;
+            totals[s.kind][s.start.toTimeZone(accountZone).date()] += s.value;
             break;
         }
         case Sample::Kind::HeartRate: {
             const qint64 ms = s.start.toMSecsSinceEpoch();
             Bucket &b = heartRate[ms - ((ms % BucketMs) + BucketMs) % BucketMs];
-            b.min = b.count ? std::min(b.min, s.value) : s.value;
-            b.max = b.count ? std::max(b.max, s.value) : s.value;
+            // A sample that is a bucket already brings its own extremes.
+            const double low = s.min.value_or(s.value);
+            const double high = s.max.value_or(s.value);
+            b.min = b.count ? std::min(b.min, low) : low;
+            b.max = b.count ? std::max(b.max, high) : high;
             b.sum += s.value;
             ++b.count;
             break;
@@ -160,8 +165,10 @@ MapResult mapToBatchEntries(const Samples &samples, const QTimeZone &accountZone
                                         .arg(identifier, it.key().toString(Qt::ISODate)));
         }
     };
-    addDays(steps, StepsId, QStringLiteral("count"));
-    addDays(distance, DistanceId, QStringLiteral("m"));
+    addDays(totals.value(Sample::Kind::Steps), StepsId, QStringLiteral("count"));
+    addDays(totals.value(Sample::Kind::Distance), DistanceId, QStringLiteral("m"));
+    addDays(totals.value(Sample::Kind::ActiveEnergy), ActiveEnergyId, QStringLiteral("kcal"));
+    addDays(totals.value(Sample::Kind::FlightsClimbed), FlightsId, QStringLiteral("count"));
 
     for (auto it = heartRate.cbegin(); it != heartRate.cend(); ++it) {
         const QDateTime start = QDateTime::fromMSecsSinceEpoch(it.key(), QTimeZone::UTC);

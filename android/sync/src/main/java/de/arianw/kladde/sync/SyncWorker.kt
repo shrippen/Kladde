@@ -28,13 +28,13 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         val trigger = Trigger.entries.firstOrNull { it.wire == inputData.getString(KEY_TRIGGER) } ?: Trigger.BACKGROUND
         val store = SqliteQueueStore(applicationContext)
         val client = HealthConnectClient.getOrCreate(applicationContext)
-        val source = HealthConnectSource(client)
         val backfill = KladdeSync.backfillDays(applicationContext)
         // Trainings only once allowed: an update to 0.2 asks for the new permission in the app.
         val exercise = HealthPermission.getReadPermission(ExerciseSessionRecord::class)
-        // Not asked (Health Connect busy): no trainings this run, the measurements still go.
+        // Not asked (Health Connect busy): nothing read this run, the queue still goes.
         val granted = runCatching { client.permissionController.getGrantedPermissions() }.getOrDefault(emptySet())
         val workouts = WorkoutSource(client).takeIf { exercise in granted }
+        val source = HealthConnectSource(client, (HealthConnectSource.TYPES + HealthConnectSource.OPTIONAL_TYPES).filter { HealthPermission.getReadPermission(it) in granted }.toSet())
         val allowed = ReadingSource.TYPES.filter { HealthPermission.getReadPermission(it) in granted }.toSet()
         val readings = ReadingSource(client, allowed).takeIf { allowed.isNotEmpty() }
 

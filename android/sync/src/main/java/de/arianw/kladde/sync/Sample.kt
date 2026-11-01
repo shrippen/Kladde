@@ -6,6 +6,8 @@ import java.time.Instant
 enum class Kind {
     STEPS,              // count over [start, end)
     DISTANCE,           // metres over [start, end)
+    ACTIVE_ENERGY,      // kcal over [start, end)
+    FLIGHTS_CLIMBED,    // floors over [start, end)
     HEART_RATE,         // bpm at start
     RESTING_HEART_RATE, // bpm at start
     SLEEP_STAGE,        // one stage of a sleep session over [start, end)
@@ -27,6 +29,9 @@ enum class Kind {
 /**
  * One reading as the source delivers it, before any HealthLog mapping.
  *
+ * Heart rate only: [min] and [max] when the sample is already a bucket (Health Connect's
+ * aggregate), [value] its average.
+ *
  * Sleep only: [sleepStage] is the Health Connect stage (SleepSessionRecord.STAGE_TYPE_*),
  * [sessionHasKnownStages] whether the session holds a classified stage (not unknown, not
  * out of bed).
@@ -40,4 +45,6 @@ data class Sample(
     val value: Double,
     val sleepStage: Int = 0,
     val sessionHasKnownStages: Boolean = false,
+    val min: Double? = null,
+    val max: Double? = null,
 )

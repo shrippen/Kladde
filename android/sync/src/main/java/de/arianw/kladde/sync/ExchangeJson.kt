@@ -17,6 +17,14 @@ object ExchangeJson {
 
     class Parsed(val samples: List<Sample>, val warnings: List<String>)
 
+    /** Day kinds over an interval: exchange type to kind and the value's key. */
+    private val DAY_TYPES = mapOf(
+        "Steps" to (Kind.STEPS to "count"),
+        "Distance" to (Kind.DISTANCE to "meters"),
+        "ActiveCaloriesBurned" to (Kind.ACTIVE_ENERGY to "kcal"),
+        "FloorsClimbed" to (Kind.FLIGHTS_CLIMBED to "floors"),
+    )
+
     /** Readings with one "value": exchange type to kind. */
     private val READINGS = mapOf(
         "Weight" to Kind.WEIGHT,
@@ -46,16 +54,16 @@ object ExchangeJson {
             }
 
             when (type) {
-                "Steps", "Distance" -> {
-                    val steps = type == "Steps"
-                    val value = r.optDouble(if (steps) "count" else "meters", -1.0)
+                in DAY_TYPES.keys -> {
+                    val (kind, key) = DAY_TYPES.getValue(type)
+                    val value = r.optDouble(key, -1.0)
                     val start = time(r, "start")
                     val end = time(r, "end")
                     if (start == null || end == null || value < 0) {
                         warnings += "record $i ($type): bad interval or value"
                         continue
                     }
-                    samples += Sample(if (steps) Kind.STEPS else Kind.DISTANCE, id, app, start, end, value)
+                    samples += Sample(kind, id, app, start, end, value)
                 }
 
                 "HeartRate" -> {
@@ -68,7 +76,15 @@ object ExchangeJson {
                             warnings += "record $i ($type): bad heart rate sample"
                             continue
                         }
-                        samples += Sample(Kind.HEART_RATE, id, app, t, t, bpm)
+                        // A bucket (min ≤ bpm ≤ max) or a single reading.
+                        val bucket = point.has("min") || point.has("max")
+                        val min = point.optDouble("min", -1.0)
+                        val max = point.optDouble("max", -1.0)
+                        if (bucket && !(min > 0 && min <= bpm && bpm <= max)) {
+                            warnings += "record $i ($type): bad heart rate sample"
+                            continue
+                        }
+                        samples += Sample(Kind.HEART_RATE, id, app, t, t, bpm, min = min.takeIf { bucket }, max = max.takeIf { bucket })
                     }
                 }
 

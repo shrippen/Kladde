@@ -101,7 +101,8 @@ Mapper ─▶ /api/measurements/batch   |   Training ─▶ /api/workouts/batch 
 ```
 
 - [x] Probe: welche App schreibt was (alle Typen, 30 Tage), vor allem Freeletics.
-- [ ] Tagessummen und Puls über `aggregate…` statt Summe der Pebble-Datensätze.
+- [x] Tagessummen (Schritte, Strecke, aktive Kalorien, Stockwerke) und Puls über `aggregate` /
+      `aggregateGroupByDuration` von allen Apps statt Summe der Pebble-Datensätze.
 - [x] Einzelwerte: Gewicht, Körperfett, Magermasse, Blutdruck, Blutzucker, SpO₂, HRV,
       Atemfrequenz, VO₂max, Körpertemperatur, Ruhepuls von jeder App (`ReadingSource`, eigener
       Cursor, nur erlaubte Arten; Ids und Einheiten wie HealthLogs `apple-health-mapping.ts`).

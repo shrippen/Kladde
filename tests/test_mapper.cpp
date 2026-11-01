@@ -170,6 +170,7 @@ private Q_SLOTS:
         QTest::addColumn<QString>("name");
         QTest::newRow("pebble-day") << QStringLiteral("pebble-day");
         QTest::newRow("readings") << QStringLiteral("readings");
+        QTest::newRow("day-totals") << QStringLiteral("day-totals");
     }
 
     void matchesTheSharedFixture()

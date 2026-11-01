@@ -11,14 +11,16 @@ design for both. [Deutsch](docs/README.de.md) · [Landing page](https://shrippen
 
 ## What it syncs
 
-On Android Kladde reads Health Connect, there only the records of the Pebble app (`coredevices.coreapp`), so nothing
-counts twice; workouts and single readings it takes from every app. A day kind the Pebble app does not write stays out: today it writes no distance. HealthLog's batch endpoint speaks HealthKit, so the values arrive in Apple's units and with the source
+On Android Kladde reads Health Connect from every app. Day totals and heart-rate blocks are Health Connect's own sums,
+which take each app in the order set in Health Connect, so phone and watch never count twice. Sleep comes from the
+Pebble app (`coredevices.coreapp`) for now. HealthLog's batch endpoint speaks HealthKit, so the values arrive in Apple's units and with the source
 "Apple Health".
 
 | Health Connect | In HealthLog | How |
 |---|---|---|
 | Steps | Steps | one total per local day, the whole day on every run |
-| Distance | Walking + running distance | one total per local day, in metres (if the source writes it) |
+| Distance | Walking + running distance | one total per local day, in metres |
+| Active calories, floors climbed | Active energy, flights climbed | one total per local day (if allowed) |
 | Heart rate | Pulse | 10-minute blocks with average, minimum and maximum |
 | Resting heart rate, weight, body fat, lean body mass, blood pressure, blood glucose, oxygen saturation, HRV (RMSSD), respiratory rate, VO₂ max, body temperature | the same | one entry per reading, from every app |
 | Sleep session with stages | Sleep | minutes per stage (awake, core, deep, REM) |

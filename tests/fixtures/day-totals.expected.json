@@ -1,0 +1,41 @@
+{
+ "entries": [
+  {
+   "endDate": "2026-11-01T23:00:00.000Z",
+   "externalId": "stats:HKQuantityTypeIdentifierActiveEnergyBurned:2026-11-01",
+   "hkIdentifier": "HKQuantityTypeIdentifierActiveEnergyBurned",
+   "startDate": "2026-10-31T23:00:00.000Z",
+   "unit": "kcal",
+   "value": 210.5
+  },
+  {
+   "endDate": "2026-11-01T23:00:00.000Z",
+   "externalId": "stats:HKQuantityTypeIdentifierFlightsClimbed:2026-11-01",
+   "hkIdentifier": "HKQuantityTypeIdentifierFlightsClimbed",
+   "startDate": "2026-10-31T23:00:00.000Z",
+   "unit": "count",
+   "value": 5
+  },
+  {
+   "endDate": "2026-11-01T14:10:00.000Z",
+   "externalId": "stats:HKQuantityTypeIdentifierHeartRate:2026-11-01T14:00:00.000Z",
+   "hkIdentifier": "HKQuantityTypeIdentifierHeartRate",
+   "startDate": "2026-11-01T14:00:00.000Z",
+   "unit": "count/min",
+   "value": 72,
+   "valueMax": 95,
+   "valueMin": 60
+  },
+  {
+   "endDate": "2026-11-01T14:20:00.000Z",
+   "externalId": "stats:HKQuantityTypeIdentifierHeartRate:2026-11-01T14:10:00.000Z",
+   "hkIdentifier": "HKQuantityTypeIdentifierHeartRate",
+   "startDate": "2026-11-01T14:10:00.000Z",
+   "unit": "count/min",
+   "value": 90,
+   "valueMax": 100,
+   "valueMin": 70
+  }
+ ],
+ "zone": "Europe/Berlin"
+}

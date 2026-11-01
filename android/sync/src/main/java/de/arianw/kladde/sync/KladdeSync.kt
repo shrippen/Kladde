@@ -44,7 +44,7 @@ object KladdeSync {
 
     /** Read once allowed; each source skips what is not (readings, trainings). */
     private val OPTIONAL: Set<String> =
-        (ReadingSource.TYPES + WorkoutSource.TYPES).map { HealthPermission.getReadPermission(it) }.toSet()
+        (HealthConnectSource.OPTIONAL_TYPES + ReadingSource.TYPES + WorkoutSource.TYPES).map { HealthPermission.getReadPermission(it) }.toSet()
 
     val READ_PERMISSIONS: Set<String> = REQUIRED + OPTIONAL
 

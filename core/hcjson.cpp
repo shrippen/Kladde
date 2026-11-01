@@ -15,6 +15,18 @@ namespace {
 constexpr int StageUnknown = 0;
 constexpr int StageOutOfBed = 3;
 
+// Day kinds over an interval: exchange type -> kind and the value's key.
+const QHash<QString, std::pair<Sample::Kind, const char *>> &dayTypes()
+{
+    static const QHash<QString, std::pair<Sample::Kind, const char *>> types{
+        {QStringLiteral("Steps"), {Sample::Kind::Steps, "count"}},
+        {QStringLiteral("Distance"), {Sample::Kind::Distance, "meters"}},
+        {QStringLiteral("ActiveCaloriesBurned"), {Sample::Kind::ActiveEnergy, "kcal"}},
+        {QStringLiteral("FloorsClimbed"), {Sample::Kind::FlightsClimbed, "floors"}},
+    };
+    return types;
+}
+
 // Readings with one "value": exchange type -> kind.
 const QHash<QString, Sample::Kind> &readingTypes()
 {
@@ -69,13 +81,13 @@ ParseResult parseHealthConnectJson(const QByteArray &json)
             continue;
         }
 
-        if (type == QLatin1String("Steps") || type == QLatin1String("Distance")) {
-            const bool steps = type == QLatin1String("Steps");
+        if (dayTypes().contains(type)) {
+            const auto [kind, key] = dayTypes().value(type);
             Sample s = base;
-            s.kind = steps ? Sample::Kind::Steps : Sample::Kind::Distance;
+            s.kind = kind;
             s.start = readTime(r, "start");
             s.end = readTime(r, "end");
-            s.value = r.value(QLatin1String(steps ? "count" : "meters")).toDouble(-1);
+            s.value = r.value(QLatin1String(key)).toDouble(-1);
             if (!s.start.isValid() || !s.end.isValid() || s.value < 0) {
                 skip(QStringLiteral("bad interval or value"));
                 continue;
@@ -88,6 +100,18 @@ ParseResult parseHealthConnectJson(const QByteArray &json)
                 s.kind = Sample::Kind::HeartRate;
                 s.start = s.end = readTime(p.toObject(), "time");
                 s.value = p.toObject().value(QLatin1String("bpm")).toDouble(-1);
+                // A bucket (min <= bpm <= max) or a single reading.
+                const QJsonObject o = p.toObject();
+                if (o.contains(QLatin1String("min")) || o.contains(QLatin1String("max"))) {
+                    const double min = o.value(QLatin1String("min")).toDouble(-1);
+                    const double max = o.value(QLatin1String("max")).toDouble(-1);
+                    if (!(min > 0 && min <= s.value && s.value <= max)) {
+                        skip(QStringLiteral("bad heart rate sample"));
+                        continue;
+                    }
+                    s.min = min;
+                    s.max = max;
+                }
                 if (!s.start.isValid() || s.value <= 0) {
                     skip(QStringLiteral("bad heart rate sample"));
                     continue;

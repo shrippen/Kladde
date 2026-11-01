@@ -13,7 +13,10 @@ namespace kladde {
 //   {"records": [
 //     {"type": "Steps", "id": "...", "app": "...", "start": ISO, "end": ISO, "count": 120},
 //     {"type": "Distance", "id": "...", "app": "...", "start": ISO, "end": ISO, "meters": 80.5},
+//     {"type": "ActiveCaloriesBurned", "id": "...", "app": "...", "start": ISO, "end": ISO, "kcal": 210},
+//     {"type": "FloorsClimbed", "id": "...", "app": "...", "start": ISO, "end": ISO, "floors": 3},
 //     {"type": "HeartRate", "id": "...", "app": "...", "samples": [{"time": ISO, "bpm": 61}]},
+//       (a sample may carry "min" and "max": a 10-minute bucket, "bpm" its average)
 //     {"type": "RestingHeartRate", "id": "...", "app": "...", "time": ISO, "bpm": 52},
 //     {"type": "Weight", "id": "...", "app": "...", "time": ISO, "value": 72.4},
 //       (also BodyFat, LeanBodyMass, BloodGlucose, OxygenSaturation, HeartRateVariabilityRmssd,

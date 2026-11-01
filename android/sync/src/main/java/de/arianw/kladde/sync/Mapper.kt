@@ -12,7 +12,7 @@ import java.time.format.DateTimeFormatter
  * identifiers in Apple's units. Same rules as core/mapper.cpp (checked by the shared
  * fixtures in tests/fixtures):
  *
- * - Steps and distance: one total per local day (`stats:<id>:<YYYY-MM-DD>`, overwrites), so
+ * - Steps, distance, active energy and flights: one total per local day (`stats:<id>:<YYYY-MM-DD>`, overwrites), so
  *   the samples of a day must be complete.
  * - Heart rate: 10-minute UTC buckets with average, min and max, about 144 a day.
  * - Readings (resting heart rate, weight, blood pressure …): one entry per reading, in the
@@ -23,6 +23,8 @@ object Mapper {
 
     const val STEPS_ID = "HKQuantityTypeIdentifierStepCount"
     const val DISTANCE_ID = "HKQuantityTypeIdentifierDistanceWalkingRunning"
+    const val ACTIVE_ENERGY_ID = "HKQuantityTypeIdentifierActiveEnergyBurned"
+    const val FLIGHTS_ID = "HKQuantityTypeIdentifierFlightsClimbed"
     const val HEART_RATE_ID = "HKQuantityTypeIdentifierHeartRate"
     const val SLEEP_ID = "HKCategoryTypeIdentifierSleepAnalysis"
 
@@ -34,6 +36,14 @@ object Mapper {
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
 
     class Result(val entries: List<JSONObject>, val skipped: List<String>)
+
+    /** Kinds sent as one total per local day, with HealthKit identifier and unit. */
+    private val DAY_TOTALS: Map<Kind, Pair<String, String>> = mapOf(
+        Kind.STEPS to (STEPS_ID to "count"),
+        Kind.DISTANCE to (DISTANCE_ID to "m"),
+        Kind.ACTIVE_ENERGY to (ACTIVE_ENERGY_ID to "kcal"),
+        Kind.FLIGHTS_CLIMBED to (FLIGHTS_ID to "count"),
+    )
 
     /** A reading's HealthKit identifier and unit; the sample's value / [divisor] is in it. */
     private class Quantity(val id: String, val unit: String, val divisor: Double = 1.0)
@@ -61,23 +71,25 @@ object Mapper {
     fun map(samples: List<Sample>, zone: ZoneId): Result {
         val entries = mutableListOf<JSONObject>()
         val skipped = mutableListOf<String>()
-        val steps = sortedMapOf<LocalDate, Double>()
-        val distance = sortedMapOf<LocalDate, Double>()
+        val totals = DAY_TOTALS.keys.associateWith { sortedMapOf<LocalDate, Double>() }
         val buckets = sortedMapOf<Long, Bucket>()
 
         for (s in samples) {
             when (s.kind) {
-                Kind.STEPS, Kind.DISTANCE -> {
+                Kind.STEPS, Kind.DISTANCE, Kind.ACTIVE_ENERGY, Kind.FLIGHTS_CLIMBED -> {
                     // A sample counts for the local day it starts on.
                     val day = s.start.atZone(zone).toLocalDate()
-                    val totals = if (s.kind == Kind.STEPS) steps else distance
-                    totals[day] = (totals[day] ?: 0.0) + s.value
+                    val days = totals.getValue(s.kind)
+                    days[day] = (days[day] ?: 0.0) + s.value
                 }
 
                 Kind.HEART_RATE -> {
                     val b = buckets.getOrPut(bucketStart(s.start).toEpochMilli()) { Bucket() }
-                    b.min = if (b.count > 0) minOf(b.min, s.value) else s.value
-                    b.max = if (b.count > 0) maxOf(b.max, s.value) else s.value
+                    // A sample that is a bucket already brings its own extremes.
+                    val low = s.min ?: s.value
+                    val high = s.max ?: s.value
+                    b.min = if (b.count > 0) minOf(b.min, low) else low
+                    b.max = if (b.count > 0) maxOf(b.max, high) else high
                     b.sum += s.value
                     b.count++
                 }
@@ -110,8 +122,10 @@ object Mapper {
             }
         }
 
-        addDays(entries, steps, STEPS_ID, "count", zone)
-        addDays(entries, distance, DISTANCE_ID, "m", zone)
+        for ((kind, days) in totals) {
+            val (id, unit) = DAY_TOTALS.getValue(kind)
+            addDays(entries, days, id, unit, zone)
+        }
 
         for ((startMs, b) in buckets) {
             val start = Instant.ofEpochMilli(startMs)

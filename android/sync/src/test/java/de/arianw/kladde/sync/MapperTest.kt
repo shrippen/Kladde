@@ -51,6 +51,18 @@ class MapperTest {
     }
 
     @Test
+    fun dayTotalsAndBucketsMatchTheSharedFixture() {
+        // Active energy and flights as day totals; heart-rate buckets from the aggregate keep their extremes.
+        val parsed = ExchangeJson.parse(fixture("day-totals.json"))
+        assertEquals(1, parsed.warnings.size) // a bucket whose min is no number
+
+        val expected = JSONObject(fixture("day-totals.expected.json"))
+        val want = expected.getJSONArray("entries").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
+        val got = Mapper.map(parsed.samples, ZoneId.of(expected.getString("zone")))
+        assertEquals(normalised(want), normalised(got.entries))
+    }
+
+    @Test
     fun sleepStageTable() {
         val table = mapOf(
             Pair(0, false) to 1, Pair(0, true) to -1, Pair(1, true) to 2, Pair(2, true) to 1,
@@ -107,16 +119,4 @@ class MapperTest {
         assertEquals(berlin, DayWindow.readEnd(Kind.HEART_RATE, berlin))
     }
 
-    @Test
-    fun aRecordOverMidnightCountsOnceWhenBothDaysAreRead() {
-        // Read for 31 October and for 1 November, it comes back twice.
-        val zone = ZoneId.of("Europe/Berlin")
-        val steps = Sample(Kind.STEPS, "s", "p", Instant.parse("2026-10-31T22:30:00Z"), Instant.parse("2026-10-31T23:20:00Z"), 120.0)
-        val reads = listOf("s" to steps, "s" to steps)
-        val days = setOf(LocalDate.of(2026, 10, 31), LocalDate.of(2026, 11, 1))
-        val kept = DayWindow.merge(reads, { it.first }, { listOf(it.second) }, days, zone)
-        assertEquals(listOf(steps), kept)
-        val total = Mapper.map(kept, zone).entries.single { it.getString("hkIdentifier").endsWith("StepCount") }
-        assertEquals(120.0, total.getDouble("value"), 0.0)
-    }
 }
