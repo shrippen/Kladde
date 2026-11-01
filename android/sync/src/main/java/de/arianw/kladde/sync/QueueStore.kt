@@ -17,14 +17,17 @@ interface QueueStore {
 
     fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, Set<LocalDate>>, seen: Map<Kind, Instant>)
 
-    /** The oldest batch that is due at [now], or null. */
+    /**
+     * The oldest batch if it is due at [now], else null: the queue goes strictly in order,
+     * a newer day total must not overtake an older one in backoff.
+     */
     fun next(now: Instant): Pending?
 
     fun done(key: String)
 
     fun retryAt(key: String, at: Instant)
 
-    /** Swap a batch for a smaller one after the server refused some of its entries. */
+    /** Swap a batch for a smaller one in its place in the queue (null: drop it). */
     fun replace(key: String, with: Batch?)
 
     fun cursor(): String?

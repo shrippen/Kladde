@@ -93,6 +93,47 @@ class UploaderTest {
     }
 
     @Test
+    fun aNewerBatchNeverOvertakesOneInBackoff() {
+        // A re-posted day total overwrites: 3000 (A) arriving after 4000 (B) would stick.
+        val store = MemoryStore()
+        val a = Batches.make(entries(1), Trigger.BACKGROUND)
+        store.enqueue(a, "t1", emptyMap(), emptyMap())
+        Uploader(store) { _, _ -> Response(503, "") }.flush(now)
+        store.enqueue(Batches.make(entries(2), Trigger.BACKGROUND), "t2", emptyMap(), emptyMap())
+
+        val sent = mutableListOf<String>()
+        val later = now.plus(Duration.ofSeconds(30))
+        val result = Uploader(store) { _, key -> sent += key; ok(1) }.flush(later)
+        assertEquals(emptyList<String>(), sent)
+        assertEquals(Uploader.Outcome.RETRY_LATER, result.outcome)
+        assertEquals(Uploader.WAITING, result.error)
+
+        Uploader(store) { _, key -> sent += key; ok(1) }.flush(now.plus(Duration.ofMinutes(2)))
+        assertEquals(a[0].key, sent.first())
+        assertEquals(2, sent.size)
+    }
+
+    @Test
+    fun entriesFailedOnTheServerStayQueued() {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+        val bodies = mutableListOf<String>()
+        val result = Uploader(store) { body, _ ->
+            bodies += body
+            Response(200, """{"data":{"processed":3,"inserted":2,"failed":1,"entries":[
+                {"index":0,"status":"inserted"},{"index":1,"status":"failed"},{"index":2,"status":"inserted"}]}}""")
+        }.flush(now)
+
+        assertEquals(Uploader.Outcome.RETRY_LATER, result.outcome)
+        assertEquals(2, result.uploaded)
+        assertEquals(1, store.pendingCount())
+        assertNull("in backoff", store.next(now))
+        val again = store.next(now.plus(Duration.ofMinutes(1)))!!.batch
+        assertEquals("e1", JSONObject(again.body).getJSONArray("entries").getJSONObject(0).getString("externalId"))
+        assertEquals(1, bodies.size)
+    }
+
+    @Test
     fun anOkThatIsNotJsonStillCounts() {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t1", emptyMap(), emptyMap())

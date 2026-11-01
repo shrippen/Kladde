@@ -65,10 +65,10 @@ class SqliteQueueStore(context: Context) :
 
     override fun next(now: Instant): Pending? =
         readableDatabase.rawQuery(
-            "SELECT body, key, size, attempts FROM pending WHERE due <= ? ORDER BY created, rowid LIMIT 1",
-            arrayOf(now.toEpochMilli().toString()),
+            "SELECT body, key, size, attempts, due FROM pending ORDER BY created, rowid LIMIT 1",
+            null,
         ).use { c ->
-            if (!c.moveToFirst()) {
+            if (!c.moveToFirst() || c.getLong(4) > now.toEpochMilli()) {
                 return null
             }
             Pending(Batch(c.getString(0), c.getString(1), c.getInt(2)), c.getInt(3))
@@ -84,26 +84,13 @@ class SqliteQueueStore(context: Context) :
     }
 
     override fun replace(key: String, with: Batch?) {
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            val created = db.rawQuery("SELECT created FROM pending WHERE key = ?", arrayOf(key)).use {
-                if (it.moveToFirst()) it.getLong(0) else System.currentTimeMillis()
-            }
-            db.delete("pending", "key = ?", arrayOf(key))
-            if (with != null) {
-                db.insertWithOnConflict("pending", null, ContentValues().apply {
-                    put("key", with.key)
-                    put("body", with.body)
-                    put("size", with.size)
-                    put("created", created)
-                    put("due", 0L)
-                }, SQLiteDatabase.CONFLICT_IGNORE)
-            }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
+        if (with == null) {
+            done(key)
+            return
         }
+        // In place: same created and rowid, so the batch keeps its turn in the queue.
+        writableDatabase.execSQL("UPDATE pending SET key = ?, body = ?, size = ?, attempts = 0, due = 0 WHERE key = ?",
+            arrayOf(with.key, with.body, with.size, key))
     }
 
     override fun cursor(): String? = value(KEY_CURSOR)

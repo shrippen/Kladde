@@ -14,9 +14,12 @@ fun interface Transport {
 }
 
 /**
- * Empties the queue into HealthLog, oldest batch first.
+ * Empties the queue into HealthLog, strictly oldest batch first: a re-posted day total or
+ * heart-rate bucket overwrites the server's row, so a newer batch must never overtake an
+ * older one waiting in backoff.
  *
- *   200          -> done
+ *   200          -> done; entries reported `failed` (a passing database fault) stay queued
+ *                   as a smaller batch with backoff
  *   0, 409, 429, 5xx -> try again later (backoff 1 min, doubling, at most 6 h); stop
  *   401, 403     -> stop, the token is wrong; the queue stays
  *   422          -> drop the named entries and send the rest; naming none, drop the batch
@@ -35,14 +38,28 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
         var dropped: String? = null
 
         while (true) {
-            val pending = store.next(now) ?: return Result(Outcome.EMPTY, uploaded, inserted, dropped)
+            val pending = store.next(now)
+            if (pending == null) {
+                return if (store.pendingCount() == 0) {
+                    Result(Outcome.EMPTY, uploaded, inserted, dropped)
+                } else {
+                    Result(Outcome.RETRY_LATER, uploaded, inserted, dropped ?: WAITING)
+                }
+            }
             val response = post(pending.batch)
 
             if (response.status == HTTP_OK) {
-                store.done(pending.batch.key)
-                uploaded += pending.batch.size
+                val failed = failedEntries(response.body)
+                val rest = if (failed.isEmpty()) null else Batches.only(pending.batch, failed)
+                uploaded += pending.batch.size - (rest?.size ?: 0)
                 inserted += insertedOf(response.body)
-                continue
+                if (rest == null) {
+                    store.done(pending.batch.key)
+                    continue
+                }
+                store.replace(pending.batch.key, rest)
+                store.retryAt(rest.key, now.plus(backoff(pending.attempts)))
+                return Result(Outcome.RETRY_LATER, uploaded, inserted, "HealthLog: ${rest.size} entries failed, retrying")
             }
 
             if (retryable(response.status)) {
@@ -84,6 +101,25 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
 
         private val FIRST_RETRY: Duration = Duration.ofMinutes(1)
         private val LAST_RETRY: Duration = Duration.ofHours(6)
+
+        const val WAITING = "upload waiting for retry"
+
+        /** Indices of entries a 200 reports as `failed`: retryable on the server's side. */
+        fun failedEntries(body: String): Set<Int> {
+            val entries = try {
+                JSONObject(body).optJSONObject("data")?.optJSONArray("entries")
+            } catch (e: org.json.JSONException) {
+                null
+            } ?: return emptySet()
+            val out = mutableSetOf<Int>()
+            for (i in 0 until entries.length()) {
+                val e = entries.optJSONObject(i) ?: continue
+                if (e.optString("status") == "failed" && e.has("index")) {
+                    out += e.optInt("index")
+                }
+            }
+            return out
+        }
 
         private fun insertedOf(body: String): Int = try {
             JSONObject(body).optJSONObject("data")?.optInt("inserted") ?: 0

@@ -34,12 +34,17 @@ object Batches {
         }
 
     /** The same batch without the entries at [drop] (indices into its entries). */
-    fun without(batch: Batch, drop: Set<Int>): Batch? {
+    fun without(batch: Batch, drop: Set<Int>): Batch? = filter(batch) { it !in drop }
+
+    /** Only the entries at [keep]; null if none of them is in the batch. */
+    fun only(batch: Batch, keep: Set<Int>): Batch? = filter(batch) { it in keep }
+
+    private fun filter(batch: Batch, keep: (Int) -> Boolean): Batch? {
         val root = JSONObject(batch.body)
         val entries = root.getJSONArray("entries")
         val kept = JSONArray()
         for (i in 0 until entries.length()) {
-            if (i !in drop) {
+            if (keep(i)) {
                 kept.put(entries.get(i))
             }
         }

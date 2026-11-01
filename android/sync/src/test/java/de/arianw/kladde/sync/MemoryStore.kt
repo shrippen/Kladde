@@ -33,7 +33,7 @@ class MemoryStore : QueueStore {
     }
 
     override fun next(now: Instant): Pending? =
-        rows.values.filter { !it.due.isAfter(now) }.minByOrNull { it.order }?.let { Pending(it.batch, it.attempts) }
+        rows.values.minByOrNull { it.order }?.takeIf { !it.due.isAfter(now) }?.let { Pending(it.batch, it.attempts) }
 
     override fun done(key: String) {
         rows.remove(key)

@@ -55,7 +55,7 @@ class HealthConnectSource(
             }
             for (change in response.changes) {
                 when (change) {
-                    is UpsertionChange -> collect(change.record, zone, samples, days)
+                    is UpsertionChange -> collect(change.record, zone, samples, days, daysOf)
                     is DeletionChange -> days += daysOf(change.recordId)
                 }
             }
@@ -86,15 +86,30 @@ class HealthConnectSource(
         return Read(samples + dayRead.first, token, dayRead.second)
     }
 
-    /** Sleep and resting heart rate as they are; the days of every day-kind record. */
-    private fun collect(record: Record, zone: ZoneId, samples: MutableList<Sample>, days: MutableSet<LocalDate>) {
+    /**
+     * Sleep and resting heart rate as they are; for a day-kind record its days now and the
+     * days it went into before (a record rewritten to another time leaves its old day).
+     */
+    private fun collect(
+        record: Record,
+        zone: ZoneId,
+        samples: MutableList<Sample>,
+        days: MutableSet<LocalDate>,
+        daysBefore: (String) -> Set<LocalDate>,
+    ) {
         when (record) {
             is SleepSessionRecord, is RestingHeartRateRecord -> samples += samplesOf(record)
-            else -> days += daysOf(record, zone)
+            else -> days += daysOf(record, zone) + daysBefore(record.metadata.id)
         }
     }
 
-    /** Every day-kind record of [days], cut to those days (DayWindow), with each record's days. */
+    /**
+     * Every day-kind record of [days], cut to those days (DayWindow), with each record's days.
+     *
+     * Known gap: a day or 10-minute bucket whose records were all deleted brings no sample,
+     * so no entry, and the server keeps its old total. Sending 0 would also write zeros for
+     * days the watch was simply off; deleting by external id needs a session token.
+     */
     private suspend fun readDays(days: Set<LocalDate>, zone: ZoneId): Pair<List<Sample>, Map<String, Set<LocalDate>>> {
         val samples = mutableListOf<Sample>()
         val recordDays = mutableMapOf<String, Set<LocalDate>>()
