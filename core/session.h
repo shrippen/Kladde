@@ -115,15 +115,17 @@ private:
     void refresh();
     void fetchUser();
     void finishRefresh(const ApiReply &reply);
-    void revoke(const QString &refreshToken);
+    // At `server`: the one the token belongs to, maybe no longer ours.
+    void revoke(const QString &refreshToken, const QUrl &server);
     void endGeneration();
     void signIn(const ApiReply &reply);
     bool acceptTokens(const QJsonObject &data);
     void dropTokens();
     void setState(State state, const QString &error = {}, int status = -1);
     void setState(State state, const ApiReply &failure);
+    // `server`: another than ours (a revoke after the user switched); empty is ours.
     void raw(const QByteArray &verb, const QString &path, const QByteArray &body, bool withToken,
-             const QByteArray &idempotencyKey, Callback done);
+             const QByteArray &idempotencyKey, Callback done, const QUrl &server = {});
     QString secretKey() const;
 
     SecretStore *m_secrets;

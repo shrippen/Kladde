@@ -103,14 +103,15 @@ void Session::setState(State state, const QString &error, int status)
 }
 
 void Session::raw(const QByteArray &verb, const QString &path, const QByteArray &body, bool withToken,
-                  const QByteArray &idempotencyKey, Callback done)
+                  const QByteArray &idempotencyKey, Callback done, const QUrl &server)
 {
+    const QUrl base = server.isEmpty() ? m_server : server;
     if (m_transport) {
         // Asynchronous like the network, so callers see the same order of events.
         QTimer::singleShot(0, this, [this, verb, path, body, done] { m_transport(verb, path, body, done); });
         return;
     }
-    if (!acceptableServer(m_server)) {
+    if (!acceptableServer(base)) {
         QTimer::singleShot(0, this, [done] {
             ApiReply r;
             r.transportError = QStringLiteral("the server address must start with https://");
@@ -118,7 +119,7 @@ void Session::raw(const QByteArray &verb, const QString &path, const QByteArray 
         });
         return;
     }
-    QNetworkRequest req(m_server.resolved(QUrl(path)));
+    QNetworkRequest req(base.resolved(QUrl(path)));
     req.setTransferTimeout(TransferTimeoutMs);
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setRawHeader("Accept", "application/json");
@@ -326,8 +327,8 @@ void Session::logout()
     // The store may hold a newer token than ours (Android: the background job renewed);
     // ours is spent then, and a spent one coming back revokes every token of the user.
     if (!m_refreshToken.isEmpty() && !m_refreshing) {
-        m_secrets->read(secretKey(), [this, ours = m_refreshToken](bool ok, const QString &kept) {
-            revoke(ok && !kept.isEmpty() ? kept : ours);
+        m_secrets->read(secretKey(), [this, ours = m_refreshToken, server = m_server](bool ok, const QString &kept) {
+            revoke(ok && !kept.isEmpty() ? kept : ours, server);
         });
     }
     endGeneration();
@@ -336,11 +337,11 @@ void Session::logout()
     setState(State::SignedOut);
 }
 
-void Session::revoke(const QString &refreshToken)
+void Session::revoke(const QString &refreshToken, const QUrl &server)
 {
     const QJsonObject body{{QStringLiteral("refreshToken"), refreshToken}, {QStringLiteral("revoke"), true}};
     raw("POST", QStringLiteral("/api/auth/refresh"), QJsonDocument(body).toJson(QJsonDocument::Compact),
-        false, {}, [](const ApiReply &) {});
+        false, {}, [](const ApiReply &) {}, server);
 }
 
 void Session::endGeneration()
@@ -404,7 +405,7 @@ void Session::refresh()
     if (m_refreshing)
         return;
     m_refreshing = true;
-    auto done = [this, g = m_generation](const ApiReply &r) {
+    auto done = [this, g = m_generation, server = m_server](const ApiReply &r) {
             if (g == m_generation) {
                 finishRefresh(r);
                 return;
@@ -413,7 +414,7 @@ void Session::refresh()
             // and do not leave the token it brings valid on the server.
             const QString late = r.data().toObject().value(QLatin1String("refreshToken")).toString();
             if (r.ok() && !late.isEmpty())
-                revoke(late);
+                revoke(late, server);
         };
     if (m_renewer) {
         m_renewer(m_accessToken, done);

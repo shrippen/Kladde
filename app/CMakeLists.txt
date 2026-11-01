@@ -24,7 +24,7 @@ target_link_libraries(kladde PRIVATE Qt6Keychain::Qt6Keychain)
 # The background sync: on Android the Kotlin module android/sync through JNI.
 if(ANDROID)
     # No icon theme on Android: the Breeze Dark icons the app and Kirigami use come along.
-    target_sources(kladde PRIVATE syncbridge_android.cpp sessionvault.h sessionvault_android.cpp
+    target_sources(kladde PRIVATE syncbridge_android.cpp sessionvault.h sessionvault_android.cpp serialqueue.h serialqueue.cpp
                    platform/androidbackfilter.h icons/icons.qrc)
 else()
     target_sources(kladde PRIVATE syncbridge_none.cpp)

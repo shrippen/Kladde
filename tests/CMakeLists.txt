@@ -22,6 +22,11 @@ if(KLADDE_APP)
     target_link_libraries(test_syncbridge PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
     add_test(NAME test_syncbridge COMMAND test_syncbridge)
 
+    qt_add_executable(test_serialqueue test_serialqueue.cpp ${app}/serialqueue.h ${app}/serialqueue.cpp)
+    target_include_directories(test_serialqueue PRIVATE ${app})
+    target_link_libraries(test_serialqueue PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME test_serialqueue COMMAND test_serialqueue)
+
     # Pages with their C++ objects, the QML from the sources.
     find_package(Qt6 REQUIRED COMPONENTS Quick)
     qt_add_executable(test_views test_views.cpp ${app}/dashboard.cpp ${app}/history.cpp ${app}/errors.cpp)

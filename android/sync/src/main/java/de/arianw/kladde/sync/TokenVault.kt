@@ -25,6 +25,9 @@ class TokenVault(private val store: Store, private val refresher: Refresher) {
     /** Counts sign-ins and sign-outs: a run started under an earlier one gets no token. */
     private var session = 0L
 
+    /** Refresh tokens renewals here gave out: one handed back late is no new sign-in. */
+    private val issued = mutableSetOf<String>()
+
     interface Store {
         fun load(): TokenPair?
         fun save(pair: TokenPair)
@@ -44,11 +47,14 @@ class TokenVault(private val store: Store, private val refresher: Refresher) {
         class Unavailable(val response: Response) : Answer()
     }
 
-    /** A usable access token. `stale`: one the caller saw refused, never handed out again. */
     /** Which session the vault holds; a run notes it at its start (see current). */
     @Synchronized
     fun session(): Long = session
 
+    /**
+     * A usable access token. `stale`: one the caller saw refused, never handed out again.
+     * `session`: the one a run started under; after a sign-out or another sign-in it gets none.
+     */
     @Synchronized
     fun current(stale: String?, now: Instant = Instant.now(), session: Long? = null): Answer {
         if (session != null && session != this.session) {
@@ -62,6 +68,7 @@ class TokenVault(private val store: Store, private val refresher: Refresher) {
         val response = refresher.refresh(kept.refresh)
         if (response.status == HTTP_OK) {
             val pair = parse(response.body) ?: return Answer.Unavailable(response)
+            issued += pair.refresh
             store.save(pair)
             return Answer.Ok(pair)
         }
@@ -74,14 +81,16 @@ class TokenVault(private val store: Store, private val refresher: Refresher) {
 
     /**
      * After a sign-in: the refresh token the app got (its access token stays with the app).
-     * The app also hands back the token a renewal here gave it: then the kept pair stays.
+     * The app also hands back the token a renewal here gave it, maybe after the job renewed
+     * again: then the kept pair stays (the late one is spent).
      */
     @Synchronized
     fun begin(refreshToken: String) {
-        if (store.load()?.refresh == refreshToken) {
+        if (store.load()?.refresh == refreshToken || refreshToken in issued) {
             return
         }
         session++
+        issued.clear() // the earlier session's tokens: none of them comes back now
         store.save(TokenPair("", Instant.EPOCH, refreshToken))
     }
 
@@ -92,6 +101,7 @@ class TokenVault(private val store: Store, private val refresher: Refresher) {
     @Synchronized
     fun forget() {
         session++
+        issued.clear()
         store.clear()
     }
 

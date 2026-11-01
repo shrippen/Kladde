@@ -1,4 +1,5 @@
 #include "fakeserver.h"
+#include "laterstore.h"
 #include "pkce.h"
 #include "session.h"
 
@@ -353,6 +354,32 @@ private Q_SLOTS:
             return !revoked.isEmpty();
         }, 5000));
         QCOMPARE(revoked, QStringList{QStringLiteral("r9")});
+    }
+
+    void logoutRevokesAtTheServerItLeft()
+    {
+        // The keychain answers later (it may ask to be unlocked); a server entered meanwhile
+        // must not get the token of the one signed out from.
+        Auth authA;
+        FakeServer serverA([&](const FakeServer::Request &r) { return authA.handle(r); });
+        Auth authB;
+        FakeServer serverB([&](const FakeServer::Request &r) { return authB.handle(r); });
+        LaterSecretStore secrets;
+        Session session(&secrets);
+        session.setServer(serverA.url());
+        session.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
+        QVERIFY(QTest::qWaitFor([&] { return session.state() == Session::State::SignedIn; }, 5000));
+
+        session.logout();
+        session.setServer(serverB.url());
+        const auto revokes = [](const FakeServer &server) {
+            return std::count_if(server.requests.begin(), server.requests.end(), [](const FakeServer::Request &r) {
+                return r.path == QLatin1String("/api/auth/refresh") && r.body.value(QLatin1String("revoke")).toBool();
+            });
+        };
+        QVERIFY(QTest::qWaitFor([&] { return revokes(serverA) + revokes(serverB) > 0; }, 5000));
+        QCOMPARE(revokes(serverB), 0);
+        QCOMPARE(revokes(serverA), 1);
     }
 
     void aRenewerTakesOverTheRefresh()

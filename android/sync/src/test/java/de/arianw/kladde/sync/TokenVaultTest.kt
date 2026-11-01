@@ -60,6 +60,35 @@ class TokenVaultTest {
     }
 
     @Test
+    fun aLateHandBackOfAnOlderTokenKeepsTheLiveOne() {
+        // The app's renewal brings r2; before the app hands it back, the job renews to r3.
+        // r2 is spent: kept, it would come back to the server and revoke every token.
+        val server = Server()
+        val store = MemoryPairs()
+        val vault = TokenVault(store, server)
+        vault.begin("r1")
+        val app = vault.current(stale = null, now = now) as TokenVault.Answer.Ok
+        vault.current(stale = app.pair.access, now = now)
+        val run = vault.session()
+
+        vault.begin(app.pair.refresh)
+        assertEquals("r3", store.pair?.refresh)
+        assertEquals(run, vault.session())
+    }
+
+    @Test
+    fun theAppsRenewalKeepsARunsSession() {
+        val server = Server()
+        val vault = TokenVault(MemoryPairs(), server)
+        vault.begin("r1")
+        val run = vault.session()
+
+        val app = vault.current(stale = null, now = now) as TokenVault.Answer.Ok
+        vault.begin(app.pair.refresh)
+        assertTrue(vault.current(stale = null, now = now, session = run) is TokenVault.Answer.Ok)
+    }
+
+    @Test
     fun aValidKeptTokenIsHandedOutWithoutTheNetwork() {
         val server = Server()
         val vault = TokenVault(MemoryPairs(pair("a1", "r1")), server)

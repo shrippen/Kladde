@@ -55,7 +55,7 @@ public:
     // Where the session lives and the device it was signed in from; the background sync
     // uploads with the session the vault keeps (SessionVault).
     void configure(const QString &server, const QString &deviceId, Start start);
-    // Forget the session and stop the background work (sign-out).
+    // Stop the background work and drop its queue (sign-out); the session ends the vault.
     Q_INVOKABLE void forget();
 
     Q_INVOKABLE void requestPermissions();

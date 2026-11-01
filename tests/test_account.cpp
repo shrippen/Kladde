@@ -2,6 +2,7 @@
 #include "secretstore.h"
 #include "syncbridge.h"
 #include "syncbridge_fake.h"
+#include "laterstore.h"
 
 #include <QCoreApplication>
 #include <QJsonDocument>
@@ -82,7 +83,6 @@ private Q_SLOTS:
         FakeSync::forgets = 0;
         FakeSync::server.clear();
         FakeSync::device.clear();
-        FakeSync::onForget = nullptr;
         FakeSync::queueDrops = 0;
     }
 
@@ -186,8 +186,8 @@ private Q_SLOTS:
     void aSignOutRevokesTheVaultsToken()
     {
         // Android: the vault holds the live refresh token (the background job renewed, ours
-        // is spent), and forgetting the sync empties it. Revoke first, then forget.
-        MemorySecretStore secrets;
+        // is spent) and answers later, off the UI thread (SessionVault).
+        LaterSecretStore secrets;
         SyncBridge sync;
         Account account(&secrets, &sync);
         account.setServer(ServerA);
@@ -198,7 +198,6 @@ private Q_SLOTS:
 
         const QString key = QStringLiteral("refresh-token@") + ServerA;
         secrets.write(key, QStringLiteral("r9"), [](bool) {});
-        FakeSync::onForget = [&] { secrets.remove(key, [](bool) {}); };
         account.logout();
 
         QVERIFY(QTest::qWaitFor([&] { return count(QStringLiteral("/api/auth/refresh")) == 1; }, 5000));

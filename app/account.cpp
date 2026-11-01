@@ -170,7 +170,8 @@ void Account::verifyMfa(const QString &code, bool recoveryCode)
 void Account::logout()
 {
     m_signingIn = false;
-    // The session first: it revokes the refresh token the vault holds, which forget empties.
+    // The session first: it reads the refresh token the vault holds and revokes it, then
+    // empties the vault (remove, endSession); forget only stops the work and drops the queue.
     m_session.logout();
     m_sync->forget();
 }

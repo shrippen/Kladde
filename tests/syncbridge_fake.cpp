@@ -39,9 +39,6 @@ void SyncBridge::configure(const QString &server, const QString &deviceId, Start
 void SyncBridge::forget()
 {
     ++FakeSync::forgets;
-    if (FakeSync::onForget) {
-        FakeSync::onForget();
-    }
     FakeSync::server.clear();
     FakeSync::device.clear();
     m_configured = false;

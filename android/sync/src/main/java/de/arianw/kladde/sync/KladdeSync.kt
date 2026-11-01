@@ -218,7 +218,7 @@ object KladdeSync {
     }
 
     /**
-     * Sign-out: stop the background work, drop the session and everything queued or
+     * Sign-out: stop the background work and drop everything queued or
      * remembered for this account. Signing in again reads the backfill window anew.
      */
     @JvmStatic
@@ -226,7 +226,8 @@ object KladdeSync {
         val work = WorkManager.getInstance(context)
         work.cancelUniqueWork(PERIODIC)
         work.cancelUniqueWork(ONCE)
-        vault(context).forget()
+        // Not the vault: the session ends it (endSession) after reading the token to revoke;
+        // the app calls this on its UI thread, where the vault's lock may wait a minute.
         context.deleteDatabase(SqliteQueueStore.NAME)
     }
 

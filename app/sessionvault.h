@@ -1,6 +1,7 @@
 #pragma once
 
 #include "secretstore.h"
+#include "serialqueue.h"
 #include "session.h"
 
 #include <QObject>
@@ -26,4 +27,9 @@ public:
 
     // Session::Renewer: asks the vault off the UI thread, answers on this object's thread.
     void renew(const QString &stale, kladde::Session::Callback done);
+
+private:
+    // Every call to the vault: off the UI thread (its lock may wait for the background job's
+    // renewal), in order (sign-out reads the kept token before it removes it).
+    SerialQueue m_calls;
 };

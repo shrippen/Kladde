@@ -65,12 +65,9 @@ Aufbau nach der iOS-App ([ios-aufbau.md](ios-aufbau.md)).
       doppelt). Folge bis zum Upstream-PR: die Werte der Uhr stehen als `APPLE_HEALTH` da.
 - [x] Einrichtung: Server prüfen, Anmeldung mit Passwort und zweitem Faktor; Refresh-Token im
       Schlüsselbund (QtKeychain), Erneuerung einzeln und mit Rotation.
-- [ ] Vault (Review #6): `SessionVault` ruft den Vault synchron auf dem UI-Thread auf; läuft
-      gerade eine Erneuerung des Workers (bis 60 s Timeout), droht ein ANR. `TokenVault.begin`
-      übernimmt auch ein älteres Refresh-Token, wenn der Worker zwischen `renew` und
-      `acceptTokens` erneuert hat.
-      Desktop: der Widerruf beim Abmelden wartet auf den Schlüsselbund und nimmt den Server zum
-      Zeitpunkt der Antwort; wechselt der Nutzer ihn vorher, geht das Token an den neuen.
+- [x] Vault (Review #6): Aufrufe der App in einer eigenen Warteschlange abseits des UI-Threads,
+      ein verspätet zurückgegebenes Refresh-Token ersetzt nie das lebende, Widerruf beim Server,
+      zu dem das Token gehört.
 - [ ] Web-Login mit PKCE für Passwort und Passkey (`healthlog://login-callback`), SSO unter
       Linux, Health-Connect-Rechte im Ablauf.
 - [x] Start (Kacheln mit letzten 7 Tagen), Erfassen (Gewicht, Blutdruck mit Puls, Puls,
