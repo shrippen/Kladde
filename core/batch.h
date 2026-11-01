@@ -8,8 +8,9 @@
 namespace kladde {
 
 // One request body for POST /api/measurements/batch with its Idempotency-Key. The key is
-// the SHA-256 of the body, so resending the same batch after a lost answer is a replay the
-// server recognises (within its 24 h window), and a different batch never collides.
+// new for every batch; resend a batch with its own key after a lost answer and the server
+// recognises the replay (24 h window). Not a hash of the body: the server answers a known
+// key from memory, so a day total that returns to an earlier value would not be written.
 struct Batch {
     QByteArray body;
     QString idempotencyKey;

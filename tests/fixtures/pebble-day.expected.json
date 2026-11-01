@@ -1,0 +1,93 @@
+{
+ "entries": [
+  {
+   "endDate": "2026-11-01T06:00:00.000Z",
+   "externalId": "hc:rhr-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierRestingHeartRate",
+   "startDate": "2026-11-01T06:00:00.000Z",
+   "unit": "count/min",
+   "value": 52
+  },
+  {
+   "endDate": "2026-11-01T01:00:00.000Z",
+   "externalId": "hc:sleep-1:1793485800000",
+   "hkIdentifier": "HKCategoryTypeIdentifierSleepAnalysis",
+   "sleepStage": 3,
+   "startDate": "2026-10-31T22:30:00.000Z",
+   "unit": "category",
+   "value": 150
+  },
+  {
+   "endDate": "2026-11-01T02:30:00.000Z",
+   "externalId": "hc:sleep-1:1793494800000",
+   "hkIdentifier": "HKCategoryTypeIdentifierSleepAnalysis",
+   "sleepStage": 4,
+   "startDate": "2026-11-01T01:00:00.000Z",
+   "unit": "category",
+   "value": 90
+  },
+  {
+   "endDate": "2026-11-01T04:00:00.000Z",
+   "externalId": "hc:sleep-1:1793500800000",
+   "hkIdentifier": "HKCategoryTypeIdentifierSleepAnalysis",
+   "sleepStage": 5,
+   "startDate": "2026-11-01T02:40:00.000Z",
+   "unit": "category",
+   "value": 80
+  },
+  {
+   "endDate": "2026-11-01T04:10:00.000Z",
+   "externalId": "hc:sleep-1:1793505600000",
+   "hkIdentifier": "HKCategoryTypeIdentifierSleepAnalysis",
+   "sleepStage": 2,
+   "startDate": "2026-11-01T04:00:00.000Z",
+   "unit": "category",
+   "value": 10
+  },
+  {
+   "endDate": "2026-10-31T23:00:00.000Z",
+   "externalId": "stats:HKQuantityTypeIdentifierStepCount:2026-10-31",
+   "hkIdentifier": "HKQuantityTypeIdentifierStepCount",
+   "startDate": "2026-10-30T23:00:00.000Z",
+   "unit": "count",
+   "value": 40
+  },
+  {
+   "endDate": "2026-11-01T23:00:00.000Z",
+   "externalId": "stats:HKQuantityTypeIdentifierStepCount:2026-11-01",
+   "hkIdentifier": "HKQuantityTypeIdentifierStepCount",
+   "startDate": "2026-10-31T23:00:00.000Z",
+   "unit": "count",
+   "value": 1020
+  },
+  {
+   "endDate": "2026-11-01T23:00:00.000Z",
+   "externalId": "stats:HKQuantityTypeIdentifierDistanceWalkingRunning:2026-11-01",
+   "hkIdentifier": "HKQuantityTypeIdentifierDistanceWalkingRunning",
+   "startDate": "2026-10-31T23:00:00.000Z",
+   "unit": "m",
+   "value": 640.5
+  },
+  {
+   "endDate": "2026-11-01T14:10:00.000Z",
+   "externalId": "stats:HKQuantityTypeIdentifierHeartRate:2026-11-01T14:00:00.000Z",
+   "hkIdentifier": "HKQuantityTypeIdentifierHeartRate",
+   "startDate": "2026-11-01T14:00:00.000Z",
+   "unit": "count/min",
+   "value": 65,
+   "valueMax": 70,
+   "valueMin": 60
+  },
+  {
+   "endDate": "2026-11-01T14:20:00.000Z",
+   "externalId": "stats:HKQuantityTypeIdentifierHeartRate:2026-11-01T14:10:00.000Z",
+   "hkIdentifier": "HKQuantityTypeIdentifierHeartRate",
+   "startDate": "2026-11-01T14:10:00.000Z",
+   "unit": "count/min",
+   "value": 90,
+   "valueMax": 90,
+   "valueMin": 90
+  }
+ ],
+ "zone": "Europe/Berlin"
+}

@@ -28,13 +28,14 @@ private Q_SLOTS:
                  QStringLiteral("1000"));
     }
 
-    void keyFollowsTheBody()
+    void sameBodyNewKey()
     {
+        // The server answers a known key from memory for 24 h: a day total that returns to an
+        // earlier value must still be written, so the same body gets a new key.
         const QList<QJsonObject> a{QJsonObject{{QStringLiteral("value"), 1}}};
-        const QList<QJsonObject> b{QJsonObject{{QStringLiteral("value"), 2}}};
-        QCOMPARE(makeBatches(a).at(0).idempotencyKey, makeBatches(a).at(0).idempotencyKey);
-        QVERIFY(makeBatches(a).at(0).idempotencyKey != makeBatches(b).at(0).idempotencyKey);
-        QCOMPARE(makeBatches(a).at(0).idempotencyKey.size(), 64);
+        QCOMPARE(makeBatches(a).at(0).body, makeBatches(a).at(0).body);
+        QVERIFY(makeBatches(a).at(0).idempotencyKey != makeBatches(a).at(0).idempotencyKey);
+        QCOMPARE(makeBatches(a).at(0).idempotencyKey.size(), 36);
     }
 
     void noTriggerNoField()
