@@ -1,0 +1,30 @@
+{
+  "records": [
+    {"type": "Steps", "id": "steps-1", "app": "coredevices.coreapp",
+     "start": "2026-10-31T22:50:00Z", "end": "2026-10-31T22:59:00Z", "count": 40},
+    {"type": "Steps", "id": "steps-2", "app": "coredevices.coreapp",
+     "start": "2026-10-31T23:30:00Z", "end": "2026-10-31T23:40:00Z", "count": 120},
+    {"type": "Steps", "id": "steps-3", "app": "coredevices.coreapp",
+     "start": "2026-11-01T09:00:00Z", "end": "2026-11-01T09:15:00Z", "count": 900},
+    {"type": "Distance", "id": "dist-1", "app": "coredevices.coreapp",
+     "start": "2026-11-01T09:00:00Z", "end": "2026-11-01T09:15:00Z", "meters": 640.5},
+    {"type": "HeartRate", "id": "hr-1", "app": "coredevices.coreapp",
+     "samples": [{"time": "2026-11-01T14:01:00Z", "bpm": 60},
+                 {"time": "2026-11-01T14:09:59Z", "bpm": 70},
+                 {"time": "2026-11-01T14:10:00Z", "bpm": 90}]},
+    {"type": "RestingHeartRate", "id": "rhr-1", "app": "coredevices.coreapp",
+     "time": "2026-11-01T06:00:00Z", "bpm": 52},
+    {"type": "SleepSession", "id": "sleep-1", "app": "coredevices.coreapp",
+     "start": "2026-10-31T22:00:00Z", "end": "2026-11-01T06:00:00Z",
+     "stages": [{"start": "2026-10-31T22:00:00Z", "end": "2026-10-31T22:30:00Z", "stage": 3},
+                {"start": "2026-10-31T22:30:00Z", "end": "2026-11-01T01:00:00Z", "stage": 4},
+                {"start": "2026-11-01T01:00:00Z", "end": "2026-11-01T02:30:00Z", "stage": 5},
+                {"start": "2026-11-01T02:30:00Z", "end": "2026-11-01T02:40:00Z", "stage": 0},
+                {"start": "2026-11-01T02:40:00Z", "end": "2026-11-01T04:00:00Z", "stage": 6},
+                {"start": "2026-11-01T04:00:00Z", "end": "2026-11-01T04:10:00Z", "stage": 1}]},
+    {"type": "Exercise", "id": "ex-1", "app": "coredevices.coreapp",
+     "start": "2026-11-01T09:00:00Z", "end": "2026-11-01T09:15:00Z"},
+    {"type": "Steps", "app": "coredevices.coreapp",
+     "start": "2026-11-01T10:00:00Z", "end": "2026-11-01T10:15:00Z", "count": 5}
+  ]
+}

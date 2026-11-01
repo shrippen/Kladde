@@ -1,0 +1,30 @@
+#pragma once
+
+#include "sample.h"
+
+#include <QByteArray>
+#include <QStringList>
+
+namespace kladde {
+
+// The exchange format between a data source and the core: what the Health Connect probe
+// (spikes/hc-probe) exports, and what the Kotlin reader hands over in the app. Layout:
+//
+//   {"records": [
+//     {"type": "Steps", "id": "...", "app": "...", "start": ISO, "end": ISO, "count": 120},
+//     {"type": "Distance", "id": "...", "app": "...", "start": ISO, "end": ISO, "meters": 80.5},
+//     {"type": "HeartRate", "id": "...", "app": "...", "samples": [{"time": ISO, "bpm": 61}]},
+//     {"type": "RestingHeartRate", "id": "...", "app": "...", "time": ISO, "bpm": 52},
+//     {"type": "SleepSession", "id": "...", "app": "...", "start": ISO, "end": ISO,
+//      "stages": [{"start": ISO, "end": ISO, "stage": 4}]},
+//     {"type": "Exercise", ...}            // read, not mapped yet (workouts come later)
+//   ]}
+struct ParseResult {
+    Samples samples;
+    QStringList warnings; // skipped records, with the reason
+    QString error;        // set when the document itself is unusable
+};
+
+ParseResult parseHealthConnectJson(const QByteArray &json);
+
+} // namespace kladde

@@ -1,0 +1,6 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/qt/qml/Kladde">
+  <file alias="Main.qml">Main.qml</file>
+  <file alias="ConnectionPage.qml">ConnectionPage.qml</file>
+</qresource>
+</RCC>
