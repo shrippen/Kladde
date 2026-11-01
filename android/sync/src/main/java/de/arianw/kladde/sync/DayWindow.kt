@@ -22,6 +22,13 @@ object DayWindow {
     /** Kinds sent as day totals or buckets: re-read and send whole days. */
     val DAY_KINDS = setOf(Kind.STEPS, Kind.DISTANCE, Kind.HEART_RATE)
 
+    /**
+     * The samples of records read day by day, each record once (one over midnight comes back
+     * for both days), cut to [days].
+     */
+    fun <R> merge(records: List<R>, id: (R) -> String, samplesOf: (R) -> List<Sample>, days: Set<LocalDate>, zone: ZoneId): List<Sample> =
+        keep(records.associateBy(id).values.flatMap(samplesOf), days, zone)
+
     fun keep(samples: List<Sample>, days: Set<LocalDate>, zone: ZoneId): List<Sample> =
         samples.filter { it.kind !in DAY_KINDS || Mapper.dayOfSample(it, zone) in days }
 

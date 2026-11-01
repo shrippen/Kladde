@@ -4,7 +4,7 @@ Bringt Gesundheitsdaten der Pebble in die eigene [HealthLog](https://healthlog.d
 auf Android aus Health Connect, später auf Plasma Mobile direkt von der Uhr. Eine Qt-/Kirigami-App
 im Design System Kante für beide Plattformen.
 
-Stand: Phase 0 (Machbarkeit). Anforderungen in [docs/lastenheft.md](docs/lastenheft.md), Plan in
+Stand: Phase 1 (Android): Hintergrund-Sync und App-Seiten stehen, der Android-Build folgt. Anforderungen in [docs/lastenheft.md](docs/lastenheft.md), Plan in
 [docs/plan.md](docs/plan.md).
 
 ## Bauen
@@ -15,8 +15,18 @@ cmake --build build
 ctest --test-dir build
 ```
 
-Braucht Qt 6 (Core, Network, Quick, QuickControls2, Test) und zur Laufzeit Kirigami.
-`-DKLADDE_APP=OFF` baut nur Kern, Tests und `kladde-push`.
+Braucht Qt 6 (Core, Network, Quick, QuickControls2, Test, LinguistTools), QtKeychain und zur
+Laufzeit Kirigami. `-DKLADDE_APP=OFF` baut nur Kern, Tests und `kladde-push`.
+
+## Demo
+
+```sh
+demo/start.sh [de|en]
+```
+
+Baut `build-demo/` mit `-DKLADDE_DEMO=ON`: angemeldet als Mara Weber (Studio Weber, Daten aus
+`demo/world.json`, kopiert aus `shrippen.github.io/demo`), kein Server, kein Schlüsselbund.
+Nur für Screenshots; ein Test (`no_demo_in_app`) prüft, dass die Demo in normalen Builds fehlt.
 
 ## Probe bauen
 

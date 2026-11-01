@@ -48,7 +48,7 @@ jobs:
         env:
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
       - name: Tools
-        run: pacman -Syu --noconfirm --needed git base-devel cmake ninja qt6-base qt6-declarative qt6-svg kirigami
+        run: pacman -Syu --noconfirm --needed git base-devel cmake ninja qt6-base qt6-declarative qt6-svg qt6-tools qtkeychain-qt6 kirigami python
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Kante (public mirror)
         run: git clone --depth 1 https://github.com/shrippen/Kante.git ../Kante
@@ -70,6 +70,23 @@ jobs:
           timeout 60 build/app/kladde --shot /tmp/kladde.png 2>&1 | tee /tmp/kladde.log
           test -s /tmp/kladde.png
           ! grep -E 'qrc:.*(Error|Unable|is not)' /tmp/kladde.log
+      # The demo build (screenshots only, never shipped) still starts, signs in and draws
+      # every tab from the Studio Weber world.
+      - name: Demo screenshots
+        run: |
+          mkdir -p /tmp/shots
+          SHOT_DIR=/tmp/shots SHOT_PLAN="$(python3 -c 'import json; print(json.dumps(json.load(open("demo/shots.json"))["shots"]))')" \
+            KLADDE_DEMO_BUILD=build-demo DEMO_TODAY=2026-11-04 QT_QPA_PLATFORM=offscreen timeout 300 demo/start.sh de 2>&1 | tee /tmp/demo.log
+          for s in home history log more; do test -s /tmp/shots/$s.png; done
+          ! grep -E 'qrc:.*(Error|Unable|is not)' /tmp/demo.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: demo-shots
+          path: /tmp/shots/*.png
+      # Reports, does not block: the Arch container brings new Qt versions without notice.
+      - name: qmllint
+        continue-on-error: true
+        run: tools/qmllint.sh
 
   # The Android sync's unit tests (JVM, shared fixtures with core) and the
   # phase 0 probe. The probe APK is a CI artifact for the phone, not a release.

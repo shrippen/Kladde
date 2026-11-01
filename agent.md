@@ -89,7 +89,7 @@ Quellen     Health Connect (Kotlin, Android) | Pebble-Daemon (D-Bus, Linux)
 - Nur 422 ist eine endgültige Ablehnung. Andere Status (404, 308, 400 …) halten die Warteschlange an,
   sonst leert eine falsche URL sie.
 - Ein Datensatz über Mitternacht gehört zu dem Tag, zu dem der Mapper ihn zählt (Schritte: Starttag,
-  Herzfrequenz: alle Tage von Start bis Ende), nicht zu dem Tag, für den er gelesen wurde.
+  Herzfrequenz: die Tage der Blöcke von Start bis Ende, ein Block gehört zum Tag seines Beginns), nicht zu dem Tag, für den er gelesen wurde.
 - Die Warteschlange geht streng der Reihe nach: Tagessummen und Herzfrequenz-Blöcke überschreiben auf
   dem Server, ein neuerer Batch darf einen älteren im Backoff nicht überholen. Ein ersetzter Batch
   behält seinen Platz.
