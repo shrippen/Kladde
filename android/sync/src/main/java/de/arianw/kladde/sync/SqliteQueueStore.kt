@@ -14,7 +14,7 @@ class SqliteQueueStore(context: Context) :
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE pending (key TEXT PRIMARY KEY, body TEXT NOT NULL, size INTEGER NOT NULL, created INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, due INTEGER NOT NULL)")
         db.execSQL("CREATE TABLE kv (name TEXT PRIMARY KEY, value TEXT)")
-        db.execSQL("CREATE TABLE record_day (id TEXT PRIMARY KEY, day TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE record_day (id TEXT NOT NULL, day TEXT NOT NULL, PRIMARY KEY (id, day))")
         db.execSQL("CREATE TABLE seen (kind TEXT PRIMARY KEY, at INTEGER NOT NULL)")
     }
 
@@ -27,7 +27,7 @@ class SqliteQueueStore(context: Context) :
         onCreate(db)
     }
 
-    override fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, LocalDate>, seen: Map<Kind, Instant>) {
+    override fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, Set<LocalDate>>, seen: Map<Kind, Instant>) {
         val db = writableDatabase
         val now = System.currentTimeMillis()
         db.beginTransaction()
@@ -41,11 +41,14 @@ class SqliteQueueStore(context: Context) :
                     put("due", 0L)
                 }, SQLiteDatabase.CONFLICT_IGNORE)
             }
-            for ((id, day) in recordDays) {
-                db.insertWithOnConflict("record_day", null, ContentValues().apply {
-                    put("id", id)
-                    put("day", day.toString())
-                }, SQLiteDatabase.CONFLICT_REPLACE)
+            for ((id, days) in recordDays) {
+                db.delete("record_day", "id = ?", arrayOf(id))
+                for (day in days) {
+                    db.insertWithOnConflict("record_day", null, ContentValues().apply {
+                        put("id", id)
+                        put("day", day.toString())
+                    }, SQLiteDatabase.CONFLICT_IGNORE)
+                }
             }
             for ((kind, at) in seen) {
                 db.execSQL("INSERT INTO seen (kind, at) VALUES (?, ?) ON CONFLICT(kind) DO UPDATE SET at = MAX(at, excluded.at)",
@@ -109,9 +112,13 @@ class SqliteQueueStore(context: Context) :
         writableDatabase.delete("kv", "name = ?", arrayOf(KEY_CURSOR))
     }
 
-    override fun dayOf(recordId: String): LocalDate? =
-        readableDatabase.rawQuery("SELECT day FROM record_day WHERE id = ?", arrayOf(recordId)).use {
-            if (it.moveToFirst()) LocalDate.parse(it.getString(0)) else null
+    override fun daysOf(recordId: String): Set<LocalDate> =
+        readableDatabase.rawQuery("SELECT day FROM record_day WHERE id = ?", arrayOf(recordId)).use { c ->
+            val out = mutableSetOf<LocalDate>()
+            while (c.moveToNext()) {
+                out += LocalDate.parse(c.getString(0))
+            }
+            out
         }
 
     override fun pendingCount(): Int =
@@ -157,7 +164,7 @@ class SqliteQueueStore(context: Context) :
     }
 
     private companion object {
-        const val VERSION = 1
+        const val VERSION = 2
         const val KEY_CURSOR = "hc.changesToken"
     }
 }

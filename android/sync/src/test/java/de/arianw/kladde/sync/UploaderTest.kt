@@ -23,10 +23,13 @@ class UploaderTest {
         Response(200, """{"data":{"processed":$inserted,"inserted":$inserted,"updated":0,"duplicates":0,"failed":0,"skipped":[],"entries":[]},"error":null}""")
 
     @Test
-    fun batchesSplitAtTheLimitWithStableKeys() {
+    fun batchesSplitAtTheLimitEachWithItsOwnKey() {
         val batches = Batches.make(entries(1201), Trigger.BACKGROUND)
         assertEquals(listOf(500, 500, 201), batches.map { it.size })
-        assertEquals(batches[0].key, Batches.make(entries(1201), Trigger.BACKGROUND)[0].key)
+        // Same body, new key: a day total back at an earlier value must not be a replay.
+        val again = Batches.make(entries(1201), Trigger.BACKGROUND)[0]
+        assertEquals(batches[0].body, again.body)
+        assertNotEquals(batches[0].key, again.key)
         assertNotEquals(batches[0].key, batches[1].key)
         assertEquals("background", JSONObject(batches[2].body).getString("syncTrigger"))
     }
@@ -71,6 +74,46 @@ class UploaderTest {
         assertEquals(Uploader.Outcome.AUTH_FAILED, result.outcome)
         assertEquals("HTTP 401 auth.invalid", result.error)
         assertEquals(3, store.pendingCount())
+    }
+
+    @Test
+    fun anUnexpectedAnswerStopsAndKeepsTheQueue() {
+        // A wrong URL path or a proxy (404, 308, 400, 413) must not empty the queue.
+        for (status in listOf(308, 400, 404, 413)) {
+            val store = MemoryStore()
+            store.enqueue(Batches.make(entries(700), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+            var calls = 0
+            val result = Uploader(store) { _, _ -> calls++; Response(status, "<html>not here</html>") }.flush(now)
+
+            assertEquals(Uploader.Outcome.STOPPED, result.outcome)
+            assertEquals("HTTP $status", result.error)
+            assertEquals(1, calls)
+            assertEquals(700, store.pendingCount())
+        }
+    }
+
+    @Test
+    fun anOkThatIsNotJsonStillCounts() {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+        val result = Uploader(store) { _, _ -> Response(200, "ok") }.flush(now)
+
+        assertEquals(Uploader.Outcome.EMPTY, result.outcome)
+        assertEquals(2, result.uploaded)
+    }
+
+    @Test
+    fun aFailingSourceIsReportedAndTheQueueStillGoes() = runBlocking {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t0", emptyMap(), emptyMap())
+        val status = SyncRunner(store, { _, _ -> ok(2) }, ZoneId.of("UTC")).run({ _, _, _ ->
+            throw IllegalStateException("rate limited")
+        }, Trigger.MANUAL, now)
+
+        assertEquals("t0", store.cursor())
+        assertEquals(0, store.pendingCount())
+        assertEquals("Health Connect: IllegalStateException: rate limited", status.lastError)
+        assertNull(status.lastSuccess)
     }
 
     @Test
@@ -124,13 +167,13 @@ class UploaderTest {
 
         val status = SyncRunner(store, { _, _ -> Response(0, "offline") }, zone).run({ cursor, _, _ ->
             assertNull(cursor)
-            HealthConnectSource.Read(listOf(steps), "token-1", mapOf("s1" to day))
+            HealthConnectSource.Read(listOf(steps), "token-1", mapOf("s1" to setOf(day)))
         }, Trigger.MANUAL, now)
 
         // Offline: the data stays queued, the cursor moved with it, nothing is lost.
         assertEquals("token-1", store.cursor())
         assertEquals(1, store.pendingCount())
-        assertEquals(day, store.dayOf("s1"))
+        assertEquals(setOf(day), store.daysOf("s1"))
         assertEquals(now, status.lastRun)
         assertNull(status.lastSuccess)
         assertTrue(status.lastError!!.startsWith("no connection"))

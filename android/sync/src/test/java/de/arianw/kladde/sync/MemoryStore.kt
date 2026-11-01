@@ -11,7 +11,7 @@ class MemoryStore : QueueStore {
     private val rows = linkedMapOf<String, Row>()
     private var order = 0L
     private var cursor: String? = null
-    private val days = mutableMapOf<String, LocalDate>()
+    private val days = mutableMapOf<String, Set<LocalDate>>()
     private val seen = mutableMapOf<Kind, Instant>()
     private var status = SyncStatus()
 
@@ -19,7 +19,7 @@ class MemoryStore : QueueStore {
 
     fun batch(key: String): Batch? = rows[key]?.batch
 
-    override fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, LocalDate>, seen: Map<Kind, Instant>) {
+    override fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, Set<LocalDate>>, seen: Map<Kind, Instant>) {
         for (b in batches) {
             rows.putIfAbsent(b.key, Row(b, order++))
         }
@@ -59,7 +59,7 @@ class MemoryStore : QueueStore {
         cursor = null
     }
 
-    override fun dayOf(recordId: String): LocalDate? = days[recordId]
+    override fun daysOf(recordId: String): Set<LocalDate> = days[recordId].orEmpty()
 
     override fun pendingCount(): Int = rows.values.sumOf { it.batch.size }
 

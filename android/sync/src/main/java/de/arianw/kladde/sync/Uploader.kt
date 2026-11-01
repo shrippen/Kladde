@@ -19,12 +19,13 @@ fun interface Transport {
  *   200          -> done
  *   0, 409, 429, 5xx -> try again later (backoff 1 min, doubling, at most 6 h); stop
  *   401, 403     -> stop, the token is wrong; the queue stays
- *   422 per entry -> drop the named entries, keep the rest of the batch
- *   other 4xx    -> drop the batch (resending it unchanged fails the same way)
+ *   422          -> drop the named entries and send the rest; naming none, drop the batch
+ *   anything else -> stop, the queue stays (a wrong URL or a proxy answering 404 or 308
+ *                    must not empty the queue; only 422 is final per HealthLog's contract)
  */
 class Uploader(private val store: QueueStore, private val transport: Transport) {
 
-    enum class Outcome { EMPTY, RETRY_LATER, AUTH_FAILED }
+    enum class Outcome { EMPTY, RETRY_LATER, AUTH_FAILED, STOPPED }
 
     class Result(val outcome: Outcome, val uploaded: Int, val inserted: Int, val error: String?)
 
@@ -40,7 +41,7 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
             if (response.status == HTTP_OK) {
                 store.done(pending.batch.key)
                 uploaded += pending.batch.size
-                inserted += JSONObject(response.body).optJSONObject("data")?.optInt("inserted") ?: 0
+                inserted += insertedOf(response.body)
                 continue
             }
 
@@ -53,9 +54,13 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
                 return Result(Outcome.AUTH_FAILED, uploaded, inserted, describe(response))
             }
 
+            if (response.status != HTTP_UNPROCESSABLE) {
+                return Result(Outcome.STOPPED, uploaded, inserted, describe(response))
+            }
+
             // Refused for good: keep what the server did not name, drop the rest.
             // A smaller batch only; one that names no entry of this batch would loop forever.
-            val named = if (response.status == HTTP_UNPROCESSABLE) invalidEntries(response.body) else emptySet()
+            val named = invalidEntries(response.body)
             val rest = if (named.isEmpty()) null else Batches.without(pending.batch, named)
             store.replace(pending.batch.key, rest?.takeIf { it.size < pending.batch.size })
             dropped = describe(response)
@@ -79,6 +84,12 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
 
         private val FIRST_RETRY: Duration = Duration.ofMinutes(1)
         private val LAST_RETRY: Duration = Duration.ofHours(6)
+
+        private fun insertedOf(body: String): Int = try {
+            JSONObject(body).optJSONObject("data")?.optInt("inserted") ?: 0
+        } catch (e: org.json.JSONException) {
+            0
+        }
 
         fun retryable(status: Int): Boolean =
             status == 0 || status == HTTP_CONFLICT || status == HTTP_TOO_MANY || status >= HTTP_SERVER_ERROR

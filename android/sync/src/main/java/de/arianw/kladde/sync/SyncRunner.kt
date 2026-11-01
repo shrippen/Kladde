@@ -1,5 +1,6 @@
 package de.arianw.kladde.sync
 
+import kotlinx.coroutines.CancellationException
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -31,9 +32,15 @@ class SyncRunner(
             val mapped = Mapper.map(read.samples, zone)
             val seen = read.samples.groupBy { it.kind }.mapValues { (_, list) -> list.maxOf { it.end } }
             store.enqueue(Batches.make(mapped.entries, trigger), read.cursor, read.recordDays, seen)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: SecurityException) {
             // Permission withdrawn in Health Connect: upload what is queued, report it.
             error = "Health Connect: ${e.message ?: "no permission"}"
+        } catch (e: Exception) {
+            // Health Connect busy or rate-limited (IllegalStateException, RemoteException …):
+            // the cursor did not move, the next run reads again; upload what is queued.
+            error = "Health Connect: ${e.javaClass.simpleName}: ${e.message ?: ""}".trimEnd(' ', ':')
         }
 
         val upload = Uploader(store, transport).flush(now)

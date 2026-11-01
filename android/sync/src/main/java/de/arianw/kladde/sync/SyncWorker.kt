@@ -26,7 +26,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
         store.use {
             SyncRunner(it, HttpTransport(server, token)).run({ cursor, zone, now ->
-                source.read(cursor, zone, backfill, it::dayOf, now)
+                source.read(cursor, zone, backfill, it::daysOf, now)
             }, trigger)
         }
         return Result.success()

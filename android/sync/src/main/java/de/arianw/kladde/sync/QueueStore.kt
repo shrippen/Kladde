@@ -7,15 +7,15 @@ import java.time.LocalDate
 class Pending(val batch: Batch, val attempts: Int)
 
 /**
- * The durable side of the sync: batches waiting for upload, the source's cursor, which day
- * each day-total record belonged to, and what the status page shows.
+ * The durable side of the sync: batches waiting for upload, the source's cursor, which days
+ * each day-total record went into, and what the status page shows.
  *
  * [enqueue] stores batches and the new cursor in one transaction: once the cursor moved,
  * the data is either uploaded or still in the queue, never lost (LF-17, LF-23).
  */
 interface QueueStore {
 
-    fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, LocalDate>, seen: Map<Kind, Instant>)
+    fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, Set<LocalDate>>, seen: Map<Kind, Instant>)
 
     /** The oldest batch that is due at [now], or null. */
     fun next(now: Instant): Pending?
@@ -31,7 +31,8 @@ interface QueueStore {
 
     fun resetCursor()
 
-    fun dayOf(recordId: String): LocalDate?
+    /** The days a record went into, for re-reading them when it is deleted. */
+    fun daysOf(recordId: String): Set<LocalDate>
 
     fun pendingCount(): Int
 

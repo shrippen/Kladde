@@ -35,10 +35,10 @@ class HealthConnectSource(
     class Read(
         val samples: List<Sample>,
         val cursor: String,
-        val recordDays: Map<String, LocalDate>,
+        val recordDays: Map<String, Set<LocalDate>>,
     )
 
-    suspend fun read(cursor: String?, zone: ZoneId, backfillDays: Long, dayOf: (String) -> LocalDate?, now: Instant): Read {
+    suspend fun read(cursor: String?, zone: ZoneId, backfillDays: Long, daysOf: (String) -> Set<LocalDate>, now: Instant): Read {
         if (cursor == null) {
             return backfill(zone, backfillDays, now)
         }
@@ -56,7 +56,7 @@ class HealthConnectSource(
             for (change in response.changes) {
                 when (change) {
                     is UpsertionChange -> collect(change.record, zone, samples, days)
-                    is DeletionChange -> dayOf(change.recordId)?.let { days += it }
+                    is DeletionChange -> days += daysOf(change.recordId)
                 }
             }
             token = response.nextChangesToken
@@ -86,29 +86,25 @@ class HealthConnectSource(
         return Read(samples + dayRead.first, token, dayRead.second)
     }
 
-    /** Sleep and resting heart rate as they are; the day of every day-kind record. */
+    /** Sleep and resting heart rate as they are; the days of every day-kind record. */
     private fun collect(record: Record, zone: ZoneId, samples: MutableList<Sample>, days: MutableSet<LocalDate>) {
         when (record) {
             is SleepSessionRecord, is RestingHeartRateRecord -> samples += samplesOf(record)
-            is StepsRecord -> days += Mapper.dayOf(record.startTime, zone)
-            is DistanceRecord -> days += Mapper.dayOf(record.startTime, zone)
-            is HeartRateRecord -> {
-                days += Mapper.dayOf(record.startTime, zone)
-                days += Mapper.dayOf(record.endTime, zone)
-            }
+            else -> days += daysOf(record, zone)
         }
     }
 
-    /** Every day-kind record of [days], cut to those days (DayWindow), with each record's day. */
-    private suspend fun readDays(days: Set<LocalDate>, zone: ZoneId): Pair<List<Sample>, Map<String, LocalDate>> {
+    /** Every day-kind record of [days], cut to those days (DayWindow), with each record's days. */
+    private suspend fun readDays(days: Set<LocalDate>, zone: ZoneId): Pair<List<Sample>, Map<String, Set<LocalDate>>> {
         val samples = mutableListOf<Sample>()
-        val recordDays = mutableMapOf<String, LocalDate>()
+        val recordDays = mutableMapOf<String, Set<LocalDate>>()
         for (day in days.sorted()) {
             val (start, end) = DayWindow.bounds(day, zone)
             for (type in DAY_TYPES) {
                 for (r in readAll(type, start, end)) {
                     samples += samplesOf(r)
-                    recordDays[r.metadata.id] = day
+                    // Not the day being read: a record over midnight is read for both days.
+                    recordDays[r.metadata.id] = daysOf(r, zone)
                 }
             }
         }
@@ -130,6 +126,18 @@ class HealthConnectSource(
     }
 
     companion object {
+        /**
+         * The days whose totals or buckets a day-kind record goes into, as the Mapper counts
+         * them: steps and distance by their start, heart rate by each sample, so every day
+         * from start to end. A deletion re-reads exactly these days.
+         */
+        fun daysOf(record: Record, zone: ZoneId): Set<LocalDate> = when (record) {
+            is StepsRecord -> setOf(Mapper.dayOf(record.startTime, zone))
+            is DistanceRecord -> setOf(Mapper.dayOf(record.startTime, zone))
+            is HeartRateRecord -> DayWindow.range(Mapper.dayOf(record.startTime, zone), Mapper.dayOf(record.endTime, zone))
+            else -> emptySet()
+        }
+
         const val PEBBLE_APP = "coredevices.coreapp"
         private const val PAGE_SIZE = 5000
         private const val STAGE_UNKNOWN = 0

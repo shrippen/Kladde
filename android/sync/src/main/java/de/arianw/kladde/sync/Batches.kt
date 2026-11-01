@@ -2,12 +2,14 @@ package de.arianw.kladde.sync
 
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.MessageDigest
+import java.util.UUID
 
 /**
- * One request body for POST /api/measurements/batch. The Idempotency-Key is the SHA-256 of
- * the body: a resend after a lost answer is a replay the server recognises (24 h window),
- * and a different batch never collides.
+ * One request body for POST /api/measurements/batch. The Idempotency-Key is new for every
+ * batch put in the queue and stored with it: a resend after a lost answer is a replay the
+ * server recognises (24 h window). Not a hash of the body: the server answers the same key
+ * from its memory for 24 h, so a day total that goes back to an earlier value (1000, 1100,
+ * 1000 steps) would never be written.
  */
 class Batch(val body: String, val key: String, val size: Int)
 
@@ -28,7 +30,7 @@ object Batches {
                 .put("entries", JSONArray(chunk))
                 .put("syncTrigger", trigger.wire)
                 .toString()
-            Batch(body, sha256(body), chunk.size)
+            Batch(body, newKey(), chunk.size)
         }
 
     /** The same batch without the entries at [drop] (indices into its entries). */
@@ -45,10 +47,8 @@ object Batches {
             return null
         }
         val body = root.put("entries", kept).toString()
-        return Batch(body, sha256(body), kept.length())
+        return Batch(body, newKey(), kept.length())
     }
 
-    private fun sha256(text: String): String =
-        MessageDigest.getInstance("SHA-256").digest(text.toByteArray())
-            .joinToString("") { "%02x".format(it) }
+    private fun newKey(): String = UUID.randomUUID().toString()
 }

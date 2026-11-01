@@ -83,6 +83,13 @@ Quellen     Health Connect (Kotlin, Android) | Pebble-Daemon (D-Bus, Linux)
   nicht (403); die Zeitzone kommt dann vom Gerät.
 - Gitea-Runner (act) löst `gradle/actions@v4` nicht auf („unsupported object type“); die CI
   läuft ohnehin auf GitHub.
+- Idempotency-Key nie aus dem Body ableiten: HealthLog beantwortet einen bekannten Key 24 h aus dem
+  Speicher, eine Tagessumme, die auf einen früheren Wert zurückfällt, käme nie an. Key je Batch neu,
+  beim erneuten Senden derselbe.
+- Nur 422 ist eine endgültige Ablehnung. Andere Status (404, 308, 400 …) halten die Warteschlange an,
+  sonst leert eine falsche URL sie.
+- Ein Datensatz über Mitternacht gehört zu dem Tag, zu dem der Mapper ihn zählt (Schritte: Starttag,
+  Herzfrequenz: alle Tage von Start bis Ende), nicht zu dem Tag, für den er gelesen wurde.
 
 ## Release rule
 

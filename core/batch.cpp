@@ -1,8 +1,8 @@
 #include "batch.h"
 
-#include <QCryptographicHash>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QUuid>
 
 namespace kladde {
 
@@ -21,8 +21,7 @@ QList<Batch> makeBatches(const QList<QJsonObject> &entries, const QString &syncT
 
         Batch b;
         b.body = QJsonDocument(root).toJson(QJsonDocument::Compact);
-        b.idempotencyKey = QString::fromLatin1(
-            QCryptographicHash::hash(b.body, QCryptographicHash::Sha256).toHex());
+        b.idempotencyKey = QUuid::createUuid().toString(QUuid::WithoutBraces);
         b.size = to - from;
         batches << b;
     }
