@@ -10,3 +10,7 @@ health-connect-*.json
 # Credentials and live-test connections: never in Git (the GitHub mirror is public).
 /token.txt
 /.local-test/
+android/.gradle/
+android/build/
+android/sync/build/
+android/local.properties

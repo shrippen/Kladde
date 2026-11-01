@@ -1,0 +1,126 @@
+package de.arianw.kladde.sync
+
+import org.json.JSONObject
+import java.io.IOException
+import java.time.Duration
+import java.time.Instant
+
+/** One HTTP answer; status 0 means no answer (network down, timeout). */
+class Response(val status: Int, val body: String)
+
+/** Sends a batch to HealthLog. HttpTransport in the app, a fake in the tests. */
+fun interface Transport {
+    fun postBatch(body: String, key: String): Response
+}
+
+/**
+ * Empties the queue into HealthLog, oldest batch first.
+ *
+ *   200          -> done
+ *   0, 409, 429, 5xx -> try again later (backoff 1 min, doubling, at most 6 h); stop
+ *   401, 403     -> stop, the token is wrong; the queue stays
+ *   422 per entry -> drop the named entries, keep the rest of the batch
+ *   other 4xx    -> drop the batch (resending it unchanged fails the same way)
+ */
+class Uploader(private val store: QueueStore, private val transport: Transport) {
+
+    enum class Outcome { EMPTY, RETRY_LATER, AUTH_FAILED }
+
+    class Result(val outcome: Outcome, val uploaded: Int, val inserted: Int, val error: String?)
+
+    fun flush(now: Instant): Result {
+        var uploaded = 0
+        var inserted = 0
+        var dropped: String? = null
+
+        while (true) {
+            val pending = store.next(now) ?: return Result(Outcome.EMPTY, uploaded, inserted, dropped)
+            val response = post(pending.batch)
+
+            if (response.status == HTTP_OK) {
+                store.done(pending.batch.key)
+                uploaded += pending.batch.size
+                inserted += JSONObject(response.body).optJSONObject("data")?.optInt("inserted") ?: 0
+                continue
+            }
+
+            if (retryable(response.status)) {
+                store.retryAt(pending.batch.key, now.plus(backoff(pending.attempts)))
+                return Result(Outcome.RETRY_LATER, uploaded, inserted, describe(response))
+            }
+
+            if (response.status == HTTP_UNAUTHORIZED || response.status == HTTP_FORBIDDEN) {
+                return Result(Outcome.AUTH_FAILED, uploaded, inserted, describe(response))
+            }
+
+            // Refused for good: keep what the server did not name, drop the rest.
+            // A smaller batch only; one that names no entry of this batch would loop forever.
+            val named = if (response.status == HTTP_UNPROCESSABLE) invalidEntries(response.body) else emptySet()
+            val rest = if (named.isEmpty()) null else Batches.without(pending.batch, named)
+            store.replace(pending.batch.key, rest?.takeIf { it.size < pending.batch.size })
+            dropped = describe(response)
+        }
+    }
+
+    private fun post(batch: Batch): Response = try {
+        transport.postBatch(batch.body, batch.key)
+    } catch (e: IOException) {
+        Response(0, e.message ?: "network error")
+    }
+
+    companion object {
+        const val HTTP_OK = 200
+        const val HTTP_UNAUTHORIZED = 401
+        const val HTTP_FORBIDDEN = 403
+        const val HTTP_CONFLICT = 409 // the same Idempotency-Key is still being processed
+        const val HTTP_UNPROCESSABLE = 422
+        const val HTTP_TOO_MANY = 429
+        const val HTTP_SERVER_ERROR = 500
+
+        private val FIRST_RETRY: Duration = Duration.ofMinutes(1)
+        private val LAST_RETRY: Duration = Duration.ofHours(6)
+
+        fun retryable(status: Int): Boolean =
+            status == 0 || status == HTTP_CONFLICT || status == HTTP_TOO_MANY || status >= HTTP_SERVER_ERROR
+
+        /** 1 min, 2 min, 4 min … at most 6 h. */
+        fun backoff(attempts: Int): Duration {
+            val factor = 1L shl attempts.coerceIn(0, 20)
+            return FIRST_RETRY.multipliedBy(factor).coerceAtMost(LAST_RETRY)
+        }
+
+        /**
+         * The entries a 422 names: issues whose path starts `entries.<n>`. An issue about the
+         * batch itself (path "", "entries", "syncTrigger") names none.
+         */
+        fun invalidEntries(body: String): Set<Int> {
+            val issues = try {
+                JSONObject(body).optJSONObject("details")?.optJSONArray("issues")
+            } catch (e: org.json.JSONException) {
+                null
+            } ?: return emptySet()
+
+            val out = mutableSetOf<Int>()
+            for (i in 0 until issues.length()) {
+                val path = issues.optJSONObject(i)?.optString("path") ?: continue
+                val match = ENTRY_PATH.find(path) ?: continue
+                out += match.groupValues[1].toInt()
+            }
+            return out
+        }
+
+        private val ENTRY_PATH = Regex("""^entries\.(\d+)(\.|$)""")
+
+        private fun describe(r: Response): String {
+            if (r.status == 0) {
+                return "no connection: ${r.body}"
+            }
+            val code = try {
+                JSONObject(r.body).optJSONObject("meta")?.optString("errorCode")
+            } catch (e: org.json.JSONException) {
+                null
+            }
+            return if (code.isNullOrEmpty()) "HTTP ${r.status}" else "HTTP ${r.status} $code"
+        }
+    }
+}

@@ -31,15 +31,23 @@ Android, später der Adapter für den Pebble-Daemon auf Plasma Mobile. Ab da ist
       Ergebnis prüfen (Tagessummen, Herzfrequenz-Blöcke, Schlafphasen, Zeitzone, keine
       Duplikate beim zweiten Lauf). Danach der erste echte Upload.
 - [ ] Echten Export (gekürzt, anonymisiert) als zweite Fixture.
-- [ ] Spike: Kann ein WorkManager-Job den C++-Kern ohne Oberfläche laden? Sonst schreibt Kotlin
-      in eine SQLite-Warteschlange und der Kern lädt hoch.
+- [x] Entscheidung Hintergrund-Sync: Kotlin-Modul `android/sync` (lesen, abbilden, Warteschlange,
+      Upload per WorkManager). Den Qt-Kern ohne Oberfläche im Worker zu laden, braucht eine
+      eigene QCoreApplication neben der der App und ist ohne Gerät nicht prüfbar. Kotlin und
+      C++ bilden gleich ab: beide prüfen gegen `tests/fixtures/pebble-day.expected.json`.
 - [ ] Issue bei MBombeck/HealthLog entwerfen (Text vorher freigeben): Quelle `HEALTH_CONNECT`
       für native Clients über den Batch-Endpunkt.
 
-## Phase 1: Android-MVP (LF-01 … LF-24)
+## Phase 1: Android (Muss und Soll, LF-01 … LF-33)
 
-Qt für Android (Vorlage: Plasmai, `scripts/build-android.sh`), Kotlin-Leser mit Changes-API,
-WorkManager, Token im Keystore (QtKeychain), Warteschlange, Statusseite.
+Aufbau nach der iOS-App ([ios-aufbau.md](ios-aufbau.md)).
+
+- [x] `android/sync`: Health Connect mit Changes-Token, ganze Tage für Summen und Blöcke,
+      Warteschlange in SQLite (Cursor in derselben Transaktion), Upload mit Backoff, 422 je
+      Eintrag, Token im Android Keystore, WorkManager, Statusdaten (LF-10 … LF-24).
+- [ ] Qt für Android bauen (Vorlage Plasmai), JNI zu `KladdeSync`.
+- [ ] Einrichtung: Server, Anmeldung (Passwort/MFA, Web-Login mit PKCE), Health Connect.
+- [ ] Home, Log (Messwert, Stimmung), Verlauf mit Diagrammen, Mehr mit Sync-Status.
 
 ## Phase 2: Anzeige und Plasma Mobile (LF-30 … LF-33)
 

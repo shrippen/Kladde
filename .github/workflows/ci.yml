@@ -71,8 +71,8 @@ jobs:
           test -s /tmp/kladde.png
           ! grep -E 'qrc:.*(Error|Unable|is not)' /tmp/kladde.log
 
-  # The phase 0 probe, a plain Kotlin app. The APK is a CI artifact for
-  # the phone, not a release.
+  # The Android sync's unit tests (JVM, shared fixtures with core) and the
+  # phase 0 probe. The probe APK is a CI artifact for the phone, not a release.
   hc-probe:
     timeout-minutes: 20
     runs-on: ubuntu-latest
@@ -84,7 +84,10 @@ jobs:
           java-version: 17
       # No setup-android: ubuntu-latest has the Android SDK (ANDROID_HOME); the action's
       # "sdkmanager tools" fails with the image's cmdline-tools 16.
-      - name: Build
+      - name: Sync tests
+        working-directory: android
+        run: ./gradlew --no-daemon :sync:testDebugUnitTest :sync:assembleDebug
+      - name: Build the probe
         working-directory: spikes/hc-probe
         run: ./gradlew --no-daemon assembleDebug
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

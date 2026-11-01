@@ -1,0 +1,149 @@
+package de.arianw.kladde.sync
+
+import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.IOException
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+
+class UploaderTest {
+
+    private val now = Instant.parse("2026-11-01T12:00:00Z")
+
+    private fun entries(n: Int) = (0 until n).map { JSONObject().put("externalId", "e$it").put("value", it) }
+
+    private fun ok(inserted: Int) =
+        Response(200, """{"data":{"processed":$inserted,"inserted":$inserted,"updated":0,"duplicates":0,"failed":0,"skipped":[],"entries":[]},"error":null}""")
+
+    @Test
+    fun batchesSplitAtTheLimitWithStableKeys() {
+        val batches = Batches.make(entries(1201), Trigger.BACKGROUND)
+        assertEquals(listOf(500, 500, 201), batches.map { it.size })
+        assertEquals(batches[0].key, Batches.make(entries(1201), Trigger.BACKGROUND)[0].key)
+        assertNotEquals(batches[0].key, batches[1].key)
+        assertEquals("background", JSONObject(batches[2].body).getString("syncTrigger"))
+    }
+
+    @Test
+    fun uploadsInOrderAndEmptiesTheQueue() {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(700), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+        val sent = mutableListOf<Int>()
+        val result = Uploader(store) { body, _ ->
+            val n = JSONObject(body).getJSONArray("entries").length()
+            sent += n
+            ok(n)
+        }.flush(now)
+
+        assertEquals(Uploader.Outcome.EMPTY, result.outcome)
+        assertEquals(listOf(500, 200), sent)
+        assertEquals(700, result.uploaded)
+        assertEquals(0, store.pendingCount())
+    }
+
+    @Test
+    fun networkTroubleKeepsTheBatchAndBacksOff() {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+        val result = Uploader(store) { _, _ -> throw IOException("offline") }.flush(now)
+
+        assertEquals(Uploader.Outcome.RETRY_LATER, result.outcome)
+        assertEquals(3, store.pendingCount())
+        assertNull("not due before the backoff", store.next(now))
+        assertTrue(store.next(now.plus(Duration.ofMinutes(1))) != null)
+        assertEquals(Duration.ofMinutes(4), Uploader.backoff(2))
+        assertEquals(Duration.ofHours(6), Uploader.backoff(30))
+    }
+
+    @Test
+    fun wrongTokenStopsAndKeepsTheQueue() {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+        val result = Uploader(store) { _, _ -> Response(401, """{"meta":{"errorCode":"auth.invalid"}}""") }.flush(now)
+
+        assertEquals(Uploader.Outcome.AUTH_FAILED, result.outcome)
+        assertEquals("HTTP 401 auth.invalid", result.error)
+        assertEquals(3, store.pendingCount())
+    }
+
+    @Test
+    fun refusedEntriesAreDroppedTheRestGoesAgain() {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(4), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+        var calls = 0
+        val result = Uploader(store) { body, _ ->
+            calls++
+            val n = JSONObject(body).getJSONArray("entries").length()
+            if (n == 4) {
+                Response(422, """{"details":{"issues":[{"path":"entries.1.startDate"},{"path":"entries.3"}]}}""")
+            } else {
+                ok(n)
+            }
+        }.flush(now)
+
+        assertEquals(2, calls)
+        assertEquals(2, result.uploaded)
+        assertEquals(0, store.pendingCount())
+    }
+
+    @Test
+    fun aRefusalThatNamesNoEntryDropsTheBatchOnce() {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+        var calls = 0
+        Uploader(store) { _, _ ->
+            calls++
+            // Index 7 is not in this batch: resending it unchanged would loop.
+            Response(422, """{"details":{"issues":[{"path":"entries.7"}]}}""")
+        }.flush(now)
+
+        assertEquals(1, calls)
+        assertEquals(0, store.pendingCount())
+    }
+
+    @Test
+    fun invalidEntriesReadsOnlyEntryPaths() {
+        val body = """{"details":{"issues":[{"path":"entries.2.value"},{"path":"entries"},{"path":"syncTrigger"},{"path":"entries.10"},{"path":"entriesX.1"}]}}"""
+        assertEquals(setOf(2, 10), Uploader.invalidEntries(body))
+        assertEquals(emptySet<Int>(), Uploader.invalidEntries("not json"))
+    }
+
+    @Test
+    fun aRunQueuesWithTheCursorAndRecordsStatus() = runBlocking {
+        val store = MemoryStore()
+        val zone = ZoneId.of("Europe/Berlin")
+        val day = LocalDate.of(2026, 11, 1)
+        val steps = Sample(Kind.STEPS, "s1", "p", Instant.parse("2026-11-01T08:00:00Z"), Instant.parse("2026-11-01T08:10:00Z"), 300.0)
+
+        val status = SyncRunner(store, { _, _ -> Response(0, "offline") }, zone).run({ cursor, _, _ ->
+            assertNull(cursor)
+            HealthConnectSource.Read(listOf(steps), "token-1", mapOf("s1" to day))
+        }, Trigger.MANUAL, now)
+
+        // Offline: the data stays queued, the cursor moved with it, nothing is lost.
+        assertEquals("token-1", store.cursor())
+        assertEquals(1, store.pendingCount())
+        assertEquals(day, store.dayOf("s1"))
+        assertEquals(now, status.lastRun)
+        assertNull(status.lastSuccess)
+        assertTrue(status.lastError!!.startsWith("no connection"))
+    }
+
+    @Test
+    fun aKindThatFellSilentIsNamed() {
+        val seen = mapOf(
+            Kind.SLEEP_STAGE to Instant.parse("2026-11-01T06:00:00Z"),
+            Kind.STEPS to Instant.parse("2026-10-29T20:00:00Z"),
+            Kind.HEART_RATE to Instant.parse("2026-10-31T20:00:00Z"),
+        )
+        assertEquals(setOf(Kind.STEPS), SyncRunner.silentKinds(seen))
+        assertEquals(emptySet<Kind>(), SyncRunner.silentKinds(emptyMap()))
+    }
+}

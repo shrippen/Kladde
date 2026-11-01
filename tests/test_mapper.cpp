@@ -3,6 +3,8 @@
 
 #include <QFile>
 #include <QJsonArray>
+#include <QJsonDocument>
+#include <QMap>
 #include <QTest>
 
 using namespace kladde;
@@ -161,6 +163,26 @@ private Q_SLOTS:
         QCOMPARE(r.entries.size(), 1);
         QCOMPARE(r.entries.at(0).value(QLatin1String("sleepStage")).toInt(), 1);
         QCOMPARE(r.entries.at(0).value(QLatin1String("value")).toDouble(), 420.0);
+    }
+
+    void matchesTheSharedFixture()
+    {
+        // The same expectation as the Android sync (android/sync MapperTest): both map alike.
+        QFile f(QStringLiteral(KLADDE_FIXTURES "/pebble-day.expected.json"));
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        const QJsonObject expected = QJsonDocument::fromJson(f.readAll()).object();
+        const QTimeZone zone(expected.value(QLatin1String("zone")).toString().toUtf8());
+
+        auto byId = [](const QJsonArray &entries) {
+            QMap<QString, QJsonObject> out;
+            for (const QJsonValue &v : entries)
+                out.insert(v.toObject().value(QLatin1String("externalId")).toString(), v.toObject());
+            return out;
+        };
+        QJsonArray got;
+        for (const QJsonObject &e : mapToBatchEntries(fixture(), zone).entries)
+            got.append(e);
+        QCOMPARE(byId(got), byId(expected.value(QLatin1String("entries")).toArray()));
     }
 
     void sameInputSameEntries()
