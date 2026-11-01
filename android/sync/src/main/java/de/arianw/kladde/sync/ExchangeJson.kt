@@ -17,6 +17,19 @@ object ExchangeJson {
 
     class Parsed(val samples: List<Sample>, val warnings: List<String>)
 
+    /** Readings with one "value": exchange type to kind. */
+    private val READINGS = mapOf(
+        "Weight" to Kind.WEIGHT,
+        "BodyFat" to Kind.BODY_FAT,
+        "LeanBodyMass" to Kind.LEAN_BODY_MASS,
+        "BloodGlucose" to Kind.BLOOD_GLUCOSE,
+        "OxygenSaturation" to Kind.OXYGEN_SATURATION,
+        "HeartRateVariabilityRmssd" to Kind.HRV_RMSSD,
+        "RespiratoryRate" to Kind.RESPIRATORY_RATE,
+        "Vo2Max" to Kind.VO2_MAX,
+        "BodyTemperature" to Kind.BODY_TEMPERATURE,
+    )
+
     fun parse(json: String): Parsed {
         val records = JSONObject(json).getJSONArray("records")
         val samples = mutableListOf<Sample>()
@@ -67,6 +80,21 @@ object ExchangeJson {
                         continue
                     }
                     samples += Sample(Kind.RESTING_HEART_RATE, id, app, t, t, bpm)
+                }
+
+                in READINGS.keys, "BloodPressure" -> {
+                    val t = time(r, "time")
+                    val readings = if (type == "BloodPressure") {
+                        listOf(Kind.BLOOD_PRESSURE_SYSTOLIC to "systolic", Kind.BLOOD_PRESSURE_DIASTOLIC to "diastolic")
+                    } else {
+                        listOf(READINGS.getValue(type) to "value")
+                    }.map { (kind, key) -> Sample(kind, id, app, t ?: Instant.EPOCH, t ?: Instant.EPOCH, r.optDouble(key, -1.0)) }
+                    // A blood pressure is the pair; half of one is no reading.
+                    if (t == null || readings.any { it.value <= 0 }) {
+                        warnings += "record $i ($type): bad reading"
+                        continue
+                    }
+                    samples += readings
                 }
 
                 "SleepSession" -> {

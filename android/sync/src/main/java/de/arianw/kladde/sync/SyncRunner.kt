@@ -11,6 +11,7 @@ import java.time.ZoneId
  *
  *   Health Connect ──read──▶ samples ──Mapper──▶ batches ──QueueStore──▶ Uploader ──▶ HealthLog
  *                     cursor ───────────────────────────────┘ (same transaction)
+ *                 ├──read──▶ readings (ReadingSource, own cursor) ──Mapper──▶ batches ┤
  *                 └──read──▶ trainings (WorkoutSource, own cursor) ──▶ workout batches ┘
  */
 class SyncRunner(
@@ -24,27 +25,47 @@ class SyncRunner(
         suspend fun read(cursor: String?, zone: ZoneId, now: Instant): HealthConnectSource.Read
     }
 
+    fun interface ReadingReader {
+        suspend fun read(cursor: String?, zone: ZoneId, now: Instant): ReadingSource.Read
+    }
+
     fun interface WorkoutReader {
         suspend fun read(cursor: String?, since: Instant?, zone: ZoneId, now: Instant): WorkoutSource.Read
     }
 
-    /** [workouts] null: not read (no permission for exercise yet). */
-    suspend fun run(reader: Reader, trigger: Trigger, now: Instant = Instant.now(), workouts: WorkoutReader? = null): SyncStatus {
+    /** [readings], [workouts] null: not read (no permission for them yet). */
+    suspend fun run(
+        reader: Reader,
+        trigger: Trigger,
+        now: Instant = Instant.now(),
+        readings: ReadingReader? = null,
+        workouts: WorkoutReader? = null,
+    ): SyncStatus {
         val before = store.status()
         var error: String? = null
 
         try {
             val read = reader.read(store.cursor(), zone, now)
             val mapped = Mapper.map(read.samples, zone)
-            val seen = read.samples.groupBy { it.kind }.mapValues { (_, list) -> list.maxOf { it.end } }
-            store.enqueue(Batches.make(mapped.entries, trigger), read.cursor, read.recordDays, seen)
+            store.enqueue(Batches.make(mapped.entries, trigger), read.cursor, read.recordDays, seenOf(read.samples))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             error = describe(e)
         }
 
-        // Apart from the measurements: a failing training read must not hold them back.
+        // Each source apart: one failing must not hold the others back.
+        try {
+            readings?.read(store.readingCursor(), zone, now)?.let {
+                val mapped = Mapper.map(it.samples, zone)
+                store.enqueueReadings(Batches.make(mapped.entries, trigger), it.cursor, seenOf(it.samples))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = error ?: describe(e)
+        }
+
         try {
             workouts?.read(store.workoutCursor(), store.workoutReadAt(), zone, now)?.let {
                 store.enqueueWorkouts(Batches.make(it.entries, trigger, Target.WORKOUTS), it.cursor, now)
@@ -72,6 +93,9 @@ class SyncRunner(
      * (IllegalStateException, RemoteException …): the cursor did not move, the next run reads
      * again; what is queued is uploaded anyway.
      */
+    private fun seenOf(samples: List<Sample>): Map<Kind, Instant> =
+        samples.groupBy { it.kind }.mapValues { (_, list) -> list.maxOf { it.end } }
+
     private fun describe(e: Exception): String {
         if (e is SecurityException) {
             return "Health Connect: ${e.message ?: "no permission"}"
@@ -83,10 +107,13 @@ class SyncRunner(
         /** A kind that brought nothing for this long while others did is worth a warning (LF-24). */
         val SILENT_AFTER: Duration = Duration.ofHours(48)
 
-        /** Kinds that went silent while at least one other kind still delivers. */
+        /** What a watch delivers every day; a scale or a cuff is used now and then. */
+        val CONTINUOUS = setOf(Kind.STEPS, Kind.DISTANCE, Kind.HEART_RATE, Kind.RESTING_HEART_RATE, Kind.SLEEP_STAGE)
+
+        /** Continuous kinds that went silent while at least one other kind still delivers. */
         fun silentKinds(lastSeen: Map<Kind, Instant>): Set<Kind> {
             val newest = lastSeen.values.maxOrNull() ?: return emptySet()
-            return lastSeen.filterValues { Duration.between(it, newest) > SILENT_AFTER }.keys
+            return lastSeen.filter { (kind, at) -> kind in CONTINUOUS && Duration.between(at, newest) > SILENT_AFTER }.keys
         }
     }
 }

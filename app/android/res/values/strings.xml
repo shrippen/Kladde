@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="privacy_text">Kladde reads steps, distance, heart rate, resting heart rate, sleep and workouts from Health Connect, including older data and in the background, and sends them to the HealthLog server you signed in to. Nothing goes anywhere else: no analytics, no third parties. Signing out in Kladde stops the sync and deletes the access token and the queue on this phone. You can withdraw the permissions in Health Connect at any time.</string>
+    <string name="privacy_text">Kladde reads steps, distance, heart rate, resting heart rate, sleep, workouts and readings such as weight, blood pressure, blood sugar and oxygen saturation from Health Connect, including older data and in the background, and sends them to the HealthLog server you signed in to. Nothing goes anywhere else: no analytics, no third parties. Signing out in Kladde stops the sync and deletes the access token and the queue on this phone. You can withdraw the permissions in Health Connect at any time.</string>
 </resources>

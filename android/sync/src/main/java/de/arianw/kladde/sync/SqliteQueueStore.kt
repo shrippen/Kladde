@@ -48,13 +48,23 @@ class SqliteQueueStore(context: Context) :
                     }, SQLiteDatabase.CONFLICT_IGNORE)
                 }
             }
-            for ((kind, at) in seen) {
-                db.execSQL("INSERT INTO seen (kind, at) VALUES (?, ?) ON CONFLICT(kind) DO UPDATE SET at = MAX(at, excluded.at)",
-                    arrayOf(kind.name, at.toEpochMilli()))
-            }
+            putSeen(db, seen)
             if (cursor != null) {
                 putValue(db, KEY_CURSOR, cursor)
             }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    override fun enqueueReadings(batches: List<Batch>, cursor: String, seen: Map<Kind, Instant>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            insert(db, batches)
+            putSeen(db, seen)
+            putValue(db, KEY_READING_CURSOR, cursor)
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -71,6 +81,13 @@ class SqliteQueueStore(context: Context) :
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
+        }
+    }
+
+    private fun putSeen(db: SQLiteDatabase, seen: Map<Kind, Instant>) {
+        for ((kind, at) in seen) {
+            db.execSQL("INSERT INTO seen (kind, at) VALUES (?, ?) ON CONFLICT(kind) DO UPDATE SET at = MAX(at, excluded.at)",
+                arrayOf(kind.name, at.toEpochMilli()))
         }
     }
 
@@ -125,10 +142,12 @@ class SqliteQueueStore(context: Context) :
 
     override fun workoutCursor(): String? = value(KEY_WORKOUT_CURSOR)
 
+    override fun readingCursor(): String? = value(KEY_READING_CURSOR)
+
     override fun workoutReadAt(): Instant? = value(KEY_WORKOUT_READ)?.let(Instant::parse)
 
     override fun resetCursor() {
-        writableDatabase.delete("kv", "name IN (?, ?, ?)", arrayOf(KEY_CURSOR, KEY_WORKOUT_CURSOR, KEY_WORKOUT_READ))
+        writableDatabase.delete("kv", "name IN (?, ?, ?, ?)", arrayOf(KEY_CURSOR, KEY_WORKOUT_CURSOR, KEY_WORKOUT_READ, KEY_READING_CURSOR))
     }
 
     override fun daysOf(recordId: String): Set<LocalDate> =
@@ -190,6 +209,7 @@ class SqliteQueueStore(context: Context) :
         private const val KEY_CURSOR = "hc.changesToken"
         private const val KEY_WORKOUT_CURSOR = "hc.workoutsToken"
         private const val KEY_WORKOUT_READ = "hc.workoutsReadAt"
+        private const val KEY_READING_CURSOR = "hc.readingsToken"
         private const val TARGET_COLUMN = "target TEXT NOT NULL DEFAULT 'MEASUREMENTS'"
     }
 }

@@ -35,11 +35,15 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         // Not asked (Health Connect busy): no trainings this run, the measurements still go.
         val granted = runCatching { client.permissionController.getGrantedPermissions() }.getOrDefault(emptySet())
         val workouts = WorkoutSource(client).takeIf { exercise in granted }
+        val allowed = ReadingSource.TYPES.filter { HealthPermission.getReadPermission(it) in granted }.toSet()
+        val readings = ReadingSource(client, allowed).takeIf { allowed.isNotEmpty() }
 
         store.use {
             SyncRunner(it, transport).run({ cursor, zone, now ->
                 source.read(cursor, zone, backfill, it::daysOf, now)
-            }, trigger, workouts = workouts?.let { w ->
+            }, trigger, readings = readings?.let { r ->
+                SyncRunner.ReadingReader { cursor, zone, now -> r.read(cursor, zone, backfill, now) }
+            }, workouts = workouts?.let { w ->
                 SyncRunner.WorkoutReader { cursor, since, zone, now -> w.read(cursor, since, zone, backfill, now) }
             })
         }

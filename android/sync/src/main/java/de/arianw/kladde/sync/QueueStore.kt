@@ -39,14 +39,19 @@ interface QueueStore {
      */
     fun replace(key: String, with: Batch?, keepAttempts: Boolean = false)
 
+    /** Reading batches, the reading source's cursor and what came, in one transaction. */
+    fun enqueueReadings(batches: List<Batch>, cursor: String, seen: Map<Kind, Instant>)
+
     fun cursor(): String?
+
+    fun readingCursor(): String?
 
     fun workoutCursor(): String?
 
     /** When the workouts were last read; trainings held then are due later. */
     fun workoutReadAt(): Instant?
 
-    /** Both cursors: the next run reads everything again. */
+    /** Every cursor: the next run reads everything again. */
     fun resetCursor()
 
     /** The days a record went into, for re-reading them when it is deleted. */

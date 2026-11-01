@@ -16,7 +16,7 @@ namespace kladde {
 //   therefore be complete: the caller passes every sample of each day it maps, not a delta.
 // - Heart rate becomes 10-minute buckets in UTC with average, minimum and maximum
 //   (`stats:HKQuantityTypeIdentifierHeartRate:<bucket start>`), about 144 entries a day.
-// - Resting heart rate stays one entry per reading.
+// - Readings (resting heart rate, weight, blood pressure …) stay one entry each.
 // - Each sleep stage becomes one entry with its duration in minutes and the HealthKit stage.
 struct MapResult {
     QList<QJsonObject> entries;

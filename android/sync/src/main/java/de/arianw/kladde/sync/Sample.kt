@@ -9,6 +9,19 @@ enum class Kind {
     HEART_RATE,         // bpm at start
     RESTING_HEART_RATE, // bpm at start
     SLEEP_STAGE,        // one stage of a sleep session over [start, end)
+
+    // Readings at start, one entry each.
+    WEIGHT,                   // kg
+    BODY_FAT,                 // percent
+    LEAN_BODY_MASS,           // kg
+    BLOOD_PRESSURE_SYSTOLIC,  // mmHg
+    BLOOD_PRESSURE_DIASTOLIC, // mmHg
+    BLOOD_GLUCOSE,            // mg/dL
+    OXYGEN_SATURATION,        // percent
+    HRV_RMSSD,                // ms
+    RESPIRATORY_RATE,         // breaths/min
+    VO2_MAX,                  // mL/(kg·min)
+    BODY_TEMPERATURE,         // °C
 }
 
 /**

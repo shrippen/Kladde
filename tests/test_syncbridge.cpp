@@ -54,6 +54,21 @@ private Q_SLOTS:
         FakeSync::status = Done;
         QTRY_COMPARE(sync.uploaded(), Uploaded);
     }
+
+    void anOptionalKindLeftOutStillSyncs()
+    {
+        // Weight not allowed: the watch's data still goes, the app offers the rest.
+        FakeSync::status = Done;
+        FakeSync::permissions = R"({"available": true, "missing": [], "optional": ["android.permission.health.READ_WEIGHT"]})";
+        SyncBridge sync;
+        sync.refresh();
+        QVERIFY(sync.property("permitted").toBool());
+        QVERIFY(!sync.property("complete").toBool());
+
+        FakeSync::permissions = Permitted;
+        sync.refresh();
+        QVERIFY(sync.property("complete").toBool());
+    }
 };
 
 QTEST_GUILESS_MAIN(TestSyncBridge)

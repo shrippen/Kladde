@@ -3,12 +3,22 @@ package de.arianw.kladde.sync
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.changes.DeletionChange
 import androidx.health.connect.client.changes.UpsertionChange
+import androidx.health.connect.client.records.BloodGlucoseRecord
+import androidx.health.connect.client.records.BloodPressureRecord
+import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Record
+import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.Vo2MaxRecord
+import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -22,7 +32,7 @@ import kotlin.reflect.KClass
  * Reads what one app (the Pebble app by default) wrote to Health Connect (LF-10 … LF-15).
  *
  * First run: a changes token, then every record of the backfill window. Later runs: the
- * changes since the token. Sleep and resting heart rate go as they are; for steps,
+ * changes since the token. Sleep goes as it is; for steps,
  * distance and heart rate the whole local day of every change is re-read (DayWindow),
  * deletions included, so the day total and buckets come out right.
  */
@@ -87,7 +97,7 @@ class HealthConnectSource(
     }
 
     /**
-     * Sleep and resting heart rate as they are; for a day-kind record its days now and the
+     * Sleep as it is; for a day-kind record its days now and the
      * days it went into before (a record rewritten to another time leaves its old day).
      */
     private fun collect(
@@ -98,7 +108,7 @@ class HealthConnectSource(
         daysBefore: (String) -> Set<LocalDate>,
     ) {
         when (record) {
-            is SleepSessionRecord, is RestingHeartRateRecord -> samples += samplesOf(record)
+            is SleepSessionRecord -> samples += samplesOf(record)
             else -> days += daysOf(record, zone) + daysBefore(record.metadata.id)
         }
     }
@@ -160,7 +170,7 @@ class HealthConnectSource(
         private const val STAGE_OUT_OF_BED = 3
 
         /** Sent as they are. */
-        private val RECORD_TYPES: List<KClass<out Record>> = listOf(SleepSessionRecord::class, RestingHeartRateRecord::class)
+        private val RECORD_TYPES: List<KClass<out Record>> = listOf(SleepSessionRecord::class)
 
         /** Sent as day totals or buckets: re-read by whole days (DayWindow.DAY_KINDS). */
         private val DAY_TYPES: List<KClass<out Record>> = listOf(StepsRecord::class, DistanceRecord::class, HeartRateRecord::class)
@@ -169,22 +179,33 @@ class HealthConnectSource(
             StepsRecord::class,
             DistanceRecord::class,
             HeartRateRecord::class,
-            RestingHeartRateRecord::class,
             SleepSessionRecord::class,
         )
 
         fun samplesOf(r: Record): List<Sample> {
             val id = r.metadata.id
             val app = r.metadata.dataOrigin.packageName
+            val at = { kind: Kind, t: Instant, v: Double -> Sample(kind, id, app, t, t, v) }
             return when (r) {
                 is StepsRecord -> listOf(Sample(Kind.STEPS, id, app, r.startTime, r.endTime, r.count.toDouble()))
                 is DistanceRecord -> listOf(Sample(Kind.DISTANCE, id, app, r.startTime, r.endTime, r.distance.inMeters))
                 is HeartRateRecord -> r.samples.map {
                     Sample(Kind.HEART_RATE, id, app, it.time, it.time, it.beatsPerMinute.toDouble())
                 }
-                is RestingHeartRateRecord -> listOf(
-                    Sample(Kind.RESTING_HEART_RATE, id, app, r.time, r.time, r.beatsPerMinute.toDouble())
+                is RestingHeartRateRecord -> listOf(at(Kind.RESTING_HEART_RATE, r.time, r.beatsPerMinute.toDouble()))
+                is WeightRecord -> listOf(at(Kind.WEIGHT, r.time, r.weight.inKilograms))
+                is BodyFatRecord -> listOf(at(Kind.BODY_FAT, r.time, r.percentage.value))
+                is LeanBodyMassRecord -> listOf(at(Kind.LEAN_BODY_MASS, r.time, r.mass.inKilograms))
+                is BloodPressureRecord -> listOf(
+                    at(Kind.BLOOD_PRESSURE_SYSTOLIC, r.time, r.systolic.inMillimetersOfMercury),
+                    at(Kind.BLOOD_PRESSURE_DIASTOLIC, r.time, r.diastolic.inMillimetersOfMercury),
                 )
+                is BloodGlucoseRecord -> listOf(at(Kind.BLOOD_GLUCOSE, r.time, r.level.inMilligramsPerDeciliter))
+                is OxygenSaturationRecord -> listOf(at(Kind.OXYGEN_SATURATION, r.time, r.percentage.value))
+                is HeartRateVariabilityRmssdRecord -> listOf(at(Kind.HRV_RMSSD, r.time, r.heartRateVariabilityMillis))
+                is RespiratoryRateRecord -> listOf(at(Kind.RESPIRATORY_RATE, r.time, r.rate))
+                is Vo2MaxRecord -> listOf(at(Kind.VO2_MAX, r.time, r.vo2MillilitersPerMinuteKilogram))
+                is BodyTemperatureRecord -> listOf(at(Kind.BODY_TEMPERATURE, r.time, r.temperature.inCelsius))
                 is SleepSessionRecord -> sleepSamples(r, id, app)
                 else -> emptyList()
             }

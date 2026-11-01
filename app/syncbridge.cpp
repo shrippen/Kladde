@@ -29,6 +29,7 @@ void SyncBridge::showDemo(const QDateTime &lastRun, const QDateTime &lastSuccess
     m_demo = true;
     m_configured = true;
     m_permitted = true;
+    m_complete = true;
     m_lastRun = lastRun;
     m_lastSuccess = lastSuccess;
     m_uploaded = uploaded;
@@ -80,9 +81,10 @@ void SyncBridge::applyStatus(const QByteArray &status, const QByteArray &permiss
         if (k.toObject().value(QLatin1String("silent")).toBool())
             m_silent << k.toObject().value(QLatin1String("kind")).toString();
     }
-    // Everything asked for or nothing: the sync reads all kinds in one go.
+    // The required kinds or nothing; an optional kind left out is read once allowed.
     m_permitted = p.value(QLatin1String("available")).toBool()
         && p.value(QLatin1String("missing")).toArray().isEmpty();
+    m_complete = m_permitted && p.value(QLatin1String("optional")).toArray().isEmpty();
 
     // The background job writes its status into its own database and tells no one: while it
     // runs, read again until it is done.

@@ -17,6 +17,8 @@ class SyncBridge : public QObject
     Q_PROPERTY(QString reason READ reason CONSTANT)
     Q_PROPERTY(bool configured READ configured NOTIFY changed)
     Q_PROPERTY(bool permitted READ permitted NOTIFY changed)
+    // Permitted, and every optional kind (weight, trainings …) allowed too.
+    Q_PROPERTY(bool complete READ complete NOTIFY changed)
     Q_PROPERTY(bool running READ running NOTIFY changed)
     Q_PROPERTY(QDateTime lastRun READ lastRun NOTIFY changed)
     Q_PROPERTY(QDateTime lastSuccess READ lastSuccess NOTIFY changed)
@@ -39,6 +41,7 @@ public:
     QString reason() const;
     bool configured() const { return m_configured; }
     bool permitted() const { return m_permitted; }
+    bool complete() const { return m_complete; }
     // A sync is under way or about to start; the status follows it until it ends.
     bool running() const { return m_running; }
     QDateTime lastRun() const { return m_lastRun; }
@@ -85,6 +88,7 @@ private:
     bool m_demo = false;
     bool m_configured = false;
     bool m_permitted = false;
+    bool m_complete = false;
     bool m_running = false;
     QDateTime m_lastRun;
     QDateTime m_lastSuccess;

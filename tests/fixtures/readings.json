@@ -1,0 +1,89 @@
+{
+ "records": [
+  {
+   "type": "RestingHeartRate",
+   "id": "rhr-fit",
+   "app": "com.google.android.apps.fitness",
+   "time": "2026-11-01T07:00:00Z",
+   "bpm": 55
+  },
+  {
+   "type": "Weight",
+   "id": "w-1",
+   "app": "org.example.scale",
+   "time": "2026-11-01T06:30:00Z",
+   "value": 72.4
+  },
+  {
+   "type": "BodyFat",
+   "id": "bf-1",
+   "app": "org.example.scale",
+   "time": "2026-11-01T06:30:00Z",
+   "value": 21.5
+  },
+  {
+   "type": "LeanBodyMass",
+   "id": "lbm-1",
+   "app": "org.example.scale",
+   "time": "2026-11-01T06:30:00Z",
+   "value": 56.8
+  },
+  {
+   "type": "BloodPressure",
+   "id": "bp-1",
+   "app": "org.example.cuff",
+   "time": "2026-11-01T07:15:00Z",
+   "systolic": 122,
+   "diastolic": 79
+  },
+  {
+   "type": "BloodGlucose",
+   "id": "bg-1",
+   "app": "org.example.meter",
+   "time": "2026-11-01T08:00:00Z",
+   "value": 95
+  },
+  {
+   "type": "OxygenSaturation",
+   "id": "spo2-1",
+   "app": "coredevices.coreapp",
+   "time": "2026-11-01T03:00:00Z",
+   "value": 97
+  },
+  {
+   "type": "HeartRateVariabilityRmssd",
+   "id": "hrv-1",
+   "app": "coredevices.coreapp",
+   "time": "2026-11-01T03:00:00Z",
+   "value": 42.5
+  },
+  {
+   "type": "RespiratoryRate",
+   "id": "rr-1",
+   "app": "coredevices.coreapp",
+   "time": "2026-11-01T03:00:00Z",
+   "value": 14
+  },
+  {
+   "type": "Vo2Max",
+   "id": "vo2-1",
+   "app": "com.google.android.apps.fitness",
+   "time": "2026-11-01T18:00:00Z",
+   "value": 44.1
+  },
+  {
+   "type": "BodyTemperature",
+   "id": "t-1",
+   "app": "org.example.thermo",
+   "time": "2026-11-01T07:30:00Z",
+   "value": 36.7
+  },
+  {
+   "type": "BloodPressure",
+   "id": "bp-half",
+   "app": "org.example.cuff",
+   "time": "2026-11-01T07:20:00Z",
+   "systolic": 120
+  }
+ ]
+}

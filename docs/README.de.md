@@ -12,7 +12,7 @@ für beide. [English](../README.md) · [Landing Page](https://shrippen.github.io
 ## Was abgeglichen wird
 
 Auf Android liest Kladde Health Connect, dort nur die Datensätze der Pebble-App (`coredevices.coreapp`), damit nichts
-doppelt zählt; Training von jeder App. Was die Pebble-App nicht schreibt, bleibt draußen: derzeit schreibt sie weder Strecke noch Ruhepuls. HealthLogs Batch-Endpunkt spricht HealthKit, darum kommen die Werte in Apples Einheiten und mit der Quelle
+doppelt zählt; Training und Einzelwerte von jeder App. Eine Tagesart, die die Pebble-App nicht schreibt, bleibt draußen: derzeit schreibt sie keine Strecke. HealthLogs Batch-Endpunkt spricht HealthKit, darum kommen die Werte in Apples Einheiten und mit der Quelle
 „Apple Health“ an.
 
 | Health Connect | In HealthLog | Wie |
@@ -20,7 +20,7 @@ doppelt zählt; Training von jeder App. Was die Pebble-App nicht schreibt, bleib
 | Schritte | Schritte | eine Summe je Tag (Ortszeit), bei jedem Lauf der ganze Tag |
 | Strecke | Geh- und Laufstrecke | eine Summe je Tag, in Metern (wenn die Quelle sie schreibt) |
 | Herzfrequenz | Puls | 10-Minuten-Blöcke mit Mittel, Minimum und Maximum |
-| Ruhepuls | Ruhepuls | ein Eintrag je Messung (wenn die Quelle ihn schreibt) |
+| Ruhepuls, Gewicht, Körperfett, Magermasse, Blutdruck, Blutzucker, Sauerstoffsättigung, HRV (RMSSD), Atemfrequenz, VO₂max, Körpertemperatur | dasselbe | ein Eintrag je Messung, von jeder App |
 | Schlaf mit Phasen | Schlaf | Minuten je Phase (wach, Kern, tief, REM) |
 | Training (Freeletics, Pebble-App, Google Fit …) | Workout | Sportart, Zeit, Pause, Puls, Schritte; Abschnitte eines Trainings (Freeletics) als eines; bei Überschneidung gilt die App, die vorne steht (Freeletics, Pebble-App, Google Fit); gesendet zwei Stunden nach dem Ende |
 

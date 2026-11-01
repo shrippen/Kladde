@@ -51,8 +51,8 @@ QQC2.ScrollView {
                       : qsTr("Last upload %1").arg(view.when(sync.lastSuccess))
             }
             KanteButton {
-                visible: !sync.permitted
-                text: qsTr("Allow access")
+                visible: !sync.complete
+                text: sync.permitted ? qsTr("Allow more kinds") : qsTr("Allow access")
                 emphasis: KanteButton.Emphasis.Primary
                 onClicked: sync.requestPermissions()
             }

@@ -12,7 +12,7 @@ design for both. [Deutsch](docs/README.de.md) · [Landing page](https://shrippen
 ## What it syncs
 
 On Android Kladde reads Health Connect, there only the records of the Pebble app (`coredevices.coreapp`), so nothing
-counts twice; workouts it takes from every app. A kind the Pebble app does not write stays out: today it writes no distance and no resting heart rate. HealthLog's batch endpoint speaks HealthKit, so the values arrive in Apple's units and with the source
+counts twice; workouts and single readings it takes from every app. A day kind the Pebble app does not write stays out: today it writes no distance. HealthLog's batch endpoint speaks HealthKit, so the values arrive in Apple's units and with the source
 "Apple Health".
 
 | Health Connect | In HealthLog | How |
@@ -20,7 +20,7 @@ counts twice; workouts it takes from every app. A kind the Pebble app does not w
 | Steps | Steps | one total per local day, the whole day on every run |
 | Distance | Walking + running distance | one total per local day, in metres (if the source writes it) |
 | Heart rate | Pulse | 10-minute blocks with average, minimum and maximum |
-| Resting heart rate | Resting heart rate | one entry per reading (if the source writes it) |
+| Resting heart rate, weight, body fat, lean body mass, blood pressure, blood glucose, oxygen saturation, HRV (RMSSD), respiratory rate, VO₂ max, body temperature | the same | one entry per reading, from every app |
 | Sleep session with stages | Sleep | minutes per stage (awake, core, deep, REM) |
 | Exercise session (Freeletics, Pebble app, Google Fit …) | Workout | sport, time, pause, heart rate, steps; sections of one training (Freeletics) as one; on overlap the app first in the order wins (Freeletics, Pebble app, Google Fit); sent two hours after it ended |
 

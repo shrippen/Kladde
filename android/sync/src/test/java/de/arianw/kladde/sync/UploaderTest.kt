@@ -282,8 +282,26 @@ class UploaderTest {
             Kind.SLEEP_STAGE to Instant.parse("2026-11-01T06:00:00Z"),
             Kind.STEPS to Instant.parse("2026-10-29T20:00:00Z"),
             Kind.HEART_RATE to Instant.parse("2026-10-31T20:00:00Z"),
+            Kind.WEIGHT to Instant.parse("2026-10-20T07:00:00Z"), // a scale, now and then
         )
         assertEquals(setOf(Kind.STEPS), SyncRunner.silentKinds(seen))
         assertEquals(emptySet<Kind>(), SyncRunner.silentKinds(emptyMap()))
+    }
+
+    @Test
+    fun readingsAreQueuedWithTheirOwnCursor() = runBlocking {
+        val store = MemoryStore()
+        val t = Instant.parse("2026-11-01T06:30:00Z")
+        val weight = Sample(Kind.WEIGHT, "w1", "org.example.scale", t, t, 72.4)
+        SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
+            HealthConnectSource.Read(emptyList(), "token-1", emptyMap())
+        }, Trigger.MANUAL, now, readings = { cursor, _, _ ->
+            assertNull(cursor)
+            ReadingSource.Read(listOf(weight), "Weight|r1")
+        })
+
+        assertEquals("Weight|r1", store.readingCursor())
+        assertEquals(1, store.pendingCount())
+        assertEquals(t, store.lastSeen()[Kind.WEIGHT])
     }
 }

@@ -15,6 +15,10 @@ namespace kladde {
 //     {"type": "Distance", "id": "...", "app": "...", "start": ISO, "end": ISO, "meters": 80.5},
 //     {"type": "HeartRate", "id": "...", "app": "...", "samples": [{"time": ISO, "bpm": 61}]},
 //     {"type": "RestingHeartRate", "id": "...", "app": "...", "time": ISO, "bpm": 52},
+//     {"type": "Weight", "id": "...", "app": "...", "time": ISO, "value": 72.4},
+//       (also BodyFat, LeanBodyMass, BloodGlucose, OxygenSaturation, HeartRateVariabilityRmssd,
+//        RespiratoryRate, Vo2Max, BodyTemperature; units as in sample.h)
+//     {"type": "BloodPressure", "id": "...", "app": "...", "time": ISO, "systolic": 120, "diastolic": 80},
 //     {"type": "SleepSession", "id": "...", "app": "...", "start": ISO, "end": ISO,
 //      "stages": [{"start": ISO, "end": ISO, "stage": 4}]},
 //     {"type": "Exercise", ...}            // read, not mapped yet (workouts come later)

@@ -15,7 +15,8 @@ import java.time.format.DateTimeFormatter
  * - Steps and distance: one total per local day (`stats:<id>:<YYYY-MM-DD>`, overwrites), so
  *   the samples of a day must be complete.
  * - Heart rate: 10-minute UTC buckets with average, min and max, about 144 a day.
- * - Resting heart rate: one entry per reading.
+ * - Readings (resting heart rate, weight, blood pressure …): one entry per reading, in the
+ *   identifier's HealthKit unit ([READINGS]).
  * - Sleep: one entry per stage, duration in minutes, the HealthKit stage.
  */
 object Mapper {
@@ -23,7 +24,6 @@ object Mapper {
     const val STEPS_ID = "HKQuantityTypeIdentifierStepCount"
     const val DISTANCE_ID = "HKQuantityTypeIdentifierDistanceWalkingRunning"
     const val HEART_RATE_ID = "HKQuantityTypeIdentifierHeartRate"
-    const val RESTING_ID = "HKQuantityTypeIdentifierRestingHeartRate"
     const val SLEEP_ID = "HKCategoryTypeIdentifierSleepAnalysis"
 
     private const val BUCKET_MS = 10 * 60 * 1000L
@@ -34,6 +34,27 @@ object Mapper {
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
 
     class Result(val entries: List<JSONObject>, val skipped: List<String>)
+
+    /** A reading's HealthKit identifier and unit; the sample's value / [divisor] is in it. */
+    private class Quantity(val id: String, val unit: String, val divisor: Double = 1.0)
+
+    private const val PERCENT = 100.0 // HealthKit sends percentages as fractions
+
+    /** Same table as core/mapper.cpp; units as HealthLog reads them (apple-health-mapping.ts). */
+    private val READINGS: Map<Kind, Quantity> = mapOf(
+        Kind.RESTING_HEART_RATE to Quantity("HKQuantityTypeIdentifierRestingHeartRate", UNIT_PER_MINUTE),
+        Kind.WEIGHT to Quantity("HKQuantityTypeIdentifierBodyMass", "kg"),
+        Kind.BODY_FAT to Quantity("HKQuantityTypeIdentifierBodyFatPercentage", "%", PERCENT),
+        Kind.LEAN_BODY_MASS to Quantity("HKQuantityTypeIdentifierLeanBodyMass", "kg"),
+        Kind.BLOOD_PRESSURE_SYSTOLIC to Quantity("HKQuantityTypeIdentifierBloodPressureSystolic", "mmHg"),
+        Kind.BLOOD_PRESSURE_DIASTOLIC to Quantity("HKQuantityTypeIdentifierBloodPressureDiastolic", "mmHg"),
+        Kind.BLOOD_GLUCOSE to Quantity("HKQuantityTypeIdentifierBloodGlucose", "mg/dL"),
+        Kind.OXYGEN_SATURATION to Quantity("HKQuantityTypeIdentifierOxygenSaturation", "fraction", PERCENT),
+        Kind.HRV_RMSSD to Quantity("HKQuantityTypeIdentifierHeartRateVariabilityRMSSD", "ms"),
+        Kind.RESPIRATORY_RATE to Quantity("HKQuantityTypeIdentifierRespiratoryRate", UNIT_PER_MINUTE),
+        Kind.VO2_MAX to Quantity("HKQuantityTypeIdentifierVO2Max", "mL/(kg*min)"),
+        Kind.BODY_TEMPERATURE to Quantity("HKQuantityTypeIdentifierBodyTemperature", "degC"),
+    )
 
     private class Bucket(var sum: Double = 0.0, var min: Double = 0.0, var max: Double = 0.0, var count: Int = 0)
 
@@ -61,15 +82,6 @@ object Mapper {
                     b.count++
                 }
 
-                Kind.RESTING_HEART_RATE -> {
-                    val id = "hc:${s.id}"
-                    if (id.length > MAX_EXTERNAL_ID) {
-                        skipped += "resting heart rate ${s.id}: id too long"
-                        continue
-                    }
-                    entries += entry(RESTING_ID, s.value, UNIT_PER_MINUTE, s.start, s.end, id)
-                }
-
                 Kind.SLEEP_STAGE -> {
                     val stage = hkSleepStage(s.sleepStage, s.sessionHasKnownStages)
                     if (stage < 0) {
@@ -83,6 +95,17 @@ object Mapper {
                     }
                     val minutes = (s.end.toEpochMilli() - s.start.toEpochMilli()) / 60000.0
                     entries += entry(SLEEP_ID, minutes, "category", s.start, s.end, id).put("sleepStage", stage)
+                }
+
+                else -> {
+                    // Systolic and diastolic share the record's id: HealthLog keys by type and id.
+                    val q = READINGS.getValue(s.kind)
+                    val id = "hc:${s.id}"
+                    if (id.length > MAX_EXTERNAL_ID) {
+                        skipped += "${s.kind.name.lowercase()} ${s.id}: id too long"
+                        continue
+                    }
+                    entries += entry(q.id, s.value / q.divisor, q.unit, s.start, s.end, id)
                 }
             }
         }

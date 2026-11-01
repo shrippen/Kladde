@@ -165,22 +165,38 @@ private Q_SLOTS:
         QCOMPARE(r.entries.at(0).value(QLatin1String("value")).toDouble(), 420.0);
     }
 
+    void matchesTheSharedFixture_data()
+    {
+        QTest::addColumn<QString>("name");
+        QTest::newRow("pebble-day") << QStringLiteral("pebble-day");
+        QTest::newRow("readings") << QStringLiteral("readings");
+    }
+
     void matchesTheSharedFixture()
     {
         // The same expectation as the Android sync (android/sync MapperTest): both map alike.
-        QFile f(QStringLiteral(KLADDE_FIXTURES "/pebble-day.expected.json"));
+        QFETCH(QString, name);
+        QFile in(QStringLiteral(KLADDE_FIXTURES "/%1.json").arg(name));
+        QVERIFY(in.open(QIODevice::ReadOnly));
+        const Samples samples = parseHealthConnectJson(in.readAll()).samples;
+        QFile f(QStringLiteral(KLADDE_FIXTURES "/%1.expected.json").arg(name));
         QVERIFY(f.open(QIODevice::ReadOnly));
         const QJsonObject expected = QJsonDocument::fromJson(f.readAll()).object();
         const QTimeZone zone(expected.value(QLatin1String("zone")).toString().toUtf8());
 
+        // Systolic and diastolic share an id: key by identifier and id.
         auto byId = [](const QJsonArray &entries) {
             QMap<QString, QJsonObject> out;
-            for (const QJsonValue &v : entries)
-                out.insert(v.toObject().value(QLatin1String("externalId")).toString(), v.toObject());
+            for (const QJsonValue &v : entries) {
+                const QJsonObject o = v.toObject();
+                out.insert(o.value(QLatin1String("hkIdentifier")).toString() + QLatin1Char(' ')
+                               + o.value(QLatin1String("externalId")).toString(),
+                           o);
+            }
             return out;
         };
         QJsonArray got;
-        for (const QJsonObject &e : mapToBatchEntries(fixture(), zone).entries)
+        for (const QJsonObject &e : mapToBatchEntries(samples, zone).entries)
             got.append(e);
         QCOMPARE(byId(got), byId(expected.value(QLatin1String("entries")).toArray()));
     }

@@ -36,10 +36,17 @@ object KladdeSync {
     private const val DEFAULT_BACKFILL = 30L
     const val PERMISSION_REQUEST = 4711
 
-    val READ_PERMISSIONS: Set<String> =
-        (HealthConnectSource.TYPES + WorkoutSource.TYPES).map { HealthPermission.getReadPermission(it) }.toSet() +
+    /** Without these the sync has nothing to do: the watch's kinds, history, background. */
+    private val REQUIRED: Set<String> =
+        HealthConnectSource.TYPES.map { HealthPermission.getReadPermission(it) }.toSet() +
             HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY +
             HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
+
+    /** Read once allowed; each source skips what is not (readings, trainings). */
+    private val OPTIONAL: Set<String> =
+        (ReadingSource.TYPES + WorkoutSource.TYPES).map { HealthPermission.getReadPermission(it) }.toSet()
+
+    val READ_PERMISSIONS: Set<String> = REQUIRED + OPTIONAL
 
     @JvmStatic
     fun available(context: Context): Boolean =
@@ -134,7 +141,10 @@ object KladdeSync {
         activity.requestPermissions(READ_PERMISSIONS.toTypedArray(), PERMISSION_REQUEST)
     }
 
-    /** JSON: {"granted": [...], "missing": [...]}; blocks briefly, call off the UI thread. */
+    /**
+     * JSON: {"granted": [...], "missing": [...], "optional": [...]}, missing the required ones
+     * still to allow, optional the others; blocks briefly, call off the UI thread.
+     */
     @JvmStatic
     fun permissionsJson(context: Context): String {
         if (!available(context)) {
@@ -143,12 +153,13 @@ object KladdeSync {
         val granted = runBlocking {
             HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions()
         }
-        return JSONObject()
-            .put("available", true)
-            .put("granted", JSONArray(granted.intersect(READ_PERMISSIONS).sorted()))
-            .put("missing", JSONArray((READ_PERMISSIONS - granted).sorted()))
-            .toString()
+        return permissionState(granted).put("available", true).toString()
     }
+
+    fun permissionState(granted: Set<String>): JSONObject = JSONObject()
+        .put("granted", JSONArray(granted.intersect(READ_PERMISSIONS).sorted()))
+        .put("missing", JSONArray((REQUIRED - granted).sorted()))
+        .put("optional", JSONArray((OPTIONAL - granted).sorted()))
 
     /** Starts or updates the periodic background sync (LF-13). */
     @JvmStatic

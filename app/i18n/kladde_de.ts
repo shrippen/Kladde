@@ -121,37 +121,37 @@
         <translation>Diastolisch</translation>
     </message>
     <message>
-        <location filename="../qml/HistoryView.qml" line="91"/>
+        <location filename="../qml/HistoryView.qml" line="95"/>
         <source>Nothing in this range</source>
         <translation>Nichts in diesem Zeitraum</translation>
     </message>
     <message>
-        <location filename="../qml/HistoryView.qml" line="92"/>
+        <location filename="../qml/HistoryView.qml" line="96"/>
         <source>Choose a longer range or another metric.</source>
         <translation>Einen längeren Zeitraum oder einen anderen Messwert wählen.</translation>
     </message>
     <message>
-        <location filename="../qml/HistoryView.qml" line="110"/>
+        <location filename="../qml/HistoryView.qml" line="114"/>
         <source>Average</source>
         <translation>Durchschnitt</translation>
     </message>
     <message>
-        <location filename="../qml/HistoryView.qml" line="116"/>
+        <location filename="../qml/HistoryView.qml" line="120"/>
         <source>Change</source>
         <translation>Veränderung</translation>
     </message>
     <message>
-        <location filename="../qml/HistoryView.qml" line="116"/>
+        <location filename="../qml/HistoryView.qml" line="120"/>
         <source>Change, systolic</source>
         <translation>Veränderung, systolisch</translation>
     </message>
     <message>
-        <location filename="../qml/HistoryView.qml" line="123"/>
+        <location filename="../qml/HistoryView.qml" line="127"/>
         <source>Lowest</source>
         <translation>Niedrigster</translation>
     </message>
     <message>
-        <location filename="../qml/HistoryView.qml" line="128"/>
+        <location filename="../qml/HistoryView.qml" line="132"/>
         <source>Highest</source>
         <translation>Höchster</translation>
     </message>
@@ -159,17 +159,17 @@
 <context>
     <name>HomeView</name>
     <message>
-        <location filename="../qml/HomeView.qml" line="44"/>
+        <location filename="../qml/HomeView.qml" line="51"/>
         <source>No measurements yet</source>
         <translation>Noch keine Messwerte</translation>
     </message>
     <message>
-        <location filename="../qml/HomeView.qml" line="45"/>
+        <location filename="../qml/HomeView.qml" line="52"/>
         <source>Values arrive here from the watch and from the Log tab.</source>
         <translation>Werte kommen von der Uhr und aus „Erfassen“ hierher.</translation>
     </message>
     <message>
-        <location filename="../qml/HomeView.qml" line="97"/>
+        <location filename="../qml/HomeView.qml" line="104"/>
         <source>Last 7 days · %1</source>
         <translation>Letzte 7 Tage · %1</translation>
     </message>
@@ -432,6 +432,11 @@
         <translation>Zugriff erlauben</translation>
     </message>
     <message>
+        <location filename="../qml/MoreView.qml" line="55"/>
+        <source>Allow more kinds</source>
+        <translation>Weitere Arten erlauben</translation>
+    </message>
+    <message>
         <location filename="../qml/MoreView.qml" line="63"/>
         <source>Silent for two days</source>
         <translation>Seit zwei Tagen still</translation>
@@ -452,37 +457,37 @@
         <translation>Jetzt abgleichen</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="87"/>
+        <location filename="../qml/MoreView.qml" line="88"/>
         <source>Every</source>
         <translation>Alle</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="88"/>
+        <location filename="../qml/MoreView.qml" line="89"/>
         <source>Minutes between background runs; Android allows 15 at the least.</source>
         <translation>Minuten zwischen zwei Läufen im Hintergrund; Android erlaubt mindestens 15.</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="99"/>
+        <location filename="../qml/MoreView.qml" line="100"/>
         <source>Days to read back</source>
         <translation>Tage zurück lesen</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="100"/>
+        <location filename="../qml/MoreView.qml" line="101"/>
         <source>On the first run and after reading again.</source>
         <translation>Beim ersten Lauf und nach „Alles neu lesen“.</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="109"/>
+        <location filename="../qml/MoreView.qml" line="110"/>
         <source>Read everything again</source>
         <translation>Alles neu lesen</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="116"/>
+        <location filename="../qml/MoreView.qml" line="117"/>
         <source>Account</source>
         <translation>Konto</translation>
     </message>
     <message>
-        <location filename="../qml/MoreView.qml" line="125"/>
+        <location filename="../qml/MoreView.qml" line="126"/>
         <source>Sign out</source>
         <translation>Abmelden</translation>
     </message>

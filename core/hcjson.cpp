@@ -1,5 +1,8 @@
 #include "hcjson.h"
 
+#include <algorithm>
+
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -11,6 +14,23 @@ namespace {
 // Health Connect stage types (SleepSessionRecord.STAGE_TYPE_*).
 constexpr int StageUnknown = 0;
 constexpr int StageOutOfBed = 3;
+
+// Readings with one "value": exchange type -> kind.
+const QHash<QString, Sample::Kind> &readingTypes()
+{
+    static const QHash<QString, Sample::Kind> types{
+        {QStringLiteral("Weight"), Sample::Kind::Weight},
+        {QStringLiteral("BodyFat"), Sample::Kind::BodyFat},
+        {QStringLiteral("LeanBodyMass"), Sample::Kind::LeanBodyMass},
+        {QStringLiteral("BloodGlucose"), Sample::Kind::BloodGlucose},
+        {QStringLiteral("OxygenSaturation"), Sample::Kind::OxygenSaturation},
+        {QStringLiteral("HeartRateVariabilityRmssd"), Sample::Kind::HrvRmssd},
+        {QStringLiteral("RespiratoryRate"), Sample::Kind::RespiratoryRate},
+        {QStringLiteral("Vo2Max"), Sample::Kind::Vo2Max},
+        {QStringLiteral("BodyTemperature"), Sample::Kind::BodyTemperature},
+    };
+    return types;
+}
 
 QDateTime readTime(const QJsonObject &o, const char *key)
 {
@@ -84,6 +104,29 @@ ParseResult parseHealthConnectJson(const QByteArray &json)
                 continue;
             }
             result.samples << s;
+        } else if (readingTypes().contains(type) || type == QLatin1String("BloodPressure")) {
+            const QDateTime t = readTime(r, "time");
+            if (!t.isValid()) {
+                skip(QStringLiteral("bad reading"));
+                continue;
+            }
+            auto add = [&](Sample::Kind kind, const char *key) {
+                Sample s = base;
+                s.kind = kind;
+                s.start = s.end = t;
+                s.value = r.value(QLatin1String(key)).toDouble(-1);
+                return s;
+            };
+            const Samples readings = type == QLatin1String("BloodPressure")
+                ? Samples{add(Sample::Kind::BloodPressureSystolic, "systolic"),
+                          add(Sample::Kind::BloodPressureDiastolic, "diastolic")}
+                : Samples{add(readingTypes().value(type), "value")};
+            // A blood pressure is the pair; half of one is no reading.
+            if (std::any_of(readings.cbegin(), readings.cend(), [](const Sample &s) { return s.value <= 0; })) {
+                skip(QStringLiteral("bad reading"));
+                continue;
+            }
+            result.samples << readings;
         } else if (type == QLatin1String("SleepSession")) {
             const QJsonArray stages = r.value(QLatin1String("stages")).toArray();
             bool known = false;

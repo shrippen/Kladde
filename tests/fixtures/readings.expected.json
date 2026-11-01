@@ -1,0 +1,101 @@
+{
+ "entries": [
+  {
+   "endDate": "2026-11-01T07:00:00.000Z",
+   "externalId": "hc:rhr-fit",
+   "hkIdentifier": "HKQuantityTypeIdentifierRestingHeartRate",
+   "startDate": "2026-11-01T07:00:00.000Z",
+   "unit": "count/min",
+   "value": 55
+  },
+  {
+   "endDate": "2026-11-01T06:30:00.000Z",
+   "externalId": "hc:w-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierBodyMass",
+   "startDate": "2026-11-01T06:30:00.000Z",
+   "unit": "kg",
+   "value": 72.4
+  },
+  {
+   "endDate": "2026-11-01T06:30:00.000Z",
+   "externalId": "hc:bf-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierBodyFatPercentage",
+   "startDate": "2026-11-01T06:30:00.000Z",
+   "unit": "%",
+   "value": 0.215
+  },
+  {
+   "endDate": "2026-11-01T06:30:00.000Z",
+   "externalId": "hc:lbm-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierLeanBodyMass",
+   "startDate": "2026-11-01T06:30:00.000Z",
+   "unit": "kg",
+   "value": 56.8
+  },
+  {
+   "endDate": "2026-11-01T07:15:00.000Z",
+   "externalId": "hc:bp-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierBloodPressureSystolic",
+   "startDate": "2026-11-01T07:15:00.000Z",
+   "unit": "mmHg",
+   "value": 122
+  },
+  {
+   "endDate": "2026-11-01T07:15:00.000Z",
+   "externalId": "hc:bp-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierBloodPressureDiastolic",
+   "startDate": "2026-11-01T07:15:00.000Z",
+   "unit": "mmHg",
+   "value": 79
+  },
+  {
+   "endDate": "2026-11-01T08:00:00.000Z",
+   "externalId": "hc:bg-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierBloodGlucose",
+   "startDate": "2026-11-01T08:00:00.000Z",
+   "unit": "mg/dL",
+   "value": 95
+  },
+  {
+   "endDate": "2026-11-01T03:00:00.000Z",
+   "externalId": "hc:spo2-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierOxygenSaturation",
+   "startDate": "2026-11-01T03:00:00.000Z",
+   "unit": "fraction",
+   "value": 0.97
+  },
+  {
+   "endDate": "2026-11-01T03:00:00.000Z",
+   "externalId": "hc:hrv-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierHeartRateVariabilityRMSSD",
+   "startDate": "2026-11-01T03:00:00.000Z",
+   "unit": "ms",
+   "value": 42.5
+  },
+  {
+   "endDate": "2026-11-01T03:00:00.000Z",
+   "externalId": "hc:rr-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierRespiratoryRate",
+   "startDate": "2026-11-01T03:00:00.000Z",
+   "unit": "count/min",
+   "value": 14
+  },
+  {
+   "endDate": "2026-11-01T18:00:00.000Z",
+   "externalId": "hc:vo2-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierVO2Max",
+   "startDate": "2026-11-01T18:00:00.000Z",
+   "unit": "mL/(kg*min)",
+   "value": 44.1
+  },
+  {
+   "endDate": "2026-11-01T07:30:00.000Z",
+   "externalId": "hc:t-1",
+   "hkIdentifier": "HKQuantityTypeIdentifierBodyTemperature",
+   "startDate": "2026-11-01T07:30:00.000Z",
+   "unit": "degC",
+   "value": 36.7
+  }
+ ],
+ "zone": "Europe/Berlin"
+}

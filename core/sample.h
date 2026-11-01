@@ -16,6 +16,19 @@ struct Sample {
         HeartRate,        // bpm at start (end == start)
         RestingHeartRate, // bpm at start
         SleepStage,       // one stage of a sleep session over [start, end)
+
+        // Readings at start, one entry each.
+        Weight,                 // kg
+        BodyFat,                // percent
+        LeanBodyMass,           // kg
+        BloodPressureSystolic,  // mmHg
+        BloodPressureDiastolic, // mmHg
+        BloodGlucose,           // mg/dL
+        OxygenSaturation,       // percent
+        HrvRmssd,               // ms
+        RespiratoryRate,        // breaths/min
+        Vo2Max,                 // mL/(kg·min)
+        BodyTemperature,        // °C
     };
 
     Kind kind = Kind::Steps;

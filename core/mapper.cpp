@@ -1,5 +1,6 @@
 #include "mapper.h"
 
+#include <QHash>
 #include <QMap>
 
 #include <algorithm>
@@ -11,7 +12,6 @@ namespace {
 const QString StepsId = QStringLiteral("HKQuantityTypeIdentifierStepCount");
 const QString DistanceId = QStringLiteral("HKQuantityTypeIdentifierDistanceWalkingRunning");
 const QString HeartRateId = QStringLiteral("HKQuantityTypeIdentifierHeartRate");
-const QString RestingId = QStringLiteral("HKQuantityTypeIdentifierRestingHeartRate");
 const QString SleepId = QStringLiteral("HKCategoryTypeIdentifierSleepAnalysis");
 
 constexpr qint64 BucketMs = 10 * 60 * 1000;
@@ -33,6 +33,36 @@ QJsonObject entry(const QString &identifier, double value, const QString &unit,
         {QStringLiteral("endDate"), iso(end)},
         {QStringLiteral("externalId"), externalId},
     };
+}
+
+// A reading's HealthKit identifier and unit; the sample's value / divisor is in it.
+struct Quantity {
+    QString id;
+    QString unit;
+    double divisor = 1;
+};
+
+constexpr double Percent = 100; // HealthKit sends percentages as fractions
+
+// Same table as android/sync Mapper.READINGS; units as HealthLog reads them.
+const QHash<Sample::Kind, Quantity> &readings()
+{
+    const QString perMinute = QStringLiteral("count/min");
+    static const QHash<Sample::Kind, Quantity> table{
+        {Sample::Kind::RestingHeartRate, {QStringLiteral("HKQuantityTypeIdentifierRestingHeartRate"), perMinute}},
+        {Sample::Kind::Weight, {QStringLiteral("HKQuantityTypeIdentifierBodyMass"), QStringLiteral("kg")}},
+        {Sample::Kind::BodyFat, {QStringLiteral("HKQuantityTypeIdentifierBodyFatPercentage"), QStringLiteral("%"), Percent}},
+        {Sample::Kind::LeanBodyMass, {QStringLiteral("HKQuantityTypeIdentifierLeanBodyMass"), QStringLiteral("kg")}},
+        {Sample::Kind::BloodPressureSystolic, {QStringLiteral("HKQuantityTypeIdentifierBloodPressureSystolic"), QStringLiteral("mmHg")}},
+        {Sample::Kind::BloodPressureDiastolic, {QStringLiteral("HKQuantityTypeIdentifierBloodPressureDiastolic"), QStringLiteral("mmHg")}},
+        {Sample::Kind::BloodGlucose, {QStringLiteral("HKQuantityTypeIdentifierBloodGlucose"), QStringLiteral("mg/dL")}},
+        {Sample::Kind::OxygenSaturation, {QStringLiteral("HKQuantityTypeIdentifierOxygenSaturation"), QStringLiteral("fraction"), Percent}},
+        {Sample::Kind::HrvRmssd, {QStringLiteral("HKQuantityTypeIdentifierHeartRateVariabilityRMSSD"), QStringLiteral("ms")}},
+        {Sample::Kind::RespiratoryRate, {QStringLiteral("HKQuantityTypeIdentifierRespiratoryRate"), perMinute}},
+        {Sample::Kind::Vo2Max, {QStringLiteral("HKQuantityTypeIdentifierVO2Max"), QStringLiteral("mL/(kg*min)")}},
+        {Sample::Kind::BodyTemperature, {QStringLiteral("HKQuantityTypeIdentifierBodyTemperature"), QStringLiteral("degC")}},
+    };
+    return table;
 }
 
 struct Bucket {
@@ -87,16 +117,6 @@ MapResult mapToBatchEntries(const Samples &samples, const QTimeZone &accountZone
             ++b.count;
             break;
         }
-        case Sample::Kind::RestingHeartRate: {
-            const QString id = QStringLiteral("hc:%1").arg(s.id);
-            if (id.size() > MaxExternalId) {
-                result.skipped << QStringLiteral("resting heart rate %1: id too long").arg(s.id);
-                break;
-            }
-            result.entries << entry(RestingId, s.value, QStringLiteral("count/min"), s.start,
-                                    s.end, id);
-            break;
-        }
         case Sample::Kind::SleepStage: {
             const int stage = hkSleepStage(s.sleepStage, s.sessionHasKnownStages);
             if (stage < 0) {
@@ -114,6 +134,17 @@ MapResult mapToBatchEntries(const Samples &samples, const QTimeZone &accountZone
                                   QStringLiteral("category"), s.start, s.end, id);
             e.insert(QStringLiteral("sleepStage"), stage);
             result.entries << e;
+            break;
+        }
+        default: {
+            // Systolic and diastolic share the record's id: HealthLog keys by type and id.
+            const Quantity q = readings().value(s.kind);
+            const QString id = QStringLiteral("hc:%1").arg(s.id);
+            if (id.size() > MaxExternalId) {
+                result.skipped << QStringLiteral("reading %1: id too long").arg(s.id);
+                break;
+            }
+            result.entries << entry(q.id, s.value / q.divisor, q.unit, s.start, s.end, id);
             break;
         }
         }

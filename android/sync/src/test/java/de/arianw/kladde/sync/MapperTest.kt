@@ -13,10 +13,10 @@ class MapperTest {
     private fun fixture(name: String): String =
         requireNotNull(javaClass.classLoader?.getResource(name)) { "fixture $name" }.readText()
 
-    /** Entry by externalId, values as numbers, so key order and 52 vs 52.0 do not matter. */
+    /** Entry by identifier and externalId, values as numbers, so key order and 52 vs 52.0 do not matter. */
     private fun normalised(entries: List<JSONObject>): Map<String, Map<String, Any>> =
         entries.associate { e ->
-            e.getString("externalId") to e.keys().asSequence().toList().associateWith { k ->
+            e.getString("hkIdentifier") + " " + e.getString("externalId") to e.keys().asSequence().toList().associateWith { k ->
                 val v = e.get(k)
                 if (v is Number) v.toDouble() else v
             }
@@ -35,6 +35,19 @@ class MapperTest {
         val got = Mapper.map(parsed.samples, zone)
         assertEquals(normalised(want), normalised(got.entries))
         assertEquals(2, got.skipped.size)
+    }
+
+    @Test
+    fun readingsMatchTheSharedFixture() {
+        // Weight, blood pressure, SpO₂ … of any app, in HealthKit's units; half a blood pressure is none.
+        val parsed = ExchangeJson.parse(fixture("readings.json"))
+        assertEquals(1, parsed.warnings.size)
+        assertTrue(parsed.warnings[0].contains("BloodPressure"))
+
+        val expected = JSONObject(fixture("readings.expected.json"))
+        val want = expected.getJSONArray("entries").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
+        val got = Mapper.map(parsed.samples, ZoneId.of(expected.getString("zone")))
+        assertEquals(normalised(want), normalised(got.entries))
     }
 
     @Test

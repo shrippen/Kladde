@@ -12,6 +12,7 @@ class MemoryStore : QueueStore {
     private var order = 0L
     private var cursor: String? = null
     private var workoutCursor: String? = null
+    private var readingCursor: String? = null
     private var workoutReadAt: Instant? = null
     private val days = mutableMapOf<String, Set<LocalDate>>()
     private val seen = mutableMapOf<Kind, Instant>()
@@ -32,6 +33,11 @@ class MemoryStore : QueueStore {
         if (cursor != null) {
             this.cursor = cursor
         }
+    }
+
+    override fun enqueueReadings(batches: List<Batch>, cursor: String, seen: Map<Kind, Instant>) {
+        enqueue(batches, null, emptyMap(), seen)
+        readingCursor = cursor
     }
 
     override fun enqueueWorkouts(batches: List<Batch>, cursor: String, readAt: Instant) {
@@ -67,11 +73,14 @@ class MemoryStore : QueueStore {
 
     override fun workoutCursor(): String? = workoutCursor
 
+    override fun readingCursor(): String? = readingCursor
+
     override fun workoutReadAt(): Instant? = workoutReadAt
 
     override fun resetCursor() {
         cursor = null
         workoutCursor = null
+        readingCursor = null
         workoutReadAt = null
     }
 
