@@ -44,7 +44,7 @@ class UploaderTest {
         assertFalse(body.has("syncTrigger"))
 
         val store = MemoryStore()
-        store.enqueueWorkouts(batches, "w1", now)
+        store.enqueue(Stream.WORKOUTS, batches, "w1", now, emptyMap())
         val sent = mutableListOf<Target>()
         Uploader(store) { target, _, _ -> sent += target; ok(1) }.flush(now)
         assertEquals(listOf(Target.WORKOUTS, Target.WORKOUTS), sent)
@@ -60,7 +60,7 @@ class UploaderTest {
         }, Trigger.MANUAL, now) { _, _, _, _ -> throw SecurityException("READ_EXERCISE") }
 
         assertEquals("token-1", store.cursor())
-        assertNull(store.workoutCursor())
+        assertNull(store.cursor(Stream.WORKOUTS))
         assertEquals(1, store.pendingCount())
         assertEquals("Health Connect: READ_EXERCISE", status.lastError)
     }
@@ -300,7 +300,7 @@ class UploaderTest {
             ReadingSource.Read(listOf(weight), "Weight|r1")
         })
 
-        assertEquals("Weight|r1", store.readingCursor())
+        assertEquals("Weight|r1", store.cursor(Stream.READINGS))
         assertEquals(1, store.pendingCount())
         assertEquals(t, store.lastSeen()[Kind.WEIGHT])
     }

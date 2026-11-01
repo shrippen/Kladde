@@ -58,26 +58,14 @@ class SqliteQueueStore(context: Context) :
         }
     }
 
-    override fun enqueueReadings(batches: List<Batch>, cursor: String, seen: Map<Kind, Instant>) {
+    override fun enqueue(stream: Stream, batches: List<Batch>, cursor: String, readAt: Instant, seen: Map<Kind, Instant>) {
         val db = writableDatabase
         db.beginTransaction()
         try {
             insert(db, batches)
             putSeen(db, seen)
-            putValue(db, KEY_READING_CURSOR, cursor)
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-        }
-    }
-
-    override fun enqueueWorkouts(batches: List<Batch>, cursor: String, readAt: Instant) {
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            insert(db, batches)
-            putValue(db, KEY_WORKOUT_CURSOR, cursor)
-            putValue(db, KEY_WORKOUT_READ, readAt.toString())
+            putValue(db, cursorKey(stream), cursor)
+            putValue(db, readKey(stream), readAt.toString())
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -140,15 +128,19 @@ class SqliteQueueStore(context: Context) :
 
     override fun cursor(): String? = value(KEY_CURSOR)
 
-    override fun workoutCursor(): String? = value(KEY_WORKOUT_CURSOR)
+    override fun cursor(stream: Stream): String? = value(cursorKey(stream))
 
-    override fun readingCursor(): String? = value(KEY_READING_CURSOR)
-
-    override fun workoutReadAt(): Instant? = value(KEY_WORKOUT_READ)?.let(Instant::parse)
+    override fun readAt(stream: Stream): Instant? = value(readKey(stream))?.let(Instant::parse)
 
     override fun resetCursor() {
-        writableDatabase.delete("kv", "name IN (?, ?, ?, ?)", arrayOf(KEY_CURSOR, KEY_WORKOUT_CURSOR, KEY_WORKOUT_READ, KEY_READING_CURSOR))
+        val keys = listOf(KEY_CURSOR) + Stream.entries.flatMap { listOf(cursorKey(it), readKey(it)) }
+        writableDatabase.delete("kv", "name IN (${keys.joinToString { "?" }})", keys.toTypedArray())
     }
+
+    // hc.workoutsToken, hc.workoutsReadAt …
+    private fun cursorKey(stream: Stream) = "hc.${stream.key}Token"
+
+    private fun readKey(stream: Stream) = "hc.${stream.key}ReadAt"
 
     override fun daysOf(recordId: String): Set<LocalDate> =
         readableDatabase.rawQuery("SELECT day FROM record_day WHERE id = ?", arrayOf(recordId)).use { c ->
@@ -207,9 +199,6 @@ class SqliteQueueStore(context: Context) :
         private const val TARGET_VERSION = 3 // pending.target
         private const val VERSION = TARGET_VERSION
         private const val KEY_CURSOR = "hc.changesToken"
-        private const val KEY_WORKOUT_CURSOR = "hc.workoutsToken"
-        private const val KEY_WORKOUT_READ = "hc.workoutsReadAt"
-        private const val KEY_READING_CURSOR = "hc.readingsToken"
         private const val TARGET_COLUMN = "target TEXT NOT NULL DEFAULT 'MEASUREMENTS'"
     }
 }

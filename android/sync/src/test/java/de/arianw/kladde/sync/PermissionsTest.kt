@@ -11,7 +11,7 @@ class PermissionsTest {
     @Test
     fun optionalKindsLeftOutStillMeanAccess() {
         // Granted before the update: the watch's kinds, history, background. Weight and the like not.
-        val before = (HealthConnectSource.TYPES.map { HealthPermission.getReadPermission(it) } +
+        val before = ((HealthConnectSource.TYPES + SleepSource.TYPES).map { HealthPermission.getReadPermission(it) } +
             HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY +
             HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND).toSet()
         val state = KladdeSync.permissionState(before)

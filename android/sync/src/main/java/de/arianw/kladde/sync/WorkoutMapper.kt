@@ -3,46 +3,18 @@ package de.arianw.kladde.sync
 import androidx.health.connect.client.records.ExerciseSessionRecord as Ex
 import org.json.JSONObject
 import java.time.Duration
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 import kotlin.math.roundToInt
 
-/** One exercise session as Health Connect holds it, before any HealthLog mapping. */
-data class Session(
-    val id: String,
-    val app: String,
-    val type: Int, // ExerciseSessionRecord.EXERCISE_TYPE_*
-    val title: String?,
-    val start: Instant,
-    val end: Instant,
-)
-
-/** One training for HealthLog: one session, or the sections of one (Freeletics). */
-class Workout(val sessions: List<Session>) {
-    val first: Session get() = sessions.first()
-    val start: Instant get() = first.start
-    val end: Instant get() = sessions.maxOf { it.end }
-
-    /** The gaps between the sections. */
-    val pause: Duration get() = Duration.between(start, end) - sessions.fold(Duration.ZERO) { d, s -> d + Duration.between(s.start, s.end) }
-}
-
 /**
- * Exercise sessions to entries for POST /api/workouts/batch.
- *
- *   sessions ──merge──▶ trainings ──overlap: app order wins──▶ settled, on the days asked ──▶ JSON
+ * Exercise sessions to entries for POST /api/workouts/batch; which ones, Sessions.select.
  *
  * Freeletics writes one session per section (Warmup 09:02–09:08, Intervall 09:09–09:18,
- * Cooldown 09:19–09:25): sessions of one app and sport with at most [MAX_GAP] between them
- * are one training, the gaps its pause. Where trainings of two apps overlap (the Pebble's
- * "Workout" during a Freeletics one), only the one whose app comes first in the order stays;
- * apps not in the order come last. HealthLog keeps the first write of a training, so it is
- * sent only once it ended [SETTLE] ago: by then the sections and the other apps are in.
+ * Cooldown 09:19–09:25): one training, the gaps its pause. Where the Pebble's "Workout"
+ * overlaps a Freeletics one, the app first in [DEFAULT_ORDER] stays.
  */
 object WorkoutMapper {
 
-    val MAX_GAP: Duration = Duration.ofMinutes(5)
+    /** HealthLog keeps a training's first write: by then the sections and the other apps are in. */
     val SETTLE: Duration = Duration.ofHours(2)
 
     const val FREELETICS_APP = "com.freeletics.lite"
@@ -62,53 +34,10 @@ object WorkoutMapper {
     private const val MAX_PAUSE_S = 86_400L
 
     /**
-     * The trainings to send: merged, overlaps resolved, settled at [now], and touching [days]
-     * (changed) or settled since the last read at [since] (held then, unchanged since).
-     */
-    fun select(sessions: List<Session>, order: List<String>, days: Set<LocalDate>, zone: ZoneId, now: Instant, since: Instant? = null): List<Workout> {
-        val rank = { app: String -> order.indexOf(app).takeIf { it >= 0 } ?: order.size }
-        val kept = mutableListOf<Workout>()
-
-        for (w in merge(sessions).sortedWith(compareBy({ rank(it.first.app) }, { it.start }))) {
-            if (kept.none { it.start < w.end && w.start < it.end }) {
-                kept += w
-            }
-        }
-
-        return kept.filter { w ->
-            val settledAt = w.end.plus(SETTLE)
-            val changed = Mapper.dayOf(w.start, zone) in days || Mapper.dayOf(w.end, zone) in days
-            val newlySettled = since != null && settledAt.isAfter(since)
-            !settledAt.isAfter(now) && (changed || newlySettled)
-        }.sortedBy { it.start }
-    }
-
-    /** Sections of one app and sport, at most [MAX_GAP] apart, as one training. */
-    private fun merge(sessions: List<Session>): List<Workout> {
-        val out = mutableListOf<Workout>()
-        val valid = sessions.filter { it.end.isAfter(it.start) }
-
-        for ((_, group) in valid.groupBy { it.app to it.type }) {
-            var current = mutableListOf<Session>()
-            for (s in group.sortedBy { it.start }) {
-                if (current.isNotEmpty() && Duration.between(current.maxOf { it.end }, s.start) > MAX_GAP) {
-                    out += Workout(current)
-                    current = mutableListOf()
-                }
-                current += s
-            }
-            if (current.isNotEmpty()) {
-                out += Workout(current)
-            }
-        }
-        return out
-    }
-
-    /**
      * One entry. Heart rate from every app (watch and phone agree, no sum); steps and
      * distance only from the training's own app, as the phone and the watch both count them.
      */
-    fun entry(w: Workout, samples: List<Sample>): JSONObject {
+    fun entry(w: SessionGroup, samples: List<Sample>): JSONObject {
         val within = samples.filter { !it.start.isBefore(w.start) && it.start.isBefore(w.end) }
         val mine = within.filter { it.app == w.first.app }
 
@@ -144,7 +73,7 @@ object WorkoutMapper {
         return e
     }
 
-    private fun metadata(w: Workout): JSONObject {
+    private fun metadata(w: SessionGroup): JSONObject {
         val m = JSONObject()
             .put("app", w.first.app)
             .put("healthConnectType", Ex.EXERCISE_TYPE_INT_TO_STRING_MAP[w.first.type] ?: w.first.type.toString())

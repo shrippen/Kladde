@@ -12,8 +12,8 @@ für beide. [English](../README.md) · [Landing Page](https://shrippen.github.io
 ## Was abgeglichen wird
 
 Auf Android liest Kladde Health Connect von jeder App. Tagessummen und Puls-Blöcke rechnet Health Connect selbst, nach
-der in Health Connect eingestellten App-Reihenfolge, damit Telefon und Uhr nie doppelt zählen. Schlaf kommt vorerst von
-der Pebble-App (`coredevices.coreapp`). HealthLogs Batch-Endpunkt spricht HealthKit, darum kommen die Werte in Apples Einheiten und mit der Quelle
+der in Health Connect eingestellten App-Reihenfolge, damit Telefon und Uhr nie doppelt zählen. Schlaf kommt von jeder
+App; sahen zwei dieselbe Nacht, gilt die erste in Kladdes Reihenfolge (Pebble-App, Sleep as Android, Google Fit). HealthLogs Batch-Endpunkt spricht HealthKit, darum kommen die Werte in Apples Einheiten und mit der Quelle
 „Apple Health“ an.
 
 | Health Connect | In HealthLog | Wie |
@@ -23,7 +23,7 @@ der Pebble-App (`coredevices.coreapp`). HealthLogs Batch-Endpunkt spricht Health
 | Aktive Kalorien, Stockwerke | Aktive Energie, Stockwerke | eine Summe je Tag (wenn erlaubt) |
 | Herzfrequenz | Puls | 10-Minuten-Blöcke mit Mittel, Minimum und Maximum |
 | Ruhepuls, Gewicht, Körperfett, Magermasse, Blutdruck, Blutzucker, Sauerstoffsättigung, HRV (RMSSD), Atemfrequenz, VO₂max, Körpertemperatur | dasselbe | ein Eintrag je Messung, von jeder App |
-| Schlaf mit Phasen | Schlaf | Minuten je Phase (wach, Kern, tief, REM) |
+| Schlaf mit Phasen | Schlaf | Minuten je Phase (wach, Kern, tief, REM); gesendet vier Stunden nach dem Ende der Nacht, damit die der Uhr da ist |
 | Training (Freeletics, Pebble-App, Google Fit …) | Workout | Sportart, Zeit, Pause, Puls, Schritte; Abschnitte eines Trainings (Freeletics) als eines; bei Überschneidung gilt die App, die vorne steht (Freeletics, Pebble-App, Google Fit); gesendet zwei Stunden nach dem Ende |
 
 ## Die App

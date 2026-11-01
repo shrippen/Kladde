@@ -20,6 +20,9 @@ class WorkoutMapperTest {
     private val freeletics = WorkoutMapper.FREELETICS_APP
     private val pebble = HealthConnectSource.PEBBLE_APP
 
+    private fun pick(sessions: List<Session>, order: List<String>, days: Set<LocalDate>, zone: ZoneId, now: Instant, since: Instant? = null) =
+        Sessions.select(sessions, order, days, zone, now, WorkoutMapper.SETTLE, since)
+
     private fun t(hhmm: String) = Instant.parse("2026-10-10T$hhmm:00Z")
 
     private fun session(id: String, app: String, type: Int, from: String, to: String, title: String? = null) =
@@ -35,7 +38,7 @@ class WorkoutMapperTest {
 
     @Test
     fun sectionsAreOneTrainingWithTheGapsAsPause() {
-        val w = WorkoutMapper.select(sections, order, setOf(day), zone, now).single()
+        val w = pick(sections, order, setOf(day), zone, now).single()
         val e = WorkoutMapper.entry(w, emptyList())
 
         assertEquals("hiit", e.getString("sportType"))
@@ -53,15 +56,15 @@ class WorkoutMapperTest {
             session("a", freeletics, EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING, "08:00", "08:10"),
             session("b", freeletics, EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING, "08:16", "08:30"),
         )
-        assertEquals(2, WorkoutMapper.select(two, order, setOf(day), zone, now).size)
+        assertEquals(2, pick(two, order, setOf(day), zone, now).size)
     }
 
     @Test
     fun onOverlapTheAppFirstInTheOrderWins() {
-        val first = WorkoutMapper.select(sections + pebbleWorkout, order, setOf(day), zone, now)
+        val first = pick(sections + pebbleWorkout, order, setOf(day), zone, now)
         assertEquals(listOf("w"), first.map { it.first.id })
 
-        val pebbleFirst = WorkoutMapper.select(sections + pebbleWorkout, listOf(pebble, freeletics), setOf(day), zone, now)
+        val pebbleFirst = pick(sections + pebbleWorkout, listOf(pebble, freeletics), setOf(day), zone, now)
         assertEquals(listOf("p"), pebbleFirst.map { it.first.id })
     }
 
@@ -69,18 +72,18 @@ class WorkoutMapperTest {
     fun anAppNotInTheOrderComesLast() {
         val other = session("x", "org.example.gym", EXERCISE_TYPE_BIKING_STATIONARY, "08:00", "08:30")
         val walk = session("f", WorkoutMapper.FIT_APP, EXERCISE_TYPE_WALKING, "08:20", "08:40")
-        val kept = WorkoutMapper.select(listOf(other, walk), order, setOf(day), zone, now)
+        val kept = pick(listOf(other, walk), order, setOf(day), zone, now)
         assertEquals(listOf("f"), kept.map { it.first.id })
 
         // Alone it goes.
-        assertEquals("cycling", WorkoutMapper.entry(WorkoutMapper.select(listOf(other), order, setOf(day), zone, now).single(), emptyList()).getString("sportType"))
+        assertEquals("cycling", WorkoutMapper.entry(pick(listOf(other), order, setOf(day), zone, now).single(), emptyList()).getString("sportType"))
     }
 
     @Test
     fun aTrainingIsHeldUntilItSettled() {
         val soon = t("10:00")
-        assertEquals(0, WorkoutMapper.select(sections, order, setOf(day), zone, soon).size)
-        assertEquals(1, WorkoutMapper.select(sections, order, setOf(day), zone, t("10:50")).size)
+        assertEquals(0, pick(sections, order, setOf(day), zone, soon).size)
+        assertEquals(1, pick(sections, order, setOf(day), zone, t("10:50")).size)
     }
 
     @Test
@@ -88,16 +91,16 @@ class WorkoutMapperTest {
         // Read at 09:30, held (not settled); the next read two days on brings no change for it.
         val lastRead = t("09:30")
         val later = Instant.parse("2026-10-12T00:30:00Z")
-        val sent = WorkoutMapper.select(sections, order, emptySet(), zone, later, lastRead)
+        val sent = pick(sections, order, emptySet(), zone, later, lastRead)
         assertEquals(listOf("w"), sent.map { it.first.id })
 
         // Settled before that read: it went then, not again.
-        assertEquals(0, WorkoutMapper.select(sections, order, emptySet(), zone, later, t("11:00")).size)
+        assertEquals(0, pick(sections, order, emptySet(), zone, later, t("11:00")).size)
     }
 
     @Test
     fun onlyTheDaysAskedFor() {
-        assertEquals(0, WorkoutMapper.select(sections, order, setOf(day.plusDays(1)), zone, now).size)
+        assertEquals(0, pick(sections, order, setOf(day.plusDays(1)), zone, now).size)
     }
 
     @Test
@@ -112,7 +115,7 @@ class WorkoutMapperTest {
             Sample(Kind.STEPS, "s2", WorkoutMapper.FIT_APP, t("18:00"), t("18:15"), 1400.0),
             Sample(Kind.DISTANCE, "d1", WorkoutMapper.FIT_APP, t("18:00"), t("18:15"), 1100.0),
         )
-        val e = WorkoutMapper.entry(WorkoutMapper.select(listOf(walk), order, setOf(day), zone, now).single(), samples)
+        val e = WorkoutMapper.entry(pick(listOf(walk), order, setOf(day), zone, now).single(), samples)
 
         assertEquals("walking", e.getString("sportType"))
         assertEquals(100, e.getInt("avgHeartRate"))

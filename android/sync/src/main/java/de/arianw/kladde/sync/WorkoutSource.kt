@@ -72,7 +72,7 @@ class WorkoutSource(
             Session(it.metadata.id, it.metadata.dataOrigin.packageName, it.exerciseType, it.title, it.startTime, it.endTime)
         }
 
-        val workouts = WorkoutMapper.select(sessions, order, days, zone, now, since)
+        val workouts = Sessions.select(sessions, order, days, zone, now, WorkoutMapper.SETTLE, since)
         val entries = mutableListOf<JSONObject>()
         for (group in clusters(workouts)) {
             val from = group.minOf { it.start }
@@ -87,8 +87,8 @@ class WorkoutSource(
      * Trainings close in time, read together: few calls (Health Connect limits them), but
      * not the months between an old session a cloud sync rewrote and today's.
      */
-    private fun clusters(workouts: List<Workout>): List<List<Workout>> {
-        val out = mutableListOf<MutableList<Workout>>()
+    private fun clusters(workouts: List<SessionGroup>): List<List<SessionGroup>> {
+        val out = mutableListOf<MutableList<SessionGroup>>()
         for (w in workouts.sortedBy { it.start }) {
             val last = out.lastOrNull()
             if (last != null && Duration.between(last.maxOf { it.end }, w.start) <= CLUSTER_GAP) {

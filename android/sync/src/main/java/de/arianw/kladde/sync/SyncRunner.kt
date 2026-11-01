@@ -29,16 +29,21 @@ class SyncRunner(
         suspend fun read(cursor: String?, zone: ZoneId, now: Instant): ReadingSource.Read
     }
 
+    fun interface SleepReader {
+        suspend fun read(cursor: String?, since: Instant?, zone: ZoneId, now: Instant): SleepSource.Read
+    }
+
     fun interface WorkoutReader {
         suspend fun read(cursor: String?, since: Instant?, zone: ZoneId, now: Instant): WorkoutSource.Read
     }
 
-    /** [readings], [workouts] null: not read (no permission for them yet). */
+    /** [readings], [sleep], [workouts] null: not read (no permission for them yet). */
     suspend fun run(
         reader: Reader,
         trigger: Trigger,
         now: Instant = Instant.now(),
         readings: ReadingReader? = null,
+        sleep: SleepReader? = null,
         workouts: WorkoutReader? = null,
     ): SyncStatus {
         val before = store.status()
@@ -56,9 +61,9 @@ class SyncRunner(
 
         // Each source apart: one failing must not hold the others back.
         try {
-            readings?.read(store.readingCursor(), zone, now)?.let {
+            readings?.read(store.cursor(Stream.READINGS), zone, now)?.let {
                 val mapped = Mapper.map(it.samples, zone)
-                store.enqueueReadings(Batches.make(mapped.entries, trigger), it.cursor, seenOf(it.samples))
+                store.enqueue(Stream.READINGS, Batches.make(mapped.entries, trigger), it.cursor, now, seenOf(it.samples))
             }
         } catch (e: CancellationException) {
             throw e
@@ -67,8 +72,19 @@ class SyncRunner(
         }
 
         try {
-            workouts?.read(store.workoutCursor(), store.workoutReadAt(), zone, now)?.let {
-                store.enqueueWorkouts(Batches.make(it.entries, trigger, Target.WORKOUTS), it.cursor, now)
+            sleep?.read(store.cursor(Stream.SLEEP), store.readAt(Stream.SLEEP), zone, now)?.let {
+                val mapped = Mapper.map(it.samples, zone)
+                store.enqueue(Stream.SLEEP, Batches.make(mapped.entries, trigger), it.cursor, now, seenOf(it.samples))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = error ?: describe(e)
+        }
+
+        try {
+            workouts?.read(store.cursor(Stream.WORKOUTS), store.readAt(Stream.WORKOUTS), zone, now)?.let {
+                store.enqueue(Stream.WORKOUTS, Batches.make(it.entries, trigger, Target.WORKOUTS), it.cursor, now, emptyMap())
             }
         } catch (e: CancellationException) {
             throw e

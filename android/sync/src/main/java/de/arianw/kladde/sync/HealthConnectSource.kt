@@ -23,7 +23,6 @@ import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
-import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ChangesTokenRequest
@@ -36,9 +35,8 @@ import java.time.ZoneId
 import kotlin.reflect.KClass
 
 /**
- * Reads steps, distance, active energy, flights and heart rate of every app, and the sleep
- * of one (the Pebble app by default), from Health Connect (LF-10 … LF-15); only the [types]
- * the user allowed.
+ * Reads steps, distance, active energy, flights and heart rate of every app from Health
+ * Connect (LF-10 … LF-15); only the [types] the user allowed. Sleep: SleepSource.
  *
  * Day totals and the 10-minute heart-rate buckets come from Health Connect's aggregate: it
  * takes each app by the order in its own settings, so the phone's and the watch's steps
@@ -53,7 +51,6 @@ import kotlin.reflect.KClass
 class HealthConnectSource(
     private val client: HealthConnectClient,
     private val types: Set<KClass<out Record>> = TYPES + OPTIONAL_TYPES,
-    private val sleepApp: String = PEBBLE_APP,
 ) {
 
     /** What one read brought, for the store to keep in one transaction. */
@@ -75,7 +72,6 @@ class HealthConnectSource(
         }
 
         var next: String = token
-        val samples = mutableListOf<Sample>()
         val days = mutableSetOf<LocalDate>()
         val recordDays = mutableMapOf<String, Set<LocalDate>>()
         val today = Mapper.dayOf(now, zone)
@@ -92,12 +88,6 @@ class HealthConnectSource(
                     continue
                 }
                 val record = (change as? UpsertionChange)?.record ?: continue
-                if (record is SleepSessionRecord) {
-                    if (record.metadata.dataOrigin.packageName == sleepApp) {
-                        samples += samplesOf(record)
-                    }
-                    continue
-                }
                 // Its days now and before: a record rewritten to another time leaves its old day.
                 val current = daysOf(record, zone)
                 days += current + daysOf(record.metadata.id)
@@ -108,7 +98,7 @@ class HealthConnectSource(
                 break
             }
         }
-        return Read(samples + aggregate(days, zone, now), cursorOf(next), recordDays)
+        return Read(aggregate(days, zone, now), cursorOf(next), recordDays)
     }
 
     private suspend fun backfill(zone: ZoneId, backfillDays: Long, now: Instant): Read {
@@ -118,21 +108,14 @@ class HealthConnectSource(
         val first = today.minusDays(backfillDays - 1)
         val (start, _) = DayWindow.bounds(first, zone)
 
-        val samples = mutableListOf<Sample>()
-        if (SleepSessionRecord::class in types) {
-            for (r in readAll(SleepSessionRecord::class, start, now, setOf(DataOrigin(sleepApp)))) {
-                samples += samplesOf(r)
-            }
-        }
-
         // Each record's days, so its deletion later re-aggregates them.
         val recordDays = mutableMapOf<String, Set<LocalDate>>()
-        for (type in types - SleepSessionRecord::class) {
+        for (type in types) {
             for (r in readAll(type, start, now)) {
                 recordDays[r.metadata.id] = daysOf(r, zone)
             }
         }
-        return Read(samples + aggregate(DayWindow.range(first, today), zone, now), cursorOf(token), recordDays)
+        return Read(aggregate(DayWindow.range(first, today), zone, now), cursorOf(token), recordDays)
     }
 
     /**
@@ -177,12 +160,12 @@ class HealthConnectSource(
         return DayWindow.keep(samples, days, zone)
     }
 
-    private suspend fun <T : Record> readAll(type: KClass<T>, start: Instant, end: Instant, apps: Set<DataOrigin> = emptySet()): List<T> {
+    private suspend fun <T : Record> readAll(type: KClass<T>, start: Instant, end: Instant): List<T> {
         val out = mutableListOf<T>()
         var page: String? = null
         do {
             val response = client.readRecords(
-                ReadRecordsRequest(type, TimeRangeFilter.between(start, end), apps, pageSize = PAGE_SIZE, pageToken = page)
+                ReadRecordsRequest(type, TimeRangeFilter.between(start, end), pageSize = PAGE_SIZE, pageToken = page)
             )
             out += response.records
             page = response.pageToken
@@ -238,7 +221,6 @@ class HealthConnectSource(
             StepsRecord::class,
             DistanceRecord::class,
             HeartRateRecord::class,
-            SleepSessionRecord::class,
         )
 
         /** Day totals read once allowed. */

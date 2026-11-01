@@ -73,7 +73,7 @@ Pebble-Daemon liefert später das Austauschformat (`core/hcjson.h`) an `core/`.
   Distance. Kann: RestingHeartRate, ActiveCaloriesBurned, Weight, BloodPressure, BloodGlucose,
   OxygenSaturation, HeartRateVariabilityRmssd.
 - **LF-15** Nichts zählt doppelt: Tagessummen und Puls-Blöcke rechnet Health Connect über alle
-  Apps nach seiner App-Reihenfolge; Schlaf vorerst nur von `coredevices.coreapp`. Einzelwerte (Ruhepuls, Gewicht, Blutdruck …) von jeder App. Training von jeder App; überschneiden sich zwei, gilt die App, die in Kladde vorne steht
+  Apps nach seiner App-Reihenfolge; Schlaf von jeder App; überschneiden sich zwei Nächte, gilt die App, die in Kladde vorne steht (Standard Pebble-App, Sleep as Android, Google Fit). Einzelwerte (Ruhepuls, Gewicht, Blutdruck …) von jeder App. Training von jeder App; überschneiden sich zwei, gilt die App, die in Kladde vorne steht
   (Standard Freeletics, Pebble-App, Google Fit).
 - **LF-16** Pebble-Daemon (Plasma Mobile, später): dieselben Typen, über die D-Bus-Schnittstelle
   des Daemons.

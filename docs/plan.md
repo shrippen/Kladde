@@ -106,7 +106,8 @@ Mapper ─▶ /api/measurements/batch   |   Training ─▶ /api/workouts/batch 
 - [x] Einzelwerte: Gewicht, Körperfett, Magermasse, Blutdruck, Blutzucker, SpO₂, HRV,
       Atemfrequenz, VO₂max, Körpertemperatur, Ruhepuls von jeder App (`ReadingSource`, eigener
       Cursor, nur erlaubte Arten; Ids und Einheiten wie HealthLogs `apple-health-mapping.ts`).
-- [ ] Schlaf aller Apps, Überschneidung nach App-Wahl.
+- [x] Schlaf aller Apps, Überschneidung nach App-Reihenfolge (`SleepSource`, eigener Cursor,
+      gesendet 4 h nach dem Ende; Auswahl mit Training gemeinsam in `Sessions.select`).
 - [x] Training → `/api/workouts/batch` (Sportart, Pause, Puls, Schritte, Strecke), eigener
       Changes-Token, Batches mit Ziel in derselben Warteschlange (`WorkoutSource`, `WorkoutMapper`).
 - [ ] Training: Energie (braucht `READ_*_CALORIES_BURNED`), gelöschte Sitzungen.

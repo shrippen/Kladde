@@ -11,9 +11,8 @@ class MemoryStore : QueueStore {
     private val rows = linkedMapOf<String, Row>()
     private var order = 0L
     private var cursor: String? = null
-    private var workoutCursor: String? = null
-    private var readingCursor: String? = null
-    private var workoutReadAt: Instant? = null
+    private val cursors = mutableMapOf<Stream, String>()
+    private val reads = mutableMapOf<Stream, Instant>()
     private val days = mutableMapOf<String, Set<LocalDate>>()
     private val seen = mutableMapOf<Kind, Instant>()
     private var status = SyncStatus()
@@ -35,17 +34,10 @@ class MemoryStore : QueueStore {
         }
     }
 
-    override fun enqueueReadings(batches: List<Batch>, cursor: String, seen: Map<Kind, Instant>) {
+    override fun enqueue(stream: Stream, batches: List<Batch>, cursor: String, readAt: Instant, seen: Map<Kind, Instant>) {
         enqueue(batches, null, emptyMap(), seen)
-        readingCursor = cursor
-    }
-
-    override fun enqueueWorkouts(batches: List<Batch>, cursor: String, readAt: Instant) {
-        for (b in batches) {
-            rows.putIfAbsent(b.key, Row(b, order++))
-        }
-        workoutCursor = cursor
-        workoutReadAt = readAt
+        cursors[stream] = cursor
+        reads[stream] = readAt
     }
 
     override fun next(now: Instant): Pending? =
@@ -71,17 +63,14 @@ class MemoryStore : QueueStore {
 
     override fun cursor(): String? = cursor
 
-    override fun workoutCursor(): String? = workoutCursor
+    override fun cursor(stream: Stream): String? = cursors[stream]
 
-    override fun readingCursor(): String? = readingCursor
-
-    override fun workoutReadAt(): Instant? = workoutReadAt
+    override fun readAt(stream: Stream): Instant? = reads[stream]
 
     override fun resetCursor() {
         cursor = null
-        workoutCursor = null
-        readingCursor = null
-        workoutReadAt = null
+        cursors.clear()
+        reads.clear()
     }
 
     override fun daysOf(recordId: String): Set<LocalDate> = days[recordId].orEmpty()

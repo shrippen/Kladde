@@ -3,6 +3,13 @@ package de.arianw.kladde.sync
 import java.time.Instant
 import java.time.LocalDate
 
+/** A source beside the main one, with a cursor of its own (and when it last read). */
+enum class Stream(val key: String) {
+    READINGS("readings"),
+    WORKOUTS("workouts"),
+    SLEEP("sleep"),
+}
+
 /** A batch waiting for upload. */
 class Pending(val batch: Batch, val attempts: Int)
 
@@ -17,11 +24,8 @@ interface QueueStore {
 
     fun enqueue(batches: List<Batch>, cursor: String?, recordDays: Map<String, Set<LocalDate>>, seen: Map<Kind, Instant>)
 
-    /**
-     * Workout batches, the workout reader's cursor and when it read ([readAt]), in one
-     * transaction like [enqueue].
-     */
-    fun enqueueWorkouts(batches: List<Batch>, cursor: String, readAt: Instant)
+    /** A stream's batches, cursor, read time and what came, in one transaction like [enqueue]. */
+    fun enqueue(stream: Stream, batches: List<Batch>, cursor: String, readAt: Instant, seen: Map<Kind, Instant>)
 
     /**
      * The oldest batch if it is due at [now], else null: the queue goes strictly in order,
@@ -39,17 +43,12 @@ interface QueueStore {
      */
     fun replace(key: String, with: Batch?, keepAttempts: Boolean = false)
 
-    /** Reading batches, the reading source's cursor and what came, in one transaction. */
-    fun enqueueReadings(batches: List<Batch>, cursor: String, seen: Map<Kind, Instant>)
-
     fun cursor(): String?
 
-    fun readingCursor(): String?
+    fun cursor(stream: Stream): String?
 
-    fun workoutCursor(): String?
-
-    /** When the workouts were last read; trainings held then are due later. */
-    fun workoutReadAt(): Instant?
+    /** When a stream last read; what it held then is due later. */
+    fun readAt(stream: Stream): Instant?
 
     /** Every cursor: the next run reads everything again. */
     fun resetCursor()
