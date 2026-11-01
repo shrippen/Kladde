@@ -149,6 +149,16 @@ class UploaderTest {
     }
 
     @Test
+    fun aDueTimeFromAClockAheadDoesNotBlockTheQueue() {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(1), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+        val dayAhead = now.plus(Duration.ofDays(1))
+        Uploader(store) { _, _ -> Response(503, "") }.flush(dayAhead) // the clock was a day ahead
+        assertTrue("due again once the clock is back", store.next(now) != null)
+        assertNull(store.next(dayAhead))
+    }
+
+    @Test
     fun anOkThatIsNotJsonStillCounts() {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t1", emptyMap(), emptyMap())

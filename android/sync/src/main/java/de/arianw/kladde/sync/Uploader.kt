@@ -100,7 +100,8 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
         const val HTTP_SERVER_ERROR = 500
 
         private val FIRST_RETRY: Duration = Duration.ofMinutes(1)
-        private val LAST_RETRY: Duration = Duration.ofHours(6)
+        /** The longest backoff; a due time further ahead comes from a clock that went back. */
+        val LAST_RETRY: Duration = Duration.ofHours(6)
 
         const val WAITING = "upload waiting for retry"
 

@@ -111,21 +111,17 @@ class HealthConnectSource(
      * days the watch was simply off; deleting by external id needs a session token.
      */
     private suspend fun readDays(days: Set<LocalDate>, zone: ZoneId): Pair<List<Sample>, Map<String, Set<LocalDate>>> {
-        // By id: a record over midnight comes back for both days and must count once.
-        val records = linkedMapOf<String, Record>()
+        val records = mutableListOf<Record>()
         for (day in days.sorted()) {
             val (start, end) = DayWindow.bounds(day, zone)
             for (type in DAY_TYPES) {
                 val kind = if (type == HeartRateRecord::class) Kind.HEART_RATE else Kind.STEPS
-                for (r in readAll(type, start, DayWindow.readEnd(kind, end))) {
-                    records[r.metadata.id] = r
-                }
+                records += readAll(type, start, DayWindow.readEnd(kind, end))
             }
         }
-        val samples = records.values.flatMap { samplesOf(it) }
         // Not the day being read: the days the Mapper counts the record into.
-        val recordDays = records.mapValues { (_, r) -> daysOf(r, zone) }
-        return DayWindow.keep(samples, days, zone) to recordDays
+        val recordDays = records.associate { it.metadata.id to daysOf(it, zone) }
+        return DayWindow.merge(records, { it.metadata.id }, ::samplesOf, days, zone) to recordDays
     }
 
     private suspend fun <T : Record> readAll(type: KClass<T>, start: Instant, end: Instant): List<T> {

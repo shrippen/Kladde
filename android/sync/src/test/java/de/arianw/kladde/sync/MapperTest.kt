@@ -93,4 +93,17 @@ class MapperTest {
         val berlin = DayWindow.bounds(LocalDate.of(2026, 10, 31), ZoneId.of("Europe/Berlin")).second
         assertEquals(berlin, DayWindow.readEnd(Kind.HEART_RATE, berlin))
     }
+
+    @Test
+    fun aRecordOverMidnightCountsOnceWhenBothDaysAreRead() {
+        // Read for 31 October and for 1 November, it comes back twice.
+        val zone = ZoneId.of("Europe/Berlin")
+        val steps = Sample(Kind.STEPS, "s", "p", Instant.parse("2026-10-31T22:30:00Z"), Instant.parse("2026-10-31T23:20:00Z"), 120.0)
+        val reads = listOf("s" to steps, "s" to steps)
+        val days = setOf(LocalDate.of(2026, 10, 31), LocalDate.of(2026, 11, 1))
+        val kept = DayWindow.merge(reads, { it.first }, { listOf(it.second) }, days, zone)
+        assertEquals(listOf(steps), kept)
+        val total = Mapper.map(kept, zone).entries.single { it.getString("hkIdentifier").endsWith("StepCount") }
+        assertEquals(120.0, total.getDouble("value"), 0.0)
+    }
 }

@@ -48,6 +48,16 @@ interface QueueStore {
     fun setStatus(status: SyncStatus)
 
     fun status(): SyncStatus
+
+    companion object {
+        /**
+         * A batch in backoff is due at [due]. One due more than the longest backoff ahead was
+         * set by a clock that has since gone back (wrong date set by hand): due now, or the
+         * strictly ordered queue would wait days behind it.
+         */
+        fun isDue(due: Instant, now: Instant): Boolean =
+            !due.isAfter(now) || due.isAfter(now.plus(Uploader.LAST_RETRY))
+    }
 }
 
 /** The last run as the status page shows it. */

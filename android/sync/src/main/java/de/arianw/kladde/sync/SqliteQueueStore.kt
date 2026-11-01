@@ -69,7 +69,7 @@ class SqliteQueueStore(context: Context) :
             "SELECT body, key, size, attempts, due FROM pending ORDER BY rowid LIMIT 1",
             null,
         ).use { c ->
-            if (!c.moveToFirst() || c.getLong(4) > now.toEpochMilli()) {
+            if (!c.moveToFirst() || !QueueStore.isDue(Instant.ofEpochMilli(c.getLong(4)), now)) {
                 return null
             }
             Pending(Batch(c.getString(0), c.getString(1), c.getInt(2)), c.getInt(3))
