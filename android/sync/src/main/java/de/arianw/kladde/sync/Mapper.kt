@@ -54,8 +54,7 @@ object Mapper {
                 }
 
                 Kind.HEART_RATE -> {
-                    val ms = s.start.toEpochMilli()
-                    val b = buckets.getOrPut(ms - Math.floorMod(ms, BUCKET_MS)) { Bucket() }
+                    val b = buckets.getOrPut(bucketStart(s.start).toEpochMilli()) { Bucket() }
                     b.min = if (b.count > 0) minOf(b.min, s.value) else s.value
                     b.max = if (b.count > 0) maxOf(b.max, s.value) else s.value
                     b.sum += s.value
@@ -118,6 +117,16 @@ object Mapper {
 
     /** The local day a sample counts for; the source re-reads whole days with it. */
     fun dayOf(t: Instant, zone: ZoneId): LocalDate = t.atZone(zone).toLocalDate()
+
+    /** Start of the 10-minute UTC bucket a heart-rate sample goes into. */
+    fun bucketStart(t: Instant): Instant {
+        val ms = t.toEpochMilli()
+        return Instant.ofEpochMilli(ms - Math.floorMod(ms, BUCKET_MS))
+    }
+
+    /** The day a sample's total or bucket belongs to: its start, for heart rate its bucket's start. */
+    fun dayOfSample(s: Sample, zone: ZoneId): LocalDate =
+        dayOf(if (s.kind == Kind.HEART_RATE) bucketStart(s.start) else s.start, zone)
 
     private fun addDays(entries: MutableList<JSONObject>, days: Map<LocalDate, Double>, id: String, unit: String, zone: ZoneId) {
         for ((day, total) in days) {

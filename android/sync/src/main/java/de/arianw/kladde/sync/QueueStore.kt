@@ -27,8 +27,11 @@ interface QueueStore {
 
     fun retryAt(key: String, at: Instant)
 
-    /** Swap a batch for a smaller one in its place in the queue (null: drop it). */
-    fun replace(key: String, with: Batch?)
+    /**
+     * Swap a batch for a smaller one in its place in the queue (null: drop it). [keepAttempts]
+     * keeps the backoff growing (entries the server keeps failing), else it starts over.
+     */
+    fun replace(key: String, with: Batch?, keepAttempts: Boolean = false)
 
     fun cursor(): String?
 

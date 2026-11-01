@@ -134,6 +134,21 @@ class UploaderTest {
     }
 
     @Test
+    fun entriesTheServerKeepsFailingBackOffFurther() {
+        val store = MemoryStore()
+        store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
+        val failing = Transport { _, _ ->
+            Response(200, """{"data":{"entries":[{"index":0,"status":"inserted"},{"index":1,"status":"failed"},{"index":2,"status":"inserted"}]}}""")
+        }
+        val alwaysFailing = Transport { _, _ -> Response(200, """{"data":{"entries":[{"index":0,"status":"failed"}]}}""") }
+        Uploader(store, failing).flush(now)
+        val t1 = now.plus(Duration.ofMinutes(1))
+        Uploader(store, alwaysFailing).flush(t1)
+        assertEquals(2, store.next(t1.plus(Duration.ofHours(1)))!!.attempts)
+        assertNull("2nd retry waits 2 min", store.next(t1.plus(Duration.ofSeconds(90))))
+    }
+
+    @Test
     fun anOkThatIsNotJsonStillCounts() {
         val store = MemoryStore()
         store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t1", emptyMap(), emptyMap())

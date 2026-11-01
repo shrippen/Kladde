@@ -46,10 +46,10 @@ class MemoryStore : QueueStore {
         }
     }
 
-    override fun replace(key: String, with: Batch?) {
+    override fun replace(key: String, with: Batch?, keepAttempts: Boolean) {
         val old = rows.remove(key) ?: return
         if (with != null) {
-            rows[with.key] = Row(with, old.order)
+            rows[with.key] = Row(with, old.order, if (keepAttempts) old.attempts else 0)
         }
     }
 

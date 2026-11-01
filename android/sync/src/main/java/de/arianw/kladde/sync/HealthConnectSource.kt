@@ -111,18 +111,20 @@ class HealthConnectSource(
      * days the watch was simply off; deleting by external id needs a session token.
      */
     private suspend fun readDays(days: Set<LocalDate>, zone: ZoneId): Pair<List<Sample>, Map<String, Set<LocalDate>>> {
-        val samples = mutableListOf<Sample>()
-        val recordDays = mutableMapOf<String, Set<LocalDate>>()
+        // By id: a record over midnight comes back for both days and must count once.
+        val records = linkedMapOf<String, Record>()
         for (day in days.sorted()) {
             val (start, end) = DayWindow.bounds(day, zone)
             for (type in DAY_TYPES) {
-                for (r in readAll(type, start, end)) {
-                    samples += samplesOf(r)
-                    // Not the day being read: a record over midnight is read for both days.
-                    recordDays[r.metadata.id] = daysOf(r, zone)
+                val kind = if (type == HeartRateRecord::class) Kind.HEART_RATE else Kind.STEPS
+                for (r in readAll(type, start, DayWindow.readEnd(kind, end))) {
+                    records[r.metadata.id] = r
                 }
             }
         }
+        val samples = records.values.flatMap { samplesOf(it) }
+        // Not the day being read: the days the Mapper counts the record into.
+        val recordDays = records.mapValues { (_, r) -> daysOf(r, zone) }
         return DayWindow.keep(samples, days, zone) to recordDays
     }
 
@@ -144,12 +146,15 @@ class HealthConnectSource(
         /**
          * The days whose totals or buckets a day-kind record goes into, as the Mapper counts
          * them: steps and distance by their start, heart rate by each sample, so every day
-         * from start to end. A deletion re-reads exactly these days.
+         * from the bucket of its start to the bucket of its end. A deletion re-reads these days.
          */
         fun daysOf(record: Record, zone: ZoneId): Set<LocalDate> = when (record) {
             is StepsRecord -> setOf(Mapper.dayOf(record.startTime, zone))
             is DistanceRecord -> setOf(Mapper.dayOf(record.startTime, zone))
-            is HeartRateRecord -> DayWindow.range(Mapper.dayOf(record.startTime, zone), Mapper.dayOf(record.endTime, zone))
+            is HeartRateRecord -> DayWindow.range(
+                Mapper.dayOf(Mapper.bucketStart(record.startTime), zone),
+                Mapper.dayOf(Mapper.bucketStart(record.endTime), zone),
+            )
             else -> emptySet()
         }
 

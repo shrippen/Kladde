@@ -57,7 +57,7 @@ class Uploader(private val store: QueueStore, private val transport: Transport) 
                     store.done(pending.batch.key)
                     continue
                 }
-                store.replace(pending.batch.key, rest)
+                store.replace(pending.batch.key, rest, keepAttempts = true)
                 store.retryAt(rest.key, now.plus(backoff(pending.attempts)))
                 return Result(Outcome.RETRY_LATER, uploaded, inserted, "HealthLog: ${rest.size} entries failed, retrying")
             }

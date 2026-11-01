@@ -13,7 +13,9 @@ import java.time.ZoneId
  *   kept for D:                                [08:00 D]  [23:55 D ...]
  *
  * A record that starts on D-1 would otherwise yield a partial total for D-1 that overwrites
- * the full one.
+ * the full one. A heart-rate bucket belongs to the day its start falls on; where local
+ * midnight is not on a 10-minute mark (UTC+5:45) the last bucket reaches into the next day,
+ * so heart rate is read up to the end of that bucket ([readEnd]).
  */
 object DayWindow {
 
@@ -21,7 +23,16 @@ object DayWindow {
     val DAY_KINDS = setOf(Kind.STEPS, Kind.DISTANCE, Kind.HEART_RATE)
 
     fun keep(samples: List<Sample>, days: Set<LocalDate>, zone: ZoneId): List<Sample> =
-        samples.filter { it.kind !in DAY_KINDS || Mapper.dayOf(it.start, zone) in days }
+        samples.filter { it.kind !in DAY_KINDS || Mapper.dayOfSample(it, zone) in days }
+
+    /** Where reading [kind] for a day ending at [end] has to stop: the last bucket complete. */
+    fun readEnd(kind: Kind, end: Instant): Instant {
+        if (kind != Kind.HEART_RATE) {
+            return end
+        }
+        val start = Mapper.bucketStart(end)
+        return if (start == end) end else start.plusSeconds(600)
+    }
 
     /** [start, end) of a local day. */
     fun bounds(day: LocalDate, zone: ZoneId): Pair<Instant, Instant> =

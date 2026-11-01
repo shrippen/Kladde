@@ -65,7 +65,8 @@ class SqliteQueueStore(context: Context) :
 
     override fun next(now: Instant): Pending? =
         readableDatabase.rawQuery(
-            "SELECT body, key, size, attempts, due FROM pending ORDER BY created, rowid LIMIT 1",
+            // rowid, not created: the wall clock can go back, a new row's rowid cannot.
+            "SELECT body, key, size, attempts, due FROM pending ORDER BY rowid LIMIT 1",
             null,
         ).use { c ->
             if (!c.moveToFirst() || c.getLong(4) > now.toEpochMilli()) {
@@ -83,13 +84,14 @@ class SqliteQueueStore(context: Context) :
             arrayOf(at.toEpochMilli(), key))
     }
 
-    override fun replace(key: String, with: Batch?) {
+    override fun replace(key: String, with: Batch?, keepAttempts: Boolean) {
         if (with == null) {
             done(key)
             return
         }
-        // In place: same created and rowid, so the batch keeps its turn in the queue.
-        writableDatabase.execSQL("UPDATE pending SET key = ?, body = ?, size = ?, attempts = 0, due = 0 WHERE key = ?",
+        // In place: same rowid, so the batch keeps its turn in the queue.
+        val attempts = if (keepAttempts) "attempts" else "0"
+        writableDatabase.execSQL("UPDATE pending SET key = ?, body = ?, size = ?, attempts = $attempts, due = 0 WHERE key = ?",
             arrayOf(with.key, with.body, with.size, key))
     }
 

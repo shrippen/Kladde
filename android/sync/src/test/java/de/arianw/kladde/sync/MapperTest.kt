@@ -77,4 +77,20 @@ class MapperTest {
         assertTrue(parsed.warnings[0].contains("Exercise"))
         assertTrue(parsed.warnings[1].contains("no id"))
     }
+
+    @Test
+    fun aHeartRateBucketOverMidnightBelongsToItsStartDay() {
+        // Kathmandu (UTC+5:45): local midnight of 1 November is 18:15 UTC, inside the
+        // bucket 18:10-18:20 that starts on 31 October.
+        val zone = ZoneId.of("Asia/Kathmandu")
+        val at = Instant.parse("2026-10-31T18:17:00Z")
+        val hr = Sample(Kind.HEART_RATE, "h", "p", at, at, 70.0)
+        assertEquals(listOf(hr), DayWindow.keep(listOf(hr), setOf(LocalDate.of(2026, 10, 31)), zone))
+        assertEquals(emptyList<Sample>(), DayWindow.keep(listOf(hr), setOf(LocalDate.of(2026, 11, 1)), zone))
+        val (_, end) = DayWindow.bounds(LocalDate.of(2026, 10, 31), zone)
+        assertEquals(Instant.parse("2026-10-31T18:20:00Z"), DayWindow.readEnd(Kind.HEART_RATE, end))
+        assertEquals(end, DayWindow.readEnd(Kind.STEPS, end))
+        val berlin = DayWindow.bounds(LocalDate.of(2026, 10, 31), ZoneId.of("Europe/Berlin")).second
+        assertEquals(berlin, DayWindow.readEnd(Kind.HEART_RATE, berlin))
+    }
 }
