@@ -18,9 +18,18 @@ ctest --test-dir build
 Braucht Qt 6 (Core, Network, Quick, QuickControls2, Test) und zur Laufzeit Kirigami.
 `-DKLADDE_APP=OFF` baut nur Kern, Tests und `kladde-push`.
 
+## Probe bauen
+
+```sh
+cd spikes/hc-probe
+echo "sdk.dir=$HOME/android-sdk" > local.properties
+./gradlew assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## Phase 0 ausprobieren
 
-1. Die Probe (`spikes/hc-probe`, APK aus der CI) auf dem Telefon installieren, Zugriff
+1. Die Probe (`spikes/hc-probe`, APK als Artefakt der GitHub-CI) auf dem Telefon installieren, Zugriff
    erteilen, „Count per type and app“ zeigt, was die Pebble-App nach Health Connect schreibt.
    „Export JSON“ speichert die Daten.
 2. In HealthLog ein Token mit dem Scope `measurements:write` anlegen.

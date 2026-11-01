@@ -19,8 +19,11 @@ android {
     }
 }
 
+// Bytecode for Java 17 from whatever JDK runs Gradle (CI: 17; Fedora 44 ships only 25).
 kotlin {
-    jvmToolchain(17)
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }
 
 dependencies {

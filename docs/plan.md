@@ -27,8 +27,9 @@ Android, später der Adapter für den Pebble-Daemon auf Plasma Mobile. Ab da ist
 - [x] App-Gerüst mit Kante, Screenshot ohne Display für die CI.
 - [x] `spikes/hc-probe`: zählt je Typ und App, exportiert JSON.
 - [ ] Probe auf dem Telefon: Was schreibt die Pebble wirklich (coredevices/mobileapp#469)?
-- [ ] Erster echter Upload mit `kladde-push` nach hl.arianw.de, Ergebnis in HealthLog prüfen
-      (Tagessummen, Herzfrequenz-Blöcke, Schlafphasen, Zeitzone).
+- [ ] Upload mit `kladde-push` nach hl.arianw.de mit synthetischen Daten vom März 2001,
+      Ergebnis prüfen (Tagessummen, Herzfrequenz-Blöcke, Schlafphasen, Zeitzone, keine
+      Duplikate beim zweiten Lauf). Danach der erste echte Upload.
 - [ ] Echten Export (gekürzt, anonymisiert) als zweite Fixture.
 - [ ] Spike: Kann ein WorkManager-Job den C++-Kern ohne Oberfläche laden? Sonst schreibt Kotlin
       in eine SQLite-Warteschlange und der Kern lädt hoch.
@@ -52,5 +53,6 @@ D-Bus; danach in Kladde eine Datenquelle, die den Daemon liest (LF-16).
 
 ## Veröffentlichung
 
-Erst privat auf Gitea, CI dort. Beim Schritt nach öffentlich: CI nach `.github/workflows`,
-Release-APK über GitHub Actions, Lizenz GPL-3.0-or-later (wie die Pebble-App).
+Arbeits-Repo auf Gitea, öffentlicher Spiegel github.com/shrippen/Kladde. CI nur auf GitHub,
+Status `github / test` zurück nach Gitea (`agent.md`). Release-APK später nur über GitHub
+Actions. Lizenz GPL-3.0-or-later (wie die Pebble-App).
