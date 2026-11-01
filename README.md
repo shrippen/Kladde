@@ -1,58 +1,82 @@
+<p align="center"><img src="docs/icon.svg" alt="Kladde" width="96" height="96"></p>
+
 # Kladde
 
-Bringt Gesundheitsdaten der Pebble in die eigene [HealthLog](https://healthlog.dev)-Instanz:
-auf Android aus Health Connect, später auf Plasma Mobile direkt von der Uhr. Eine Qt-/Kirigami-App
-im Design System Kante für beide Plattformen.
+_Your Pebble's health data in your own HealthLog_
 
-Seite: https://shrippen.github.io/Kladde/ · Anforderungen in [docs/lastenheft.md](docs/lastenheft.md),
-Plan in [docs/plan.md](docs/plan.md), Änderungen in [CHANGELOG.md](CHANGELOG.md).
+Kladde is an Android app that brings what your **Pebble** writes to **Health Connect** into your own
+[HealthLog](https://healthlog.dev) instance, in the background, and shows your values on the phone. Later it will run on
+**Plasma Mobile** and read the watch directly. One Qt/Kirigami app in the [Kante](https://github.com/shrippen/Kante)
+design for both. [Deutsch](docs/README.de.md) · [Landing page](https://shrippen.github.io/Kladde/)
 
-## Installieren
+## What it syncs
 
-Die APK aus dem [neuesten Release](https://github.com/shrippen/Kladde/releases/latest) auf dem
-Telefon öffnen. Braucht Android 14 oder neuer (64-Bit-ARM), die Pebble-App mit Zugriff auf
-Health Connect und eine eigene HealthLog-Instanz ab 1.46. In der App: Server eingeben, anmelden
-(Passwort mit zweitem Faktor oder SSO), Health Connect erlauben; der Abgleich läuft dann im
-Hintergrund.
+Only records of the Pebble app (`coredevices.coreapp`), so nothing counts twice. HealthLog's batch endpoint speaks
+HealthKit, so the values arrive in Apple's units and with the source "Apple Health".
 
-## Bauen
+| Health Connect | In HealthLog | How |
+|---|---|---|
+| Steps | Steps | one total per local day, the whole day on every run |
+| Distance | Walking + running distance | one total per local day, in metres |
+| Heart rate | Pulse | 10-minute blocks with average, minimum and maximum |
+| Resting heart rate | Resting heart rate | one entry per reading |
+| Sleep session with stages | Sleep | minutes per stage (awake, core, deep, REM) |
 
-```sh
-cmake -S . -B build -G Ninja
-cmake --build build
-ctest --test-dir build
+## The app
+
+- **Sign-in** like the iOS app: the server is checked first, then password with a second factor (TOTP or recovery code)
+  or single sign-on in the browser. Kladde keeps only a renewable sign-in, encrypted with a key in the Android Keystore.
+- **Background sync** every 60 minutes (from 15 on), 30 days back on the first run, then only what changed;
+  "Sync now" and "Read everything again" by hand.
+- **Queue:** what could not be sent waits and goes out later, strictly in order and without duplicates.
+- **Status:** last run, entries waiting, errors, a warning when a kind of data has been silent for two days.
+- **Home** (latest value and last seven days per metric), **History** (a week to a year, with scale, legend and figures),
+  **Log** (weight, blood pressure, pulse, body fat, mood). English and German.
+
+## How it works (short)
+
+```
+app/        Kirigami UI (QML with Kante)
+  ↓
+core/       mapping, batches, queue, HealthLog client   (Qt Core + Network only)
+  ↑
+sources     Health Connect (Kotlin, Android) | Pebble daemon (D-Bus, Linux, later)
 ```
 
-Braucht Qt 6 (Core, Network, Quick, QuickControls2, Test, LinguistTools), QtKeychain und zur
-Laufzeit Kirigami. `-DKLADDE_APP=OFF` baut nur Kern, Tests und `kladde-push`.
+The Kotlin module `android/sync` reads Health Connect in a WorkManager job and hands the records to `core/` in a
+neutral exchange format (`core/hcjson.h`); `core/` maps them to HealthKit entries and sends them to
+`/api/measurements/batch`. Requirements: [docs/lastenheft.md](docs/lastenheft.md), plan: [docs/plan.md](docs/plan.md).
 
-## Demo
+## Install
 
-```sh
-demo/start.sh [de|en]
-```
+The APK from the [latest release](https://github.com/shrippen/Kladde/releases/latest). Needs Android 14 or newer on
+a 64-bit ARM phone, the Pebble app writing to Health Connect, and HealthLog 1.46 or newer. In the app: enter the server,
+sign in, allow Health Connect.
 
-Baut `build-demo/` mit `-DKLADDE_DEMO=ON`: angemeldet als Mara Weber (Studio Weber, Daten aus
-`demo/world.json`, kopiert aus `shrippen.github.io/demo`), kein Server, kein Schlüsselbund.
-Nur für Screenshots; ein Test (`no_demo_in_app`) prüft, dass die Demo in normalen Builds fehlt.
-
-## Android
+## Development
 
 ```sh
-scripts/build-android.sh debug     # de.arianw.kladde.dev, neben einem Release installierbar
-scripts/build-android.sh release   # signiert mit KLADDE_KEYSTORE_PATH & Co., sonst unsigniert
+cmake -S . -B build -G Ninja && cmake --build build && ctest --test-dir build   # desktop, tests
+scripts/build-android.sh debug     # "Kladde Dev" (de.arianw.kladde.dev), installs next to a release
 adb install -r dist/android/kladde-debug.apk
 ```
 
-Installiert, was fehlt (NDK, Qt per aqtinstall, KF6/QtKeychain/OpenSSL). Releases baut und
-signiert GitHub Actions (`.github/workflows/release.yml`), Ablauf in [agent.md](agent.md).
+- Desktop: Qt 6 (Core, Network, Quick, QuickControls2, Test, LinguistTools), QtKeychain, Kirigami at run time.
+  `-DKLADDE_APP=OFF` builds only the core, the tests and `kladde-push`.
+- Android: `scripts/build-android.sh` installs what is missing (NDK, Qt via aqtinstall, KF6, QtKeychain, OpenSSL).
+- Demo mode for screenshots (no server, demo data "Studio Weber"): `demo/start.sh [de|en]`.
+- Releases: built, signed and attached only by GitHub Actions (`.github/workflows/release.yml`); steps in
+  [agent.md](agent.md). Changes: [CHANGELOG.md](CHANGELOG.md).
+- Phase 0 tools: `spikes/hc-probe` shows and exports what is in Health Connect, `kladde-push` uploads such an export
+  (`--dry-run` shows the batches). Exports are real health data: never into the repository.
 
-## Werkzeuge aus Phase 0
+## License
 
-`spikes/hc-probe` zeigt und exportiert, was in Health Connect steht; `build/tools/kladde-push`
-lädt so einen Export mit einem `measurements:write`-Token hoch (`--dry-run` zeigt nur die Batches).
-Exporte sind echte Gesundheitsdaten: nicht ins Repo (`.gitignore` hält `health-connect-*.json` fern).
+GPL-3.0-or-later, see [LICENSE](LICENSE), like the Pebble app. HealthLog is PolyForm Noncommercial: Kladde only talks
+to its API and contains none of its code.
 
-## Lizenz
+## Credits
 
-GPL-3.0-or-later
+[HealthLog](https://healthlog.dev), the [Pebble app](https://github.com/coredevices/mobileapp) by Core Devices,
+[Qt](https://www.qt.io/), [Kirigami](https://invent.kde.org/frameworks/kirigami),
+[QtKeychain](https://github.com/frankosterfeld/qtkeychain), [Health Connect](https://developer.android.com/health-and-fitness/guides/health-connect).
