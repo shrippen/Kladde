@@ -18,6 +18,15 @@ ctest --test-dir build
 Braucht Qt 6 (Core, Network, Quick, QuickControls2, Test) und zur Laufzeit Kirigami.
 `-DKLADDE_APP=OFF` baut nur Kern, Tests und `kladde-push`.
 
+## Probe bauen
+
+```sh
+cd spikes/hc-probe
+echo "sdk.dir=$HOME/android-sdk" > local.properties
+./gradlew assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## Phase 0 ausprobieren
 
 1. Die Probe (`spikes/hc-probe`, APK als Artefakt der GitHub-CI) auf dem Telefon installieren, Zugriff
