@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import "."
 
@@ -98,21 +97,19 @@ Item {
             border.color: pull.armed || pull.refreshing ? KanteStyle.accentColor : KanteStyle.frameColor
         }
 
-        QQC2.BusyIndicator {
+        KanteBusyIndicator {
             anchors.centerIn: parent
             width: parent.width * 0.8
             height: width
-            visible: pull.refreshing
-            running: visible
+            running: pull.refreshing
         }
 
-        Kirigami.Icon {
+        KanteIcon {
             anchors.centerIn: parent
             width: Kirigami.Units.iconSizes.smallMedium
             height: width
             visible: !pull.refreshing
-            source: "view-refresh"
-            isMask: true
+            iconSource: "view-refresh"
             color: pull.armed ? KanteStyle.accentColor : KanteStyle.textColor
             rotation: indicator.progress * 270
         }

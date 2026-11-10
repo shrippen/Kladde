@@ -9,8 +9,10 @@
   <file>Kante/KanteBassStaff.qml</file>
   <file>Kante/KanteBrackets.qml</file>
   <file>Kante/KanteBulkBar.qml</file>
+  <file>Kante/KanteBusyIndicator.qml</file>
   <file>Kante/KanteButton.qml</file>
   <file>Kante/KanteCalendarGrid.qml</file>
+  <file>Kante/KanteCalendarHeatmap.qml</file>
   <file>Kante/KanteCallout.qml</file>
   <file>Kante/KanteCard.qml</file>
   <file>Kante/KanteCheckSkin.qml</file>
@@ -35,9 +37,11 @@
   <file>Kante/KanteHazard.qml</file>
   <file>Kante/KanteHeading.qml</file>
   <file>Kante/KanteHeardLine.qml</file>
+  <file>Kante/KanteHeatGrid.qml</file>
   <file>Kante/KanteHeatmap.qml</file>
   <file>Kante/KanteHintCard.qml</file>
   <file>Kante/KanteHud.qml</file>
+  <file>Kante/KanteIcon.qml</file>
   <file>Kante/KanteInfoTip.qml</file>
   <file>Kante/KanteKeyLane.qml</file>
   <file>Kante/KanteKeyLayout.qml</file>
@@ -86,6 +90,7 @@
   <file>Kante/KanteSheetSkin.qml</file>
   <file>Kante/KanteSkeleton.qml</file>
   <file>Kante/KanteSliderSkin.qml</file>
+  <file>Kante/KanteSongMap.qml</file>
   <file>Kante/KanteSparkline.qml</file>
   <file>Kante/KanteSpinBox.qml</file>
   <file>Kante/KanteSplitHandle.qml</file>

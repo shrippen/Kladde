@@ -11,7 +11,7 @@ import "."
  * Use it where the choice needs to be seen at once; a combo box hides it.
  *   icon.name / icon.source  the icon (drawn in the text colour, focus colour when chosen)
  *   text      the name
- *   hint      one short line under it ("Capture, webcam")
+ *   hint      up to two lines under it ("Capture, webcam")
  *   checked   chosen; tiles of one group are `autoExclusive` (default true)
  *   glyph     (1.59) a character in place of the icon, such as a kanji (技 for "programme" in
  *             Mitori's start menu): drawn in the Japanese family, in the icon's colour
@@ -31,6 +31,9 @@ QQC2.AbstractButton {
     autoExclusive: true
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
+    // As Space does (checked, toggled, clicked; a binding on `checked` stays).
+    Keys.onReturnPressed: tile.click()
+    Keys.onEnterPressed: tile.click()
     padding: KanteStyle.unit(10)
 
     implicitWidth: Math.max(KanteStyle.unit(116), implicitContentWidth + leftPadding + rightPadding)
@@ -91,12 +94,11 @@ QQC2.AbstractButton {
     contentItem: ColumnLayout {
         spacing: KanteStyle.unit(4)
 
-        Kirigami.Icon {
+        KanteIcon {
             Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
             Layout.preferredHeight: Kirigami.Units.iconSizes.smallMedium
-            source: tile.icon.name !== "" ? tile.icon.name : tile.icon.source
+            iconSource: tile.icon.name !== "" ? tile.icon.name : tile.icon.source
             color: tile.checked ? KanteStyle.focusColor : KanteStyle.textColor
-            isMask: true
             visible: tile.glyph === "" && (tile.icon.name !== "" || tile.icon.source.toString() !== "")
         }
         Text {
@@ -115,6 +117,8 @@ QQC2.AbstractButton {
             text: tile.text
             font.weight: Font.DemiBold
             color: KanteStyle.strongTextColor
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
             elide: Text.ElideRight
         }
         QQC2.Label {
@@ -123,6 +127,8 @@ QQC2.AbstractButton {
             text: tile.hint
             font: KanteStyle.smallFont
             color: KanteStyle.mutedTextColor
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
             elide: Text.ElideRight
         }
     }
