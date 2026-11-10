@@ -10,8 +10,10 @@ KanteBarChart 1.0 KanteBarChart.qml
 KanteBassStaff 1.0 KanteBassStaff.qml
 KanteBrackets 1.0 KanteBrackets.qml
 KanteBulkBar 1.0 KanteBulkBar.qml
+KanteBusyIndicator 1.0 KanteBusyIndicator.qml
 KanteButton 1.0 KanteButton.qml
 KanteCalendarGrid 1.0 KanteCalendarGrid.qml
+KanteCalendarHeatmap 1.0 KanteCalendarHeatmap.qml
 KanteCallout 1.0 KanteCallout.qml
 KanteCard 1.0 KanteCard.qml
 KanteCheckSkin 1.0 KanteCheckSkin.qml
@@ -36,9 +38,11 @@ KanteGoalMeter 1.0 KanteGoalMeter.qml
 KanteHazard 1.0 KanteHazard.qml
 KanteHeading 1.0 KanteHeading.qml
 KanteHeardLine 1.0 KanteHeardLine.qml
+KanteHeatGrid 1.0 KanteHeatGrid.qml
 KanteHeatmap 1.0 KanteHeatmap.qml
 KanteHintCard 1.0 KanteHintCard.qml
 KanteHud 1.0 KanteHud.qml
+KanteIcon 1.0 KanteIcon.qml
 KanteInfoTip 1.0 KanteInfoTip.qml
 KanteKeyLane 1.0 KanteKeyLane.qml
 KanteKeyLayout 1.0 KanteKeyLayout.qml
@@ -86,6 +90,7 @@ KanteSettle 1.0 KanteSettle.qml
 KanteSheetSkin 1.0 KanteSheetSkin.qml
 KanteSkeleton 1.0 KanteSkeleton.qml
 KanteSliderSkin 1.0 KanteSliderSkin.qml
+KanteSongMap 1.0 KanteSongMap.qml
 KanteSparkline 1.0 KanteSparkline.qml
 KanteSpinBox 1.0 KanteSpinBox.qml
 KanteSplitHandle 1.0 KanteSplitHandle.qml
