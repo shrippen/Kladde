@@ -7,7 +7,8 @@ import "."
  * the shares by level in a KanteProgressBar or the steps of a KanteHeatmap.
  *
  *   model   [{color, text}, …], drawn in this order; an item may carry `value` ("3"), shown
- *           before the word
+ *           before the word; `frame: false` (1.63) draws its key without the frame, a blank key
+ *           for a blank place (as the gaps of a KanteHeatGrid)
  *   keySize the key, KanteStyle.swatchSize; square in the Kante style, round elsewhere (as
  *           markerRadius)
  * A word longer than the legend is wide wraps under its key.
@@ -33,12 +34,13 @@ Flow {
             Accessible.name: words
 
             Rectangle {
+                objectName: "kanteLegendKey"
                 anchors.verticalCenter: parent.verticalCenter
                 width: legend.keySize
                 height: legend.keySize
                 radius: KanteStyle.markerRadius > 0 ? width / 2 : 0
                 color: item.modelData.color || KanteStyle.sunkenColor
-                border.width: KanteStyle.borderWidth
+                border.width: item.modelData.frame === false ? 0 : KanteStyle.borderWidth
                 border.color: KanteStyle.frameColor
             }
             Text {
