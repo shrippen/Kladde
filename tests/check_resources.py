@@ -2,8 +2,9 @@
 and fails only at run time (on Android without a console to see why).
 
 - every QML and JS file in app/qml is in app/qml/kladde.qrc;
-- every icon name the QML uses ("icons: [...]", "icon.name: ...", "source: ...") is one of
-  the Breeze icons in app/icons/icons.qrc (Android has no icon theme of its own);
+- every icon name the QML uses ("icons: [...]", "icon.name: ...", "source: ...",
+  "iconSource: ..."), the Kante copy in app/qml/Kante included, is one of the Breeze icons
+  in app/icons/icons.qrc (Android has no icon theme of its own);
 - every permission and package query of android/sync's manifest is in the app's: the APK
   compiles the sync from its sources, its manifest is not merged (seen on the phone,
   1.11.2026: app names shown as packages, the launcher query was missing).
@@ -47,12 +48,12 @@ def main():
 
     icons = {Path(f).stem for f in qrc_files(ROOT / "app" / "icons" / "icons.qrc") if f.endswith(".svg")}
     used = set()
-    for f in QML.glob("*.qml"):
+    for f in list(QML.glob("*.qml")) + list((QML / "Kante").glob("*.qml")):
         text = f.read_text(encoding="utf-8")
         for block in re.findall(r"\bicons:\s*\[([^\]]*)\]", text):
             used.update(re.findall(r'"([\w-]+)"', block))
         used.update(re.findall(r'\bicon\.name:\s*"([\w-]+)"', text))
-        used.update(re.findall(r'\b(?:iconName|source):\s*"([\w-]+)"', text))
+        used.update(re.findall(r'\b(?:iconName|iconSource|source):\s*"([\w-]+)"', text))
     for name in sorted(used - icons):
         problems.append(f'icon "{name}" missing from app/icons (copy it from breeze-dark, add to icons.qrc)')
 
