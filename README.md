@@ -72,7 +72,7 @@ adb install -r dist/android/kladde-debug.apk
 - Android: `scripts/build-android.sh` installs what is missing (NDK, Qt via aqtinstall, KF6, QtKeychain, OpenSSL).
 - Demo mode for screenshots (no server, demo data "Studio Weber"): `demo/start.sh [de|en]`.
 - Releases: built, signed and attached only by GitHub Actions (`.github/workflows/release.yml`); steps in
-  [agent.md](agent.md). Changes: [CHANGELOG.md](CHANGELOG.md).
+  [RELEASE.md](RELEASE.md). Changes: [CHANGELOG.md](CHANGELOG.md).
 - Phase 0 tools: `spikes/hc-probe` shows and exports what is in Health Connect, `kladde-push` uploads such an export
   (`--dry-run` shows the batches). Exports are real health data: never into the repository.
 
