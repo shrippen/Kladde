@@ -132,7 +132,7 @@ D-Bus; danach in Kladde eine Datenquelle, die den Daemon liest (LF-16).
 
 Arbeits-Repo auf Gitea, öffentlicher Spiegel github.com/shrippen/Kladde. CI nur auf GitHub,
 Status `github / test` zurück nach Gitea (`agent.md`). Release-APK nur über GitHub Actions
-(`release.yml`, Ablauf in `agent.md`). Landing Page https://shrippen.github.io/Kladde/ (GitHub
+(`release.yml`, Ablauf in `RELEASE.md`). Landing Page https://shrippen.github.io/Kladde/ (GitHub
 Pages, `main`, `/docs`). Lizenz GPL-3.0-or-later (wie die Pebble-App).
 
 - [x] 0.1.0: CHANGELOG, `release.yml`, Landing Page, README
