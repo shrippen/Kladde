@@ -1,6 +1,6 @@
 # Review guide
 
-Every PR is reviewed before it is merged (rule in `agent.md`). PR-Agent is
+Every PR is reviewed before it is merged (rule in `RULES.md`, procedure in the skill `pr-review`). PR-Agent is
 not set up here, so a new Claude agent reviews every round. The reviewer
 knows nothing of the session that wrote the change: it gets the PR's
 intent, its diff and the repository, and this file. The owner does not

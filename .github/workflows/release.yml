@@ -1,14 +1,14 @@
 # A tag v* reaches GitHub through the Gitea push mirror (the tag is pushed to Gitea only;
 # the Gitea release gets the notes, never files). Here the GitHub release is made with the
 # same notes (scripts/release-notes.sh, the tag's section of CHANGELOG.md; stops without it)
-# and the signed APK is built and attached. agent.md, "Release rule".
+# and the signed APK is built and attached. RELEASE.md.
 #
 # Run by hand (workflow_dispatch):
 #   - without `tag`: builds the release APK as a test, no release (signed when the keystore
 #     secrets are set), kept as a workflow artifact;
 #   - with `tag` (e.g. v0.1.0): builds that tag and attaches the APK to its existing release.
 #
-# Secrets (agent.md, "Release rule"): KLADDE_KEYSTORE_B64 (the keystore, base64),
+# Secrets (RELEASE.md): KLADDE_KEYSTORE_B64 (the keystore, base64),
 # KLADDE_KEYSTORE_PASSWORD, KLADDE_KEY_ALIAS, KLADDE_KEY_PASSWORD.
 name: release
 
@@ -65,7 +65,7 @@ jobs:
         run: |
           PROJECT=$(sed -nE 's/^project\(kladde VERSION ([0-9.]+).*/\1/p' CMakeLists.txt)
           [ "$PROJECT" = "$VERSION" ] \
-            || { echo "::error::CMakeLists.txt is at version $PROJECT, the tag at $VERSION (agent.md, Release rule, step 1)"; exit 1; }
+            || { echo "::error::CMakeLists.txt is at version $PROJECT, the tag at $VERSION (RELEASE.md, step 1)"; exit 1; }
       - name: GitHub release
         if: steps.version.outputs.tag != ''
         env:
@@ -116,7 +116,7 @@ jobs:
           IS_RELEASE: ${{ needs.release.outputs.tag != '' }}
         run: |
           if [ -z "$KLADDE_KEYSTORE_B64" ]; then
-            [ "$IS_RELEASE" != "true" ] || { echo "::error::Secret KLADDE_KEYSTORE_B64 is missing (agent.md, Release rule)"; exit 1; }
+            [ "$IS_RELEASE" != "true" ] || { echo "::error::Secret KLADDE_KEYSTORE_B64 is missing (RELEASE.md)"; exit 1; }
             echo "No keystore secret: unsigned test build."
             exit 0
           fi
