@@ -6,6 +6,7 @@
   <file>Kante/KanteBandEditor.qml</file>
   <file>Kante/KanteBanner.qml</file>
   <file>Kante/KanteBarChart.qml</file>
+  <file>Kante/KanteBarScope.qml</file>
   <file>Kante/KanteBassStaff.qml</file>
   <file>Kante/KanteBrackets.qml</file>
   <file>Kante/KanteBulkBar.qml</file>
@@ -20,6 +21,7 @@
   <file>Kante/KanteClock.qml</file>
   <file>Kante/KanteComboBox.qml</file>
   <file>Kante/KanteCommandBox.qml</file>
+  <file>Kante/KanteCommandPalette.qml</file>
   <file>Kante/KanteCounter.qml</file>
   <file>Kante/KanteCurveEditor.qml</file>
   <file>Kante/KanteDateField.qml</file>
@@ -30,9 +32,12 @@
   <file>Kante/KanteDropZone.qml</file>
   <file>Kante/KanteEmptyState.qml</file>
   <file>Kante/KanteFieldSkin.qml</file>
+  <file>Kante/KanteFileDrop.qml</file>
+  <file>Kante/KanteFloatingPanel.qml</file>
   <file>Kante/KanteFocusFollow.qml</file>
   <file>Kante/KanteFocusTrap.qml</file>
   <file>Kante/KanteFretboard.qml</file>
+  <file>Kante/KanteGlassPanel.qml</file>
   <file>Kante/KanteGoalMeter.qml</file>
   <file>Kante/KanteHazard.qml</file>
   <file>Kante/KanteHeading.qml</file>
@@ -80,13 +85,16 @@
   <file>Kante/KanteReveal.qml</file>
   <file>Kante/KanteRubyText.qml</file>
   <file>Kante/KanteRunner.qml</file>
+  <file>Kante/KanteScatterChart.qml</file>
   <file>Kante/KanteScope.qml</file>
   <file>Kante/KanteScrollMeter.qml</file>
   <file>Kante/KanteSearchCombo.qml</file>
   <file>Kante/KanteSectionLabel.qml</file>
   <file>Kante/KanteSegmented.qml</file>
+  <file>Kante/KanteSettingGroup.qml</file>
   <file>Kante/KanteSettingRow.qml</file>
   <file>Kante/KanteSettle.qml</file>
+  <file>Kante/KanteShapeCanvas.qml</file>
   <file>Kante/KanteSheetSkin.qml</file>
   <file>Kante/KanteSkeleton.qml</file>
   <file>Kante/KanteSliderSkin.qml</file>
@@ -97,6 +105,7 @@
   <file>Kante/KanteStatusLight.qml</file>
   <file>Kante/KanteSteps.qml</file>
   <file>Kante/KanteSticker.qml</file>
+  <file>Kante/KanteStickyHeader.qml</file>
   <file>Kante/KanteStyle.qml</file>
   <file>Kante/KanteSwatch.qml</file>
   <file>Kante/KanteSwatchPicker.qml</file>
@@ -115,12 +124,14 @@
   <file>Kante/KanteTimingHistogram.qml</file>
   <file>Kante/KanteToast.qml</file>
   <file>Kante/KanteToolButton.qml</file>
+  <file>Kante/KanteTrackTimeline.qml</file>
   <file>Kante/KanteTransportBar.qml</file>
   <file>Kante/KanteTube.qml</file>
   <file>Kante/KanteTunerGauge.qml</file>
   <file>Kante/KanteUpdateCheck.qml</file>
   <file>Kante/KanteWeekTimeline.qml</file>
   <file>Kante/KanteWeekView.qml</file>
+  <file>Kante/KanteWindowScope.qml</file>
   <file>Kante/fonts/Bravura.otf</file>
   <file>Kante/fonts/JetBrainsMono-400.ttf</file>
   <file>Kante/fonts/JetBrainsMono-500.ttf</file>
