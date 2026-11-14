@@ -2,6 +2,7 @@
 # never grow; a raised or new entry needs its reason in the PR. Rewrite with --update.
 # Lines: exclude<TAB>glob | path<TAB>function or - for the file<TAB>metric=value ...
 exclude	app/qml/Kante/*
+exclude	*.ts
 android/sync/src/main/java/de/arianw/kladde/sync/Mapper.kt	map	nesting=5
 android/sync/src/main/java/de/arianw/kladde/sync/SqliteQueueStore.kt	replace	nesting=6
 android/sync/src/main/java/de/arianw/kladde/sync/SyncRunner.kt	read	ccn=16
