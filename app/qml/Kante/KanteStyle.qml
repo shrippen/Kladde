@@ -382,6 +382,12 @@ QtObject {
     readonly property color frameColor: themed ? palette.frame : tint(Kirigami.Theme.textColor, 0.12)
     readonly property color ruleColor: themed ? palette.rule : tint(Kirigami.Theme.textColor, 0.12)
     readonly property color dialogColor: themed ? palette.dialog : Kirigami.Theme.backgroundColor
+    /** Tint of a glass layer over blurred content (`KanteGlassPanel`); System: the platform ground, same alpha. */
+    readonly property color glassColor: themed ? palette.glass : Qt.alpha(Kirigami.Theme.backgroundColor, palette.glass.a)
+    /** Tint where nothing is blurred (no GPU): dense enough that text stays readable. */
+    readonly property color glassDenseColor: themed ? palette.glassDense : Qt.alpha(Kirigami.Theme.backgroundColor, palette.glassDense.a)
+    /** Blur radius behind a glass layer, in px. */
+    readonly property int glassBlur: unit(KantePalette.glassBlur)
     /**
      * Ground of picture areas (monitors, video previews, image stages): dark in every kind and
      * scheme, Leinen and a light platform theme included, because colour is judged there and a

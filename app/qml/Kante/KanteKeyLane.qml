@@ -331,6 +331,24 @@ Item {
                 delegate: Item {
                     id: note
                     required property int index
+                    // Set once the note is built: a state changed after that moves its mark,
+                    // a mark built with the note (a lane rebuilt, resized) stays still.
+                    property bool live: false
+                    Component.onCompleted: live = true
+                    // The head's mark is only loaded while the head is in view: a state changed
+                    // just now still moves it then, an old one scrolled into view does not.
+                    property bool fresh: false
+                    onStChanged: {
+                        if (live) {
+                            fresh = true
+                            freshTimer.restart()
+                        }
+                    }
+                    Timer {
+                        id: freshTimer
+                        interval: KanteStyle.durationSlow
+                        onTriggered: note.fresh = false
+                    }
                     readonly property var n: lane.notes[index] || ({})
                     readonly property real t: Number(n.time) || 0
                     readonly property real d: Math.max(0, Number(n.duration) || 0)
@@ -428,6 +446,11 @@ Item {
                                     y: note.full ? headBox.y - height * 0.4 : headBox.y - height * 0.7
                                     width: Math.round(lane.head * (note.full ? 0.6 : 0.45))
                                     height: width
+                                    onLoaded: {
+                                        if (note.fresh) {
+                                            item.play()
+                                        }
+                                    }
                                     sourceComponent: KanteNoteMark {
                                         noteState: note.st
                                         cents: note.cents
