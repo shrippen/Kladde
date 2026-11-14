@@ -1,0 +1,21 @@
+# What is over a structure limit today (tools/structure-check.py). An entry may shrink,
+# never grow; a raised or new entry needs its reason in the PR. Rewrite with --update.
+# Lines: exclude<TAB>glob | path<TAB>function or - for the file<TAB>metric=value ...
+exclude	app/qml/Kante/*
+exclude	*.ts
+android/sync/src/main/java/de/arianw/kladde/sync/Mapper.kt	map	nesting=5
+android/sync/src/main/java/de/arianw/kladde/sync/SqliteQueueStore.kt	replace	nesting=6
+android/sync/src/main/java/de/arianw/kladde/sync/SyncRunner.kt	read	ccn=16
+android/sync/src/main/java/de/arianw/kladde/sync/Uploader.kt	flush	nesting=5
+android/sync/src/main/java/de/arianw/kladde/sync/Uploader.kt	post	ccn=22 length=88
+android/sync/src/main/java/de/arianw/kladde/sync/WorkoutMapper.kt	sportType	ccn=21
+android/sync/src/test/java/de/arianw/kladde/sync/MemoryStore.kt	replace	nesting=6
+app/demo/demobackend.cpp	DemoBackend::answer	nesting=9
+app/demo/demobackend.cpp	DemoBackend::points	ccn=16 nesting=5
+app/history.cpp	History::reload	ccn=32 length=90
+app/main.cpp	main	ccn=26 length=154
+core/hcjson.cpp	kladde::parseHealthConnectJson	ccn=35 length=135 nesting=7
+core/mapper.cpp	kladde::mapToBatchEntries	length=88
+spikes/hc-probe/app/src/main/java/de/arianw/kladde/probe/MainActivity.kt	toJson	ccn=19
+tests/test_session.cpp	Auth::handle	ccn=16
+tools/kladde-push.cpp	main	ccn=23 length=122
