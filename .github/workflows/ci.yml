@@ -50,8 +50,12 @@ jobs:
       - name: Tools
         run: pacman -Syu --noconfirm --needed git base-devel cmake ninja qt6-base qt6-declarative qt6-svg qt6-tools qtkeychain-qt6 kirigami python python-pipx
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The container runs as root on a checkout owned by another user; git refuses it
+      # until the directory is marked safe, and the check reads `git ls-files`.
       - name: Structure limits
-        run: pipx run tools/structure-check.py
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          pipx run tools/structure-check.py
       # Release headings "## [X.Y.Z] — YYYY-MM-DD": a wrong one shows up here, not at the tag.
       - name: Changelog
         run: scripts/release-notes.sh --check
