@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import QtQuick.Templates as T
+import QtQuick.Controls.impl
 import org.kde.kirigami as Kirigami
 import "."
 
@@ -10,6 +11,10 @@ import "."
  *   System  a plain tool button of the active style (unchanged).
  *   Kante   square; hover and pressed show the sunken tint, checked ones
  *           (segmented filters) the accent. Icon and text are drawn here.
+ *
+ *   No icon file (the theme lacks the name, the url does not load): the text is shown, also with
+ *   `display: IconOnly`, so a button never comes up empty. Needs `text`. As drawn, a name wins over
+ *   a url: a missing name shows the text even if `icon.source` would load.
  *
  *   fillChecked  (1.38) false: a checked button is not filled with the accent, for a
  *                toggle that shows its state itself (KanteTransportBar's lamps). It stays
@@ -24,8 +29,38 @@ QQC2.ToolButton {
     Keys.onEnterPressed: function (event) { KanteStyle.pressByKey(control, event) }
 
     property bool fillChecked: true
+    readonly property bool iconAsked: control.icon.name !== "" || String(control.icon.source) !== ""
+    // True when an icon is asked for and not found.
+    readonly property bool iconMissing: iconAsked && probe.item !== null && probe.item.status !== Image.Ready
     readonly property bool filled: checked && fillChecked
     readonly property color kanteInk: filled ? KanteStyle.accentForegroundColor : KanteStyle.textColor
+
+    // Asks the theme or the url whether the icon is there. Built only for a button that has an
+    // icon: an IconImage without name and source looks up "" in the theme (1.76.3).
+    Loader {
+        id: probe
+        objectName: "iconProbe"
+        active: control.iconAsked
+        visible: false
+        sourceComponent: probeIcon
+    }
+    Component {
+        id: probeIcon
+        IconImage {
+            // As KanteIcon draws: the name, else the url.
+            name: control.icon.name
+            source: control.icon.name !== "" ? "" : control.icon.source
+            sourceSize: Qt.size(Kirigami.Units.iconSizes.smallMedium, Kirigami.Units.iconSizes.smallMedium)
+        }
+    }
+
+    // A new name that the theme lacks leaves an IconImage on its old file, status Ready. A fresh
+    // probe per name or url answers for that one only.
+    readonly property string iconKey: control.icon.name + "|" + control.icon.source
+    onIconKeyChanged: {
+        probe.sourceComponent = null
+        probe.sourceComponent = probeIcon
+    }
 
     Rectangle {
         z: -1
@@ -65,6 +100,14 @@ QQC2.ToolButton {
         }
     }
 
+    // Text only: the platform's content sizes the button, in Kante too.
+    Binding {
+        target: control
+        property: "display"
+        value: T.AbstractButton.TextOnly
+        when: control.iconMissing && control.text.length > 0
+        restoreMode: Binding.RestoreBindingOrValue
+    }
     Binding {
         target: control.background
         property: "opacity"

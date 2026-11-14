@@ -13,7 +13,8 @@ import "."
  * the coordinates of `item` (a plan canvas, say): to the right of the point, to the left when
  * there is no room, its top near the point and inside the window, with a small pointer on the
  * side facing the point and a clear space around the point itself. `pointerSide` ("left" or
- * "right": the side of the card that bears the pointer; "" after `openAt`) says where it landed.
+ * "right": the side of the card that bears the pointer; "" after `openAt`, and after `openAtPoint`
+ * when there is no room for a pointer) says where it landed.
  *   title    an optional heading (KanteSectionLabel) over the content
  *   closeOnOutside   a press outside closes it (default true); false keeps the card open
  *            beside an element while the user works on the canvas (Esc still closes it)
