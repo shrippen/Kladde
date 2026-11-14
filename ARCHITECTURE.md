@@ -99,6 +99,8 @@ Each layer talks only to its neighbour directly below.
   (`AUDIT.md`, finding 5).
 - `app/qml/Metrics.js` decides which direction of a value is good when the server
   does not say (not in `AUDIT.md`).
+- The account reads its two answers (server version, sign-in options) itself, in
+  `app/account.cpp`, not in `core/api` (not in `AUDIT.md`).
 - Two lists of kinds are kept equal by hand between `app/` and `core/`
   (`AUDIT.md`, finding 6).
 - The start of the app is interwoven with the demo mode (`AUDIT.md`, finding 7); the
