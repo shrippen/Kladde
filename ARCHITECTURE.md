@@ -14,9 +14,9 @@ history from HealthLog and lets the user enter values by hand.
 
 | Path | Its one task |
 |---|---|
-| `core/` | Everything about HealthLog that needs no user interface (Qt Core and Network only): the sign-in and session (`session`, `pkce`, `secretstore`), the calls for reading (`api`), mapping readings to HealthLog's entries (`sample`, `mapper`), cutting them into batches (`batch`), the exchange format a data source delivers (`hcjson`), and the plain upload client of the command line tool (`healthlogclient`). |
-| `app/` (C++) | What the QML side sees, one object per topic: account, home (`dashboard`), history, manual entry, the background sync (`syncbridge`), error texts. Besides that the places for the tokens (desktop keychain, Android vault) and a queue for blocking calls. |
-| `app/syncbridge*.cpp` | The one door between the app and the Android sync module: `_android` calls Kotlin, `_none` is the desktop without sync. |
+| `core/` | Everything about HealthLog that needs no user interface (Qt Core and Network only): the sign-in and session (`session`, `pkce`, `secretstore`), what HealthLog's answers and bodies look like, the limits of a manual entry and how a value is written (`api`), mapping readings to HealthLog's entries (`sample`, `mapper`), cutting them into batches (`batch`), the exchange format a data source delivers (`hcjson`), and the plain upload client of the command line tool (`healthlogclient`). |
+| `app/` (C++) | What the QML side sees, one object per topic: account, home (`dashboard`), history, manual entry, the background sync (`syncbridge`), error texts. Besides that the places for the tokens (desktop keychain, Android vault), a queue for blocking calls and Android's back key (`platform/`). |
+| `app/syncbridge*.cpp`, `app/sessionvault_android.cpp` | The two doors between the app and the Android sync module: the bridge for the sync (`_android` calls Kotlin, `_none` is the desktop without sync) and the vault for the tokens, which the module keeps. |
 | `app/qml/` | The pages (setup, home, history, log, more) in QML. `Kante/` in it is a synced copy of the design system, never edited here. |
 | `app/demo/` | The demo mode: a made-up HealthLog for screenshots. Not in a release build. |
 | `android/sync/` | The Android sync module in Kotlin, without Qt: the sources that read Health Connect (day totals with heart rate, single readings, sleep, workouts), the mapping (`Mapper`, `WorkoutMapper`), batches, the queue on disk, the uploader, the background job, the token vault. `KladdeSync` is its one entry for the app. |
@@ -35,7 +35,7 @@ Each layer talks only to its neighbour directly below.
       │
       ▼
  app/            QML objects: account, home, history, entry, sync
-      │                                   │ only on Android, through app/syncbridge
+      │                                   │ only on Android: app/syncbridge, token vault
       ▼                                   ▼
  core/           HealthLog: session,   android/sync/  Health Connect ─► mapping ─►
                  reading, mapping,     (Kotlin)       queue ─► upload, in the
@@ -55,8 +55,11 @@ Each layer talks only to its neighbour directly below.
 - `core/` stays without Qt GUI and without QML, so it runs in tests and in
   `kladde-push`. It talks to HealthLog in one way: one place builds a request, reads
   an error and decides whether a retry makes sense.
-- The app reaches the Android sync module only through `app/syncbridge`; the module
-  knows nothing of the app and runs without it.
+- A call for the app is in two parts: the object of `app/` names the path and sends
+  it through `core/session`; `core/api` knows what the answer and the body look like.
+- The app reaches the Android sync module at two places only: `app/syncbridge` for
+  the sync, `app/sessionvault_android.cpp` for the tokens, which the module holds. The
+  module knows nothing of the app and runs without it.
 - In the sync module a source says only what it reads; asking Health Connect for
   changes, reading a range page by page and keeping the cursor are written once and
   used by every source.
@@ -72,10 +75,10 @@ Each layer talks only to its neighbour directly below.
 
 | Change | Touch |
 |---|---|
-| A new kind of health data from Health Connect | A source in `android/sync/`, `Sample.kt`, `Mapper.kt` and `core/sample.h`, `core/mapper.cpp`; the shared fixture; tests on both sides |
+| A new kind of health data from Health Connect | A source in `android/sync/`, its permission in `app/android/AndroidManifest.xml` and `KladdeSync.READ_PERMISSIONS`, `Sample.kt`, `Mapper.kt` and `core/sample.h`, `core/mapper.cpp`; the shared fixture; tests on both sides |
 | A change to how a value is mapped (unit, day, id) | `Mapper.kt` and `core/mapper.cpp`, the shared fixture |
 | Something about queueing or uploading on the phone | `android/sync/` (`QueueStore`, `Uploader`, `SyncRunner`), a test |
-| A new call to HealthLog for the app | `core/api`, on top of `core/session`; a test with the fake server |
+| A new call to HealthLog for the app | The object of `app/` that sends it through `core/session`; the shape of its answer or body in `core/api`; a test with the fake server |
 | Something new on a page | An object in `app/` that offers it, the page in `app/qml/`; a number it needs is computed in `core/` |
 | A new kind of manual entry | `core/` (the kind and its limits), `app/entry`, the page |
 | A new error text | `app/errors`, translations in `app/i18n/` |
@@ -94,6 +97,8 @@ Each layer talks only to its neighbour directly below.
 - The C++ mapping lags behind the Kotlin one (`AUDIT.md`, finding 4).
 - Home and history compute figures in `app/`, partly twice and without tests
   (`AUDIT.md`, finding 5).
+- `app/qml/Metrics.js` decides which direction of a value is good when the server
+  does not say (not in `AUDIT.md`).
 - Two lists of kinds are kept equal by hand between `app/` and `core/`
   (`AUDIT.md`, finding 6).
 - The start of the app is interwoven with the demo mode (`AUDIT.md`, finding 7); the

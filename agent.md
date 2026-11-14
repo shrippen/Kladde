@@ -20,18 +20,8 @@ Health Connect, später auf Plasma Mobile direkt von der Uhr (libpebble3-Daemon 
 Anforderungen: `docs/lastenheft.md` (Ids LF-xx, NF-xx in Commits und PRs nennen),
 Plan mit Häkchen: `docs/plan.md`, Quellen: `docs/referenzen.md`. Aktuell halten.
 
-## Schichten (nur zum direkten Nachbarn darunter)
-```
-app/          Kirigami-Oberfläche (QML mit Kante), Connection und Co. als QML-Objekte
-  ↓                          ↓ (nur Android, JNI über app/syncbridge)
-core/         HealthLogClient, Anmeldung, Abbildung, Batches (nur Qt Core + Network)
-android/sync  Kotlin: Health Connect lesen, abbilden, Warteschlange, Upload (WorkManager)
-```
-- QML spricht nie HTTP; alles über Objekte aus `app/`, die `core/` nutzen.
-- `core/` bleibt ohne Qt GUI, damit er in Tests und `kladde-push` läuft.
-- Abbildung zweimal (Kotlin `Mapper.kt`, C++ `core/mapper.cpp`): beide prüfen gegen
-  `tests/fixtures/pebble-day.expected.json`, eine Änderung immer an beiden.
-- Der Pebble-Daemon (Plasma Mobile, später) liefert das Austauschformat (`core/hcjson.h`) an `core/`.
+## Schichten
+Der Aufbau (Bausteine, Schichten, wo Neues hingehört) steht in `ARCHITECTURE.md`.
 
 ## Konventionen
 - C++20, Qt 6. Vor jedem Commit: `cmake --build build && ctest --test-dir build`.

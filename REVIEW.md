@@ -32,7 +32,7 @@ their own HealthLog. A bug that matters is one that costs data or trust:
 
 ## What to check in particular
 
-- Layers (`agent.md`): QML never talks HTTP; `core/` links no Qt GUI module;
+- Layers (`ARCHITECTURE.md`): QML never talks HTTP; `core/` links no Qt GUI module;
   a mapping change lands in both `android/sync` (Kotlin) and `core/mapper.cpp`,
   checked by the shared fixture.
 - The mapping against HealthLog's contract (`docs/referenzen.md`,
