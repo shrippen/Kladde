@@ -183,9 +183,17 @@ Item {
     function shownState(i, revision) {
         return marks === KanteBassStaff.Marks.Off || i === undefined ? "pending" : stateOf(i)
     }
-    onNotesChanged: resetStates()
+    onNotesChanged: {
+        resetStates()
+        calm = true
+        calmTimer.restart()
+    }
+    // New notes get their states again from the app (Kontra transposes during a run): those
+    // marks stay still for a moment instead of all moving at once (review #155).
+    property bool calm: false
+    Timer { id: calmTimer; interval: 500; onTriggered: staff.calm = false }
 
-    readonly property real sp: Math.max(4, staffSpace)
+    readonly property real sp: Math.max(4, layoutSpacing)
     readonly property int currentIndex: lastAtOrBefore(position)
     readonly property var barList: normalizeBars(bars, notes, rests, keyFifths)
     /** Every chord symbol, from `chords` and the bars: [{time, text}] sorted by time. */
@@ -195,21 +203,111 @@ Item {
     // Wide enough for the widest key a line can start with (with the naturals of a change).
     readonly property real headerWidth: sp * (4.2 + maxHeaderKey(barList) * 1.1 + 3.0)
     readonly property int perSystem: barsPerSystem > 0 ? barsPerSystem
-        : Math.max(1, Math.floor((width - headerWidth) / Math.max(1, minBarWidth)))
+        : Math.max(1, Math.floor((layoutSize.width - headerWidth) / Math.max(1, layoutMinBarWidth)))
     readonly property int firstBar: Math.max(0, Math.floor(currentBar / perSystem) * perSystem)
-    readonly property real barWidth: (width - headerWidth) / perSystem
+    readonly property real barWidth: (layoutSize.width - headerWidth) / perSystem
     /** Any bar with a section: then a row for the rehearsal marks on top (1.50). */
     readonly property bool hasSections: barList.some(function (b) { return b.section !== "" })
     readonly property real sectionRow: hasSections ? markProbe.implicitHeight + sp * 0.5 : 0
     readonly property real staffTop: sectionRow + sp * (hasChords ? 7.5 : 5.5)
     readonly property real systemHeight: staffTop + sp * 4 + sp * 5
-    readonly property var layout: computeLayout(firstBar, perSystem, Math.max(1, systems), width, sp, notes, rests, barList, chordList)
+    readonly property var layout: computeLayout(firstBar, perSystem, Math.max(1, systems), layoutSize.width, sp, notes, rests, barList, chordList)
     /** Loop parts of the page, one per line: [{x, w, sys, left, right}] (1.35). */
-    readonly property var loopParts: loopLayout(firstBar, perSystem, Math.max(1, systems), width, barList,
+    readonly property var loopParts: loopLayout(firstBar, perSystem, Math.max(1, systems), layoutSize.width, barList,
                                                 loopStart, loopEnd)
 
     implicitWidth: KanteStyle.unit(720)
     implicitHeight: Math.ceil(systemHeight * Math.max(1, systems))
+
+    /**
+     * Wait after the last change of size, spacing or bar width before laying out again
+     * (1.82), in ms: while a window is dragged the drawn lines stay, then they move to their
+     * new place once. 0 (default): at once.
+     */
+    property int settleMs: 0
+    /** The size the layout uses: the item's, taken over at once or `settleMs` after it changed. */
+    property size layoutSize: Qt.size(0, 0)
+    /** The spacing the layout uses: `staffSpace`, taken over with the size (a new spacing that
+     *  comes with a resize, e.g. a presentation going full screen, lays out once). */
+    property real layoutSpacing: staffSpace
+    /** The bar width the layout uses: `minBarWidth`, taken over with the size too (it may
+     *  follow the spacing, e.g. `staffSpace * 18`). */
+    property real layoutMinBarWidth: minBarWidth
+    function takeSize() {
+        layoutSize = Qt.size(width, height)
+        layoutSpacing = staffSpace
+        layoutMinBarWidth = minBarWidth
+    }
+    function sizeChanged() {
+        if (settleMs <= 0 || layoutSize.width <= 0) {
+            takeSize()
+            return
+        }
+        settle.restart()
+    }
+    onWidthChanged: sizeChanged()
+    onHeightChanged: sizeChanged()
+    onStaffSpaceChanged: sizeChanged()
+    onMinBarWidthChanged: sizeChanged()
+    // The first lines at once: a staff shows its notes from the first frame.
+    Component.onCompleted: {
+        takeSize()
+        syncLines()
+        lineView.forceLayout()
+    }
+    Timer { id: settle; interval: staff.settleMs; onTriggered: staff.takeSize() }
+    /** Shown long enough that its room has settled: before, a change of the room (a page still
+     *  laying out) lands at once instead of growing in (Kontra 12.11.). */
+    property bool grown: false
+    Timer { running: staff.layoutSize.width > 0; interval: KanteStyle.durationSlow; onTriggered: staff.grown = true }
+
+    // Line layouts by line index (1.82), as KanteTabStaff: a line keeps its layout while it
+    // stays in view, so a page turn lays out only the line that comes in; any input below
+    // lays them all out again, once per turn of the event loop.
+    property var lineCache: ({})
+    property bool lineCacheStale: false
+    property int lineRevision: 0
+    readonly property var emptyLayout: ({ rects: [], polys: [], ties: [], glyphs: [], marks: [], techniques: [],
+                                          sections: [], boxes: ({}) })
+    readonly property var lineInputs: [layoutSize, perSystem, sp, systemHeight, headerWidth, barWidth, staffTop,
+                                       notes, rests, barList, chordList]
+    onLineInputsChanged: {
+        lineCacheStale = true
+        Qt.callLater(syncLines)
+    }
+    onFirstBarChanged: Qt.callLater(syncLines)
+    onSystemsChanged: Qt.callLater(syncLines)
+    function syncLines() {
+        const per = perSystem
+        const top = Math.floor(firstBar / per)
+        const want = []
+        for (let k = 0; k < Math.max(1, systems); k++) {
+            if ((top + k) * per < barList.length) {
+                want.push(top + k)
+            }
+        }
+        const cache = lineCacheStale ? ({}) : lineCache
+        for (const n of want) {
+            if (!cache[n]) {
+                cache[n] = computeLayout(n * per, per, 1, layoutSize.width, sp, notes, rests, barList, chordList)
+            }
+        }
+        lineCache = cache
+        lineCacheStale = false
+        lineRevision++
+        // The model keeps the lines that stay and adds or drops the others (A1, A2).
+        for (let i = lineModel.count - 1; i >= 0; i--) {
+            if (want.indexOf(lineModel.get(i).lineIndex) < 0) {
+                lineModel.remove(i)
+            }
+        }
+        for (let k = 0; k < want.length; k++) {
+            if (k < lineModel.count && lineModel.get(k).lineIndex === want[k]) {
+                continue
+            }
+            lineModel.insert(k, { lineIndex: want[k] })
+        }
+    }
 
     Accessible.role: Accessible.Chart
     Accessible.name: accessibleName
@@ -506,6 +604,9 @@ Item {
 
     // ── Layout ───────────────────────────────────────────────────────
     function computeLayout(first, per, nsys, w, sp, ns, rs, bl, cl) {
+        // The line of bar b counted from `first`: a line laid out alone is line 0 (review
+        // #155: lines below the top one drew their notes one or two lines lower).
+        var lineOf = function (b) { return Math.floor((b - first) / per) }
         var L = { glyphs: [], rects: [], polys: [], ties: [], marks: [], techniques: [], sections: [], boxes: {} }
         if (w <= 0 || bl.length === 0) {
             return L
@@ -545,7 +646,8 @@ Item {
             for (var k = 0; k < ks.length; k++) {
                 L.glyphs.push({ x: sp * (4.2 + k * 1.1), y: yOf(ks[k].pos, s), g: signGlyph(ks[k].sign), ink: "" })
             }
-            if (s === 0 || bl[firstOfLine].changed) {
+            // The time signature at the start of the piece and where it changes, as printed.
+            if (firstOfLine === 0 || bl[firstOfLine].changed) {
                 timeSig(bl[firstOfLine], sp * (4.2 + ks.length * 1.1 + 1.3), s)
             }
             for (var c = 0; c < used; c++) {
@@ -594,7 +696,7 @@ Item {
         for (var ci = 0; cl && ci < cl.length; ci++) {
             var ct = cl[ci].time
             if (ct < from - 1e-6 || ct >= to - 1e-6) continue
-            var cb = barAt(ct), csys = sysOf(cb)
+            var cb = barAt(ct), csys = lineOf(cb)
             var label = chordLabel(cl[ci].text)
             var cx = Math.max(xOf(ct, cb) - sp * 0.6, (chordRight[csys] || 0) + sp * 0.8)
             L.glyphs.push({ x: cx, y: csys * systemHeight + sectionRow + sp * 3.2, g: "", text: label, ink: "chord", chord: true })
@@ -604,7 +706,7 @@ Item {
         for (var r = 0; rs && r < rs.length; r++) {
             var rt = Number(rs[r].time)
             if (rt < from - 1e-6 || rt >= to - 1e-6) continue
-            var rb = barAt(rt), rsys = sysOf(rb)
+            var rb = barAt(rt), rsys = lineOf(rb)
             var rv = valueOf(rs[r].beats)
             var fullBar = Math.abs(Number(rs[r].beats) - bl[rb].num * 4 / bl[rb].den) < 1e-3
             var rx = fullBar ? headerWidth + ((rb - first) % per + 0.5) * barWidth - sp * 0.6 : xOf(rt, rb) - sp * 0.5
@@ -621,7 +723,7 @@ Item {
             var n = ns[i]
             var t = Number(n.time)
             if (t < from - 1e-6 || t >= to - 1e-6) continue
-            var b = barAt(t), sys = sysOf(b)
+            var b = barAt(t), sys = lineOf(b)
             if (b !== accBar) {
                 acc = {}
                 accBar = b
@@ -783,161 +885,235 @@ Item {
 
     // Rehearsal marks (1.50); the probe measures the row.
     KanteRehearsalMark { id: markProbe; visible: false; text: "A"; pixelSize: staff.sp * 1.4; Accessible.ignored: true }
-    Repeater {
-        model: staff.layout.sections
-        delegate: KanteRehearsalMark {
-            required property var modelData
-            x: modelData.x
-            y: modelData.y + Math.round((staff.sectionRow - height) / 2)
-            text: modelData.text
-            pixelSize: staff.sp * 1.4
-            maximumWidth: modelData.maxW
-            Accessible.ignored: true
-        }
-    }
 
-    // Loop range (1.35): a tint with bracket edges ([ and ]) as on KanteTabLane, not colour
-    // alone; as high as the cursor, behind the staff.
-    Repeater {
-        model: staff.loopParts
+    // The lines shown, one delegate each, kept while they stay in view (1.82, as
+    // KanteTabStaff): a page turn builds only the line that comes in, the others move up and
+    // the top one fades (A2); lines that come or go fade in or out (A1).
+    ListModel { id: lineModel }
+    ListView {
+        id: lineView
+        objectName: "staffLines"
+        anchors.fill: parent
+        interactive: false
+        currentIndex: -1
+        model: lineModel
+        add: Transition {
+            enabled: KanteStyle.animate && staff.grown
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KanteStyle.duration }
+        }
+        remove: Transition {
+            enabled: KanteStyle.animate && staff.grown
+            NumberAnimation { property: "opacity"; to: 0; duration: KanteStyle.durationFast }
+        }
+        displaced: Transition {
+            enabled: KanteStyle.animate && staff.grown
+            NumberAnimation { property: "y"; duration: KanteStyle.duration; easing.type: Easing.OutCubic }
+        }
         delegate: Item {
-            id: loopPart
-            required property var modelData
-            x: modelData.x
-            y: modelData.sys * staff.systemHeight + staff.staffTop - staff.sp * 1.5
-            width: modelData.w
-            height: staff.sp * 7
-            Rectangle { anchors.fill: parent; color: KanteStyle.tintHighlightColor }
+            id: line
+            required property int lineIndex
+            readonly property var lay: staff.lineRevision >= 0 && staff.lineCache[lineIndex] ? staff.lineCache[lineIndex] : staff.emptyLayout
+            readonly property var loops: staff.loopLayout(lineIndex * staff.perSystem, staff.perSystem, 1, staff.layoutSize.width,
+                                                          staff.barList, staff.loopStart, staff.loopEnd)
+            width: lineView.width
+            height: staff.systemHeight
+
+            // A new staff space grows or shrinks the line from its old size instead of
+            // jumping (A1); its slot moves along.
+            property real shownSp: 0
+            property real zoom: 1
+            Component.onCompleted: shownSp = staff.sp
+            onLayChanged: {
+                if (KanteStyle.animate && staff.grown && shownSp > 0 && Math.abs(shownSp - staff.sp) > 0.01) {
+                    zoomAnim.from = shownSp / staff.sp
+                    zoomAnim.restart()
+                }
+                shownSp = staff.sp
+            }
+            NumberAnimation { id: zoomAnim; target: line; property: "zoom"; to: 1; duration: KanteStyle.duration; easing.type: Easing.OutCubic }
+            Behavior on height {
+                enabled: KanteStyle.animate && staff.grown && line.shownSp > 0
+                NumberAnimation { duration: KanteStyle.duration; easing.type: Easing.OutCubic }
+            }
+            // Up or down only: the width stays, a sideways slide read as a jerk (Kontra 12.11.).
+            transform: Scale { yScale: line.zoom }
+
+            // Rehearsal marks (1.50); the probe measures the row.
             Repeater {
-                model: [loopPart.modelData.left, loopPart.modelData.right]
-                delegate: Item {
-                    required property int index
+                model: line.lay.sections
+                delegate: KanteRehearsalMark {
                     required property var modelData
-                    visible: modelData === true
-                    x: index === 0 ? 0 : loopPart.width - width
-                    width: KanteStyle.unit(8)
-                    height: loopPart.height
-                    Rectangle { x: parent.index === 0 ? 0 : parent.width - width; width: 2; height: parent.height; color: KanteStyle.focusColor }
-                    Rectangle { width: parent.width; height: 2; color: KanteStyle.focusColor }
-                    Rectangle { y: parent.height - 2; width: parent.width; height: 2; color: KanteStyle.focusColor }
+                    x: modelData.x
+                    y: modelData.y + Math.round((staff.sectionRow - height) / 2)
+                    text: modelData.text
+                    pixelSize: staff.sp * 1.4
+                    maximumWidth: modelData.maxW
+                    Accessible.ignored: true
                 }
             }
-        }
-    }
 
-    // Selection band behind the current note.
-    Rectangle {
-        readonly property var box: staff.currentIndex >= 0 ? staff.layout.boxes[staff.currentIndex] : undefined
-        visible: box !== undefined
-        x: visible ? box.x - staff.sp * 0.6 : 0
-        y: visible ? box.sys * staff.systemHeight + staff.staffTop - staff.sp * 1.5 : 0
-        width: visible ? box.w + staff.sp * 1.2 : 0
-        height: staff.sp * 7
-        color: KanteStyle.selectionColor
-        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 2; color: KanteStyle.focusColor }
-    }
-
-    Repeater {
-        model: staff.layout.rects
-        delegate: Rectangle {
-            required property var modelData
-            x: modelData.x
-            y: modelData.y
-            width: modelData.w
-            height: modelData.h
-            color: staff.inkColor(modelData.ink)
-            opacity: modelData.ink === "line" ? 0.8 : 1
-        }
-    }
-    Repeater {
-        model: staff.layout.polys
-        delegate: Shape {
-            required property var modelData
-            antialiasing: true
-            ShapePath {
-                strokeColor: "transparent"
-                fillColor: staff.inkColor(modelData.ink)
-                PathPolyline {
-                    path: {
-                        var p = modelData.pts
-                        return [Qt.point(p[0], p[1]), Qt.point(p[2], p[3]), Qt.point(p[4], p[5]), Qt.point(p[6], p[7]), Qt.point(p[0], p[1])]
+            // Loop range (1.35): a tint with bracket edges ([ and ]) as on KanteTabLane, not colour
+            // alone; as high as the cursor, behind the staff.
+            Repeater {
+                model: line.loops
+                delegate: Item {
+                    id: loopPart
+                    required property var modelData
+                    x: modelData.x
+                    y: modelData.sys * staff.systemHeight + staff.staffTop - staff.sp * 1.5
+                    width: modelData.w
+                    height: staff.sp * 7
+                    Rectangle { anchors.fill: parent; color: KanteStyle.tintHighlightColor }
+                    Repeater {
+                        model: [loopPart.modelData.left, loopPart.modelData.right]
+                        delegate: Item {
+                            required property int index
+                            required property var modelData
+                            visible: modelData === true
+                            x: index === 0 ? 0 : loopPart.width - width
+                            width: KanteStyle.unit(8)
+                            height: loopPart.height
+                            Rectangle { x: parent.index === 0 ? 0 : parent.width - width; width: 2; height: parent.height; color: KanteStyle.focusColor }
+                            Rectangle { width: parent.width; height: 2; color: KanteStyle.focusColor }
+                            Rectangle { y: parent.height - 2; width: parent.width; height: 2; color: KanteStyle.focusColor }
+                        }
                     }
                 }
             }
-        }
-    }
-    Repeater {
-        model: staff.layout.ties
-        delegate: Shape {
-            required property var modelData
-            antialiasing: true
-            ShapePath {
-                strokeColor: "transparent"
-                fillColor: staff.inkColor(modelData.ink, modelData.index, staff.stateRevision)
-                PathSvg { path: modelData.path }
+
+            // Selection band behind the current note.
+            Rectangle {
+                readonly property var box: staff.currentIndex >= 0 ? line.lay.boxes[staff.currentIndex] : undefined
+                visible: box !== undefined
+                x: visible ? box.x - staff.sp * 0.6 : 0
+                y: visible ? box.sys * staff.systemHeight + staff.staffTop - staff.sp * 1.5 : 0
+                width: visible ? box.w + staff.sp * 1.2 : 0
+                height: staff.sp * 7
+                color: KanteStyle.selectionColor
+                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 2; color: KanteStyle.focusColor }
+            }
+
+            Repeater {
+                model: line.lay.rects
+                delegate: Rectangle {
+                    required property var modelData
+                    x: modelData.x
+                    y: modelData.y
+                    width: modelData.w
+                    height: modelData.h
+                    color: staff.inkColor(modelData.ink)
+                    opacity: modelData.ink === "line" ? 0.8 : 1
+                }
+            }
+            Repeater {
+                model: line.lay.polys
+                delegate: Shape {
+                    required property var modelData
+                    antialiasing: true
+                    ShapePath {
+                        strokeColor: "transparent"
+                        fillColor: staff.inkColor(modelData.ink)
+                        PathPolyline {
+                            path: {
+                                var p = modelData.pts
+                                return [Qt.point(p[0], p[1]), Qt.point(p[2], p[3]), Qt.point(p[4], p[5]), Qt.point(p[6], p[7]), Qt.point(p[0], p[1])]
+                            }
+                        }
+                    }
+                }
+            }
+            Repeater {
+                model: line.lay.ties
+                delegate: Shape {
+                    required property var modelData
+                    antialiasing: true
+                    ShapePath {
+                        strokeColor: "transparent"
+                        fillColor: staff.inkColor(modelData.ink, modelData.index, staff.stateRevision)
+                        PathSvg { path: modelData.path }
+                    }
+                }
+            }
+            Repeater {
+                model: line.lay.glyphs
+                delegate: Text {
+                    required property var modelData
+                    readonly property bool glyph: modelData.g !== ""
+                    readonly property bool current: modelData.index !== undefined && modelData.index === staff.currentIndex
+                    x: modelData.x
+                    y: modelData.y - (glyph ? baselineOffset : 0)
+                    text: glyph ? modelData.g : modelData.text
+                    color: {
+                        var c = staff.inkColor(modelData.ink, modelData.index, staff.stateRevision)
+                        return current && modelData.ink === "note" && staff.shownState(modelData.index, staff.stateRevision) === "pending" ? KanteStyle.strongTextColor : c
+                    }
+                    readonly property bool chord: modelData.chord === true
+                    font.family: glyph ? music.font.family : chord ? KanteStyle.defaultFont.family : KanteStyle.monoFont(10, false).family
+                    font.pixelSize: glyph ? Math.round(staff.sp * 4) : chord ? Math.max(10, Math.round(staff.sp * 1.6)) : Math.max(8, Math.round(staff.sp * 0.95))
+                    font.weight: chord ? Font.DemiBold : Font.Normal
+                    Accessible.ignored: true
+                }
+            }
+            // A mark is built once its note has a state to show (1.82); built by a state change on a
+            // live line it moves (A4), built with the line it stays still.
+            Repeater {
+                model: line.lay.marks
+                delegate: Item {
+                    id: markSlot
+                    required property var modelData
+                    readonly property bool full: staff.marks === KanteBassStaff.Marks.Full
+                    readonly property string st: staff.shownState(modelData.index, staff.stateRevision)
+                    property bool live: false
+                    Component.onCompleted: live = true
+                    width: Math.round(staff.sp * (full ? 1.3 : 0.95))
+                    height: width
+                    x: modelData.x - width / 2
+                    y: modelData.y - height / 2
+                    Loader {
+                        anchors.fill: parent
+                        active: markSlot.st !== "pending"
+                        onLoaded: {
+                            if (markSlot.live && !staff.calm) {
+                                item.play()
+                            }
+                        }
+                        sourceComponent: KanteNoteMark {
+                            visible: drawn
+                            noteState: markSlot.st
+                            cents: staff.stateRevision >= 0 ? staff.centsOf(markSlot.modelData.index) : NaN
+                            showCents: staff.showCents && markSlot.full
+                            color: markSlot.full ? KanteStyle.noteStateColor(noteState) : KanteStyle.mutedTextColor
+                        }
+                    }
+                }
+            }
+
+            Repeater {
+                model: line.lay.techniques
+                delegate: KanteTechniqueMark {
+                    required property var modelData
+                    technique: modelData.technique
+                    result: staff.shownTechniqueResult(modelData.index, staff.stateRevision)
+                    color: staff.marks === KanteBassStaff.Marks.Quiet ? KanteStyle.mutedTextColor : resultColor
+                    height: Math.round(staff.sp * 1.2)
+                    width: implicitWidth
+                    x: modelData.x - width / 2
+                    y: modelData.y - height / 2
+                }
+            }
+
+            Rectangle {
+                readonly property int bar: staff.currentBar
+                readonly property int sys: Math.floor(bar / staff.perSystem) === line.lineIndex ? 0 : -1
+                visible: staff.cursor && sys === 0 && staff.barList.length > 0
+                x: visible ? Math.round(staff.xOf(staff.position, bar)) : 0
+                y: sys * staff.systemHeight + staff.staffTop - staff.sp * 1.5
+                width: Math.max(2, KanteStyle.unit(2))
+                height: staff.sp * 7
+                color: KanteStyle.accentColor
+                opacity: 0.8
             }
         }
     }
-    Repeater {
-        model: staff.layout.glyphs
-        delegate: Text {
-            required property var modelData
-            readonly property bool glyph: modelData.g !== ""
-            readonly property bool current: modelData.index !== undefined && modelData.index === staff.currentIndex
-            x: modelData.x
-            y: modelData.y - (glyph ? baselineOffset : 0)
-            text: glyph ? modelData.g : modelData.text
-            color: {
-                var c = staff.inkColor(modelData.ink, modelData.index, staff.stateRevision)
-                return current && modelData.ink === "note" && staff.shownState(modelData.index, staff.stateRevision) === "pending" ? KanteStyle.strongTextColor : c
-            }
-            readonly property bool chord: modelData.chord === true
-            font.family: glyph ? music.font.family : chord ? KanteStyle.defaultFont.family : KanteStyle.monoFont(10, false).family
-            font.pixelSize: glyph ? Math.round(staff.sp * 4) : chord ? Math.max(10, Math.round(staff.sp * 1.6)) : Math.max(8, Math.round(staff.sp * 0.95))
-            font.weight: chord ? Font.DemiBold : Font.Normal
-            Accessible.ignored: true
-        }
-    }
-    Repeater {
-        model: staff.layout.marks
-        delegate: KanteNoteMark {
-            required property var modelData
-            readonly property bool full: staff.marks === KanteBassStaff.Marks.Full
-            visible: drawn
-            width: Math.round(staff.sp * (full ? 1.3 : 0.95))
-            height: width
-            x: modelData.x - width / 2
-            y: modelData.y - height / 2
-            noteState: staff.shownState(modelData.index, staff.stateRevision)
-            cents: staff.stateRevision >= 0 ? staff.centsOf(modelData.index) : NaN
-            showCents: staff.showCents && full
-            color: full ? KanteStyle.noteStateColor(noteState) : KanteStyle.mutedTextColor
-        }
-    }
 
-    Repeater {
-        model: staff.layout.techniques
-        delegate: KanteTechniqueMark {
-            required property var modelData
-            technique: modelData.technique
-            result: staff.shownTechniqueResult(modelData.index, staff.stateRevision)
-            color: staff.marks === KanteBassStaff.Marks.Quiet ? KanteStyle.mutedTextColor : resultColor
-            height: Math.round(staff.sp * 1.2)
-            width: implicitWidth
-            x: modelData.x - width / 2
-            y: modelData.y - height / 2
-        }
-    }
-
-    Rectangle {
-        readonly property int bar: staff.currentBar
-        readonly property int sys: staff.sysOf(bar)
-        visible: staff.cursor && sys >= 0 && sys < staff.systems && staff.barList.length > 0
-        x: visible ? Math.round(staff.xOf(staff.position, bar)) : 0
-        y: sys * staff.systemHeight + staff.staffTop - staff.sp * 1.5
-        width: Math.max(2, KanteStyle.unit(2))
-        height: staff.sp * 7
-        color: KanteStyle.accentColor
-        opacity: 0.8
-    }
 }
