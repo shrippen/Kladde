@@ -63,9 +63,10 @@ Each layer talks only to its neighbour directly below.
 - In the sync module a source says only what it reads; asking Health Connect for
   changes, reading a range page by page and keeping the cursor are written once and
   used by every source.
-- The mapping to HealthLog exists twice on purpose, in Kotlin (`Mapper.kt`) and C++
-  (`core/mapper.cpp`). Both are held equal by `tests/fixtures/pebble-day.expected.json`;
-  a change goes into both.
+- The mapping to HealthLog exists in Kotlin (`Mapper.kt`) and in C++
+  (`core/mapper.cpp`). The Kotlin one leads: a change goes there. The C++ one is
+  frozen until the work on Plasma Mobile and is then brought up from the Kotlin
+  one; `tests/fixtures/pebble-day.expected.json` holds equal what both have.
 - A list of kinds (sign-in states, kinds of an entry) is defined once, in `core/`,
   and handed on, not copied.
 - Demo code lives in `app/demo/` only; the rest of the app calls it at one place.
@@ -75,7 +76,7 @@ Each layer talks only to its neighbour directly below.
 
 | Change | Touch |
 |---|---|
-| A new kind of health data from Health Connect | A source in `android/sync/`, its permission in `app/android/AndroidManifest.xml` and `KladdeSync.READ_PERMISSIONS`, `Sample.kt`, `Mapper.kt` and `core/sample.h`, `core/mapper.cpp`; the shared fixture; tests on both sides |
+| A new kind of health data from Health Connect | A source in `android/sync/`, its permission in `app/android/AndroidManifest.xml` and `KladdeSync.READ_PERMISSIONS`, `Sample.kt`, `Mapper.kt`, with tests; the C++ side stays frozen |
 | A change to how a value is mapped (unit, day, id) | `Mapper.kt` and `core/mapper.cpp`, the shared fixture |
 | Something about queueing or uploading on the phone | `android/sync/` (`QueueStore`, `Uploader`, `SyncRunner`), a test |
 | A new call to HealthLog for the app | The object of `app/` that sends it through `core/session`; the shape of its answer or body in `core/api`; a test with the fake server |
@@ -94,7 +95,6 @@ Each layer talks only to its neighbour directly below.
   rules (`AUDIT.md`, finding 2).
 - `core/` has two ways to the server, the session and the plain client of
   `kladde-push`, which read and judge errors differently (`AUDIT.md`, finding 3).
-- The C++ mapping lags behind the Kotlin one (`AUDIT.md`, finding 4).
 - Home and history compute figures in `app/`, partly twice and without tests
   (`AUDIT.md`, finding 5).
 - `app/qml/Metrics.js` decides which direction of a value is good when the server
