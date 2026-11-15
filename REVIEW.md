@@ -44,7 +44,7 @@ their own HealthLog. A bug that matters is one that costs data or trust:
 
 ## Skip
 
-- `app/qml/Kante/` and `app/qml/kante.qrc` (`tools/sync-kante.sh`).
+- `app/qml/Kante/`, `app/qml/kante.qrc` and `app/qml/kante.ref` (`tools/sync-kante.sh`).
 - `spikes/`: throwaway code for phase 0; only check that it reads and
   never writes health data, and leaks nothing.
 - Images.

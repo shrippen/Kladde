@@ -50,8 +50,8 @@ core/         HealthLog-Client (Anmeldung, Werte, Erfassen), Abbildung, Batches
 android/sync  Kotlin, nur Android: der Abgleich aus Health Connect im Hintergrund
 ```
 
-Auf Android liest das Kotlin-Modul `android/sync` Health Connect in einem WorkManager-Job, bildet die Datensätze ab wie
-`core/mapper.cpp` (gemeinsame Fixtures halten beide gleich), reiht sie ein und schickt sie an `/api/measurements/batch`, Training an `/api/workouts/batch`.
+Auf Android liest das Kotlin-Modul `android/sync` Health Connect in einem WorkManager-Job, bildet die Datensätze ab
+(diese Abbildung führt; `core/mapper.cpp` ist bis zur Arbeit an Plasma Mobile eingefroren), reiht sie ein und schickt sie an `/api/measurements/batch`, Training an `/api/workouts/batch`.
 `core/` bildet ab und schickt für `kladde-push` (ohne Warteschlange: es hört beim ersten Fehler auf) und später den Pebble-Daemon.
 Anforderungen: [lastenheft.md](lastenheft.md), Plan: [plan.md](plan.md).
 

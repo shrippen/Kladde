@@ -48,8 +48,8 @@ core/         HealthLog client (sign-in, values, log), mapping, batches
 android/sync  Kotlin, Android only: the background sync from Health Connect
 ```
 
-On Android the Kotlin module `android/sync` reads Health Connect in a WorkManager job, maps the records like
-`core/mapper.cpp` (shared fixtures keep both equal), queues them and sends them to `/api/measurements/batch`, workouts to `/api/workouts/batch`.
+On Android the Kotlin module `android/sync` reads Health Connect in a WorkManager job, maps the records
+(this mapping leads; `core/mapper.cpp` is frozen until the work on Plasma Mobile), queues them and sends them to `/api/measurements/batch`, workouts to `/api/workouts/batch`.
 `core/` maps and sends for `kladde-push` (no queue: it stops at the first error) and, later, the Pebble daemon.
 Requirements: [docs/lastenheft.md](docs/lastenheft.md), plan: [docs/plan.md](docs/plan.md).
 
