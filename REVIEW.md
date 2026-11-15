@@ -33,8 +33,8 @@ their own HealthLog. A bug that matters is one that costs data or trust:
 ## What to check in particular
 
 - Layers (`ARCHITECTURE.md`): QML never talks HTTP; `core/` links no Qt GUI module;
-  a mapping change lands in both `android/sync` (Kotlin) and `core/mapper.cpp`,
-  checked by the shared fixture.
+  a mapping change lands in `android/sync` (Kotlin); `core/mapper.cpp` is frozen
+  until the work on Plasma Mobile.
 - The mapping against HealthLog's contract (`docs/referenzen.md`,
   `docs/api/openapi.yaml` in MBombeck/HealthLog): identifiers, units,
   `externalId` forms, limits (500 entries, 120 characters).

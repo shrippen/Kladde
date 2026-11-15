@@ -66,7 +66,7 @@ Each layer talks only to its neighbour directly below.
 - The mapping to HealthLog exists in Kotlin (`Mapper.kt`) and in C++
   (`core/mapper.cpp`). The Kotlin one leads: a change goes there. The C++ one is
   frozen until the work on Plasma Mobile and is then brought up from the Kotlin
-  one; `tests/fixtures/pebble-day.expected.json` holds equal what both have.
+  one; `tests/fixtures/pebble-day.expected.json` covers what both do today.
 - A list of kinds (sign-in states, kinds of an entry) is defined once, in `core/`,
   and handed on, not copied.
 - Demo code lives in `app/demo/` only; the rest of the app calls it at one place.
@@ -77,7 +77,7 @@ Each layer talks only to its neighbour directly below.
 | Change | Touch |
 |---|---|
 | A new kind of health data from Health Connect | A source in `android/sync/`, its permission in `app/android/AndroidManifest.xml` and `KladdeSync.READ_PERMISSIONS`, `Sample.kt`, `Mapper.kt`, with tests; the C++ side stays frozen |
-| A change to how a value is mapped (unit, day, id) | `Mapper.kt` and `core/mapper.cpp`, the shared fixture |
+| A change to how a value is mapped (unit, day, id) | `Mapper.kt`, with a test; the C++ side stays frozen |
 | Something about queueing or uploading on the phone | `android/sync/` (`QueueStore`, `Uploader`, `SyncRunner`), a test |
 | A new call to HealthLog for the app | The object of `app/` that sends it through `core/session`; the shape of its answer or body in `core/api`; a test with the fake server |
 | Something new on a page | An object in `app/` that offers it, the page in `app/qml/`; a number it needs is computed in `core/` |
