@@ -4,7 +4,9 @@
 #
 #   tools/sync-kante.sh [path to the Kante checkout, default ../Kante]
 #
-# CI runs it against Kante's main and fails when app/qml/Kante differs.
+# It records Kante's commit in app/qml/kante.ref. CI checks that commit out, runs this
+# script and fails when the copy differs. So Kante's main moving on does not break CI here;
+# a newer Kante arrives by running this script against it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 KANTE=${1:-../Kante}
@@ -18,4 +20,5 @@ cp -r "$KANTE/qml/Kante" app/qml/Kante
   echo '</qresource>'
   echo '</RCC>'
 } > app/qml/kante.qrc
-echo "synced app/qml/Kante from $KANTE ($(git -C "$KANTE" describe --always 2>/dev/null || echo unknown))"
+git -C "$KANTE" rev-parse HEAD > app/qml/kante.ref
+echo "synced app/qml/Kante from $KANTE ($(cat app/qml/kante.ref))"
