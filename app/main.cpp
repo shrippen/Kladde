@@ -5,11 +5,7 @@
 #include "syncbridge.h"
 
 #ifdef KLADDE_DEMO
-#include "demo/demobackend.h"
-#include <QDir>
-#include <QFile>
-#include <QJsonArray>
-#include <QJsonDocument>
+#include "demo/demostart.h"
 #else
 #include "keychainstore.h"
 #ifdef Q_OS_ANDROID
@@ -33,7 +29,7 @@
 #include <QtQml/qqml.h>
 
 // What QML gets as types; Session and EntryKind are the core's enums, passed on as they are.
-void registerTypes()
+static void registerTypes()
 {
     const char *uri = "Kladde.Core";
     const QString why = QStringLiteral("provided by the app");
@@ -44,14 +40,9 @@ void registerTypes()
     qmlRegisterUncreatableType<SyncBridge>(uri, 1, 0, "SyncBridge", why);
 }
 
-int main(int argc, char **argv)
+// Names, organisation and icon theme: what the platform and the build need before any window.
+static void setupIdentity()
 {
-#ifdef Q_OS_ANDROID
-    // Android has no Kirigami platform theme: Material Dark, coloured by Kante (Main.qml).
-    qputenv("QT_QUICK_CONTROLS_STYLE", "Material");
-    qputenv("QT_QUICK_CONTROLS_MATERIAL_THEME", "Dark");
-#endif
-    QGuiApplication app(argc, argv);
     QGuiApplication::setOrganizationName(QStringLiteral("shrippen"));
 #ifdef KLADDE_DEMO
     // Own settings file: the demo never touches the real server address.
@@ -70,6 +61,30 @@ int main(int argc, char **argv)
                                                            QStandardPaths::LocateDirectory));
     QIcon::setThemeName(QStringLiteral("breeze"));
 #endif
+}
+
+// Makes the C++ objects QML's only way to the core.
+static void exposeToQml(QQmlApplicationEngine &engine, Account &account, Dashboard &dashboard, History &history,
+                        Entry &entry, SyncBridge &sync)
+{
+    registerTypes();
+
+    engine.rootContext()->setContextProperty(QStringLiteral("account"), &account);
+    engine.rootContext()->setContextProperty(QStringLiteral("dashboard"), &dashboard);
+    engine.rootContext()->setContextProperty(QStringLiteral("history"), &history);
+    engine.rootContext()->setContextProperty(QStringLiteral("entry"), &entry);
+    engine.rootContext()->setContextProperty(QStringLiteral("sync"), &sync);
+}
+
+int main(int argc, char **argv)
+{
+#ifdef Q_OS_ANDROID
+    // Android has no Kirigami platform theme: Material Dark, coloured by Kante (Main.qml).
+    qputenv("QT_QUICK_CONTROLS_STYLE", "Material");
+    qputenv("QT_QUICK_CONTROLS_MATERIAL_THEME", "Dark");
+#endif
+    QGuiApplication app(argc, argv);
+    setupIdentity();
 
     // German where the system speaks it, English otherwise.
     QTranslator translator;
@@ -110,32 +125,14 @@ int main(int argc, char **argv)
     History history(account.session());
     Entry entry(account.session());
 
-#ifdef KLADDE_DEMO
-    QFile worldFile(QStringLiteral(":/demo/world.json"));
-    if (!worldFile.open(QIODevice::ReadOnly))
-        qFatal("demo world missing");
-    DemoBackend demo(QJsonDocument::fromJson(worldFile.readAll()).object());
-    account.session()->setTransport([&demo](const QByteArray &verb, const QString &path, const QByteArray &body,
-                                            const kladde::Session::Callback &done) { demo.answer(verb, path, body, done); });
-    const QJsonObject status = demo.syncStatus();
-    sync.showDemo(QDateTime::fromString(status.value(QLatin1String("lastRun")).toString(), Qt::ISODateWithMs),
-                  QDateTime::fromString(status.value(QLatin1String("lastSuccess")).toString(), Qt::ISODateWithMs),
-                  status.value(QLatin1String("uploaded")).toInt(), status.value(QLatin1String("pending")).toInt(),
-                  QJsonDocument(status.value(QLatin1String("apps")).toObject()).toJson(QJsonDocument::Compact));
-    account.setServer(demo.server());
-#endif
-
-    registerTypes();
-
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty(QStringLiteral("account"), &account);
-    engine.rootContext()->setContextProperty(QStringLiteral("dashboard"), &dashboard);
-    engine.rootContext()->setContextProperty(QStringLiteral("history"), &history);
-    engine.rootContext()->setContextProperty(QStringLiteral("entry"), &entry);
-    engine.rootContext()->setContextProperty(QStringLiteral("sync"), &sync);
+    exposeToQml(engine, account, dashboard, history, entry, sync);
 #ifdef Q_OS_ANDROID
     // Kirigami's style modules sit in the resources there.
     engine.addImportPath(QStringLiteral("qrc:/qt/qml"));
+#endif
+#ifdef KLADDE_DEMO
+    startDemo(app, engine, account, history, sync);
 #endif
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
@@ -144,41 +141,6 @@ int main(int argc, char **argv)
         return 1;
 #ifdef Q_OS_ANDROID
     app.installEventFilter(new AndroidBackFilter(&engine));
-#endif
-
-#ifdef KLADDE_DEMO
-    // Signed in from the start; with SHOT_PLAN/SHOT_DIR (demo/tools/screenshots.py) every
-    // shot opens its tab (and metric), waits and saves <name>.png, then the app quits.
-    account.login(QStringLiteral("mara"), QStringLiteral("demo"));
-    const QJsonArray plan = QJsonDocument::fromJson(qgetenv("SHOT_PLAN")).array();
-    const QString shotDir = qEnvironmentVariable("SHOT_DIR");
-    if (!plan.isEmpty() && !shotDir.isEmpty()) {
-        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
-        const QStringList tabs{QStringLiteral("home"), QStringLiteral("log"), QStringLiteral("history"), QStringLiteral("more")};
-        int delay = 2000;
-        for (const QJsonValue &v : plan) {
-            const QJsonObject shot = v.toObject();
-            QTimer::singleShot(delay, &app, [window, shot, tabs, &history] {
-                if (shot.contains(QLatin1String("kind")))
-                    history.setKind(shot.value(QLatin1String("kind")).toString());
-                if (shot.contains(QLatin1String("days")))
-                    history.setDays(shot.value(QLatin1String("days")).toInt());
-                window->setProperty("tab", int(tabs.indexOf(shot.value(QLatin1String("page")).toString())));
-                // "viewport" [w, h]: this shot's own window size (a whole page, e.g. More).
-                const QJsonArray size = shot.value(QLatin1String("viewport")).toArray();
-                if (size.size() == 2) {
-                    window->resize(size[0].toInt(), size[1].toInt());
-                }
-            });
-
-            QTimer::singleShot(delay + 1500, &app, [window, shot, shotDir, size = window->size()] {
-                window->grabWindow().save(QDir(shotDir).filePath(shot.value(QLatin1String("name")).toString() + QStringLiteral(".png")));
-                window->resize(size);
-            });
-            delay += 2000;
-        }
-        QTimer::singleShot(delay, &app, &QCoreApplication::quit);
-    }
 #endif
 
     if (cli.isSet(shotOpt)) {
