@@ -14,7 +14,7 @@ history from HealthLog and lets the user enter values by hand.
 
 | Path | Its one task |
 |---|---|
-| `core/` | Everything about HealthLog that needs no user interface (Qt Core and Network only): the sign-in and session (`session`, `pkce`, `secretstore`), what HealthLog's answers and bodies look like, the limits of a manual entry and how a value is written (`api`), mapping readings to HealthLog's entries (`sample`, `mapper`), cutting them into batches (`batch`), the exchange format a data source delivers (`hcjson`), and the plain upload client of the command line tool (`healthlogclient`). |
+| `core/` | Everything about HealthLog that needs no user interface (Qt Core and Network only): the sign-in and session (`session`, `pkce`, `secretstore`), the request and answer reading both HTTP paths share (`http`), what HealthLog's answers and bodies look like, the limits of a manual entry and how a value is written (`api`), mapping readings to HealthLog's entries (`sample`, `mapper`), cutting them into batches (`batch`), the exchange format a data source delivers (`hcjson`), and the plain upload client of the command line tool (`healthlogclient`). |
 | `app/` (C++) | What the QML side sees, one object per topic: account, home (`dashboard`), history, manual entry, the background sync (`syncbridge`), error texts. Besides that the places for the tokens (desktop keychain, Android vault), a queue for blocking calls and Android's back key (`platform/`). |
 | `app/syncbridge*.cpp`, `app/sessionvault_android.cpp` | The two doors between the app and the Android sync module: the bridge for the sync (`_android` calls Kotlin, `_none` is the desktop without sync) and the vault for the tokens, which the module keeps. |
 | `app/qml/` | The pages (setup, home, history, log, more) in QML. `Kante/` in it is a synced copy of the design system, never edited here. |
@@ -91,8 +91,6 @@ Each layer talks only to its neighbour directly below.
 
 - Each of the four Android sources carries its own copy of reading changes, reading
   a range and keeping the cursor (`AUDIT.md`, finding 1).
-- `core/` has two ways to the server, the session and the plain client of
-  `kladde-push`, which read and judge errors differently (`AUDIT.md`, finding 3).
 - The account reads its two answers (server version, sign-in options) itself, in
   `app/account.cpp`, not in `core/api` (not in `AUDIT.md`).
 - Two lists of kinds are kept equal by hand between `app/` and `core/`

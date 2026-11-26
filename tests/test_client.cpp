@@ -30,12 +30,21 @@ private Q_SLOTS:
         QVERIFY(!r.retryable());
     }
 
+    void errorObjectHasAMessage()
+    {
+        const BatchResult r = parseBatchResponse(400, R"({"error": {"message": "bad body"}})");
+        QCOMPARE(r.error, QStringLiteral("bad body"));
+    }
+
     void whatIsWorthARetry()
     {
         QVERIFY(parseBatchResponse(429, "{}").retryable());
         QVERIFY(parseBatchResponse(503, "").retryable());
         QVERIFY(parseBatchResponse(0, "").retryable());
         QVERIFY(!parseBatchResponse(401, "{}").retryable());
+        // Same rule as Android's Uploader: 409 is "again soon", only 422 is final.
+        QVERIFY(parseBatchResponse(409, "{}").retryable());
+        QVERIFY(!parseBatchResponse(422, "{}").retryable());
         QCOMPARE(parseBatchResponse(401, "").error, QStringLiteral("HTTP 401"));
     }
 
