@@ -20,7 +20,7 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
-        // Robolectric runs the real SQLite queue in JVM tests.
+        // Robolectric reads the merged resources and manifest.
         unitTests.isIncludeAndroidResources = true
     }
     sourceSets {
