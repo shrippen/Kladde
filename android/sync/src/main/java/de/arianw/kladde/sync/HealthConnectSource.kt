@@ -60,7 +60,9 @@ class HealthConnectSource(
         val recordDays: Map<String, Set<LocalDate>>,
     )
 
-    private val signature = types.map { it.simpleName }.sortedBy { it }.joinToString(",")
+    // The types and the mapping it was made for: 0.2.0 dated day totals a day late, so its
+    // cursor (no MAPPING) reads the window again and the server moves them to their day.
+    private val signature = types.map { it.simpleName }.sortedBy { it }.joinToString(",") + MAPPING
 
     suspend fun read(cursor: String?, zone: ZoneId, backfillDays: Long, daysOf: (String) -> Set<LocalDate>, now: Instant): Read {
         if (types.isEmpty()) {
@@ -202,6 +204,7 @@ class HealthConnectSource(
         private const val STAGE_OUT_OF_BED = 3
 
         private const val SEPARATOR = "|"
+        private const val MAPPING = ";day-at-start"
         private const val AGGREGATE = "health-connect" // the app of a sample Health Connect summed
         private val BUCKET: Duration = Duration.ofMinutes(10)
 

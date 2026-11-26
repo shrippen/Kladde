@@ -75,11 +75,11 @@ class MapperTest {
     }
 
     @Test
-    fun dayOfTheClockChangeHas25Hours() {
+    fun dayOfTheClockChangeKeepsItsMidnight() {
         val s = Sample(Kind.STEPS, "x", "a", Instant.parse("2026-10-25T12:00:00Z"), Instant.parse("2026-10-25T12:01:00Z"), 1.0)
         val e = Mapper.map(listOf(s), ZoneId.of("Europe/Berlin")).entries.single()
         assertEquals("2026-10-24T22:00:00.000Z", e.getString("startDate"))
-        assertEquals("2026-10-25T23:00:00.000Z", e.getString("endDate"))
+        assertEquals("2026-10-24T22:00:00.000Z", e.getString("endDate"))
     }
 
     @Test

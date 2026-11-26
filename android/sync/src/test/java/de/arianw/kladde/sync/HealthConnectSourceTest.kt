@@ -90,6 +90,17 @@ class HealthConnectSourceTest {
     }
 
     @Test
+    fun a020CursorReadsTheWindowAgain() = runBlocking {
+        // 0.2.0 dated day totals a day late: its cursor (same types) must send the window again.
+        val types = (HealthConnectSource.TYPES + HealthConnectSource.OPTIONAL_TYPES)
+            .map { it.simpleName }.sortedBy { it }.joinToString(",")
+        val fake = FakeHealthConnect()
+        HealthConnectSource(fake.client).read("$types|token-0.2", zone, 2, { emptySet() }, now)
+        assertTrue("getChanges" !in fake.calls)
+        assertEquals(2, fake.aggregated.size)
+    }
+
+    @Test
     fun aChangeReaggregatesItsDayAndADeletionOfAnUnknownRecordTodayAndYesterday() = runBlocking {
         val fake = FakeHealthConnect()
         val cursor = HealthConnectSource(fake.client).read(null, zone, 1, { emptySet() }, now).cursor
