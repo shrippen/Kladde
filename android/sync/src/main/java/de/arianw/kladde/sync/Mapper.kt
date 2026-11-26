@@ -167,9 +167,10 @@ object Mapper {
 
     private fun addDays(entries: MutableList<JSONObject>, days: Map<LocalDate, Double>, id: String, unit: String, zone: ZoneId) {
         for ((day, total) in days) {
+            // Start and end at the day's midnight, as the iOS app sends it: HealthLog files a
+            // value under its endDate, so the next midnight would show it a day late.
             val start = day.atStartOfDay(zone).toInstant()
-            val end = day.plusDays(1).atStartOfDay(zone).toInstant()
-            entries += entry(id, total, unit, start, end, "stats:$id:$day")
+            entries += entry(id, total, unit, start, start, "stats:$id:$day")
         }
     }
 

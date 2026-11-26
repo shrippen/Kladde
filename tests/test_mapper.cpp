@@ -67,7 +67,7 @@ private Q_SLOTS:
         QCOMPARE(steps.at(1).value(QLatin1String("startDate")).toString(),
                  QStringLiteral("2026-10-31T23:00:00.000Z"));
         QCOMPARE(steps.at(1).value(QLatin1String("endDate")).toString(),
-                 QStringLiteral("2026-11-01T23:00:00.000Z"));
+                 QStringLiteral("2026-10-31T23:00:00.000Z"));
         QCOMPARE(steps.at(1).value(QLatin1String("unit")).toString(), QStringLiteral("count"));
 
         const auto distance = withIdentifier(
@@ -77,7 +77,7 @@ private Q_SLOTS:
         QCOMPARE(distance.at(0).value(QLatin1String("unit")).toString(), QStringLiteral("m"));
     }
 
-    void dayOfTheClockChangeHas25Hours()
+    void dayOfTheClockChangeKeepsItsMidnight()
     {
         Sample s;
         s.kind = Sample::Kind::Steps;
@@ -90,7 +90,7 @@ private Q_SLOTS:
         QCOMPARE(r.entries.at(0).value(QLatin1String("startDate")).toString(),
                  QStringLiteral("2026-10-24T22:00:00.000Z"));
         QCOMPARE(r.entries.at(0).value(QLatin1String("endDate")).toString(),
-                 QStringLiteral("2026-10-25T23:00:00.000Z"));
+                 QStringLiteral("2026-10-24T22:00:00.000Z"));
     }
 
     void heartRateComesInTenMinuteBuckets()
