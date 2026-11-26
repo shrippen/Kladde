@@ -14,7 +14,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-class UploaderTest {
+abstract class UploaderTest {
+
+    protected abstract fun newStore(): QueueStore
 
     private val now = Instant.parse("2026-11-01T12:00:00Z")
 
@@ -43,7 +45,7 @@ class UploaderTest {
         assertEquals(100, body.getJSONArray("workouts").length())
         assertFalse(body.has("syncTrigger"))
 
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Stream.WORKOUTS, batches, "w1", now, emptyMap())
         val sent = mutableListOf<Target>()
         Uploader(store) { target, _, _ -> sent += target; ok(1) }.flush(now)
@@ -53,7 +55,7 @@ class UploaderTest {
 
     @Test
     fun aFailingWorkoutReadHoldsNoMeasurementsBack() = runBlocking {
-        val store = MemoryStore()
+        val store = newStore()
         val steps = Sample(Kind.STEPS, "s1", "p", Instant.parse("2026-11-01T08:00:00Z"), Instant.parse("2026-11-01T08:10:00Z"), 300.0)
         val status = SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
             HealthConnectSource.Read(listOf(steps), "token-1", emptyMap())
@@ -67,7 +69,7 @@ class UploaderTest {
 
     @Test
     fun uploadsInOrderAndEmptiesTheQueue() {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(700), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val sent = mutableListOf<Int>()
         val result = Uploader(store) { _, body, _ ->
@@ -84,7 +86,7 @@ class UploaderTest {
 
     @Test
     fun networkTroubleKeepsTheBatchAndBacksOff() {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val result = Uploader(store) { _, _, _ -> throw IOException("offline") }.flush(now)
 
@@ -98,7 +100,7 @@ class UploaderTest {
 
     @Test
     fun wrongTokenStopsAndKeepsTheQueue() {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val result = Uploader(store) { _, _, _ -> Response(401, """{"meta":{"errorCode":"auth.invalid"}}""") }.flush(now)
 
@@ -111,7 +113,7 @@ class UploaderTest {
     fun anUnexpectedAnswerStopsAndKeepsTheQueue() {
         // A wrong URL path or a proxy (404, 308, 400, 413) must not empty the queue.
         for (status in listOf(308, 400, 404, 413)) {
-            val store = MemoryStore()
+            val store = newStore()
             store.enqueue(Batches.make(entries(700), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
             var calls = 0
             val result = Uploader(store) { _, _, _ -> calls++; Response(status, "<html>not here</html>") }.flush(now)
@@ -126,7 +128,7 @@ class UploaderTest {
     @Test
     fun aNewerBatchNeverOvertakesOneInBackoff() {
         // A re-posted day total overwrites: 3000 (A) arriving after 4000 (B) would stick.
-        val store = MemoryStore()
+        val store = newStore()
         val a = Batches.make(entries(1), Trigger.BACKGROUND)
         store.enqueue(a, "t1", emptyMap(), emptyMap())
         Uploader(store) { _, _, _ -> Response(503, "") }.flush(now)
@@ -146,7 +148,7 @@ class UploaderTest {
 
     @Test
     fun entriesFailedOnTheServerStayQueued() {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val bodies = mutableListOf<String>()
         val result = Uploader(store) { _, body, _ ->
@@ -166,7 +168,7 @@ class UploaderTest {
 
     @Test
     fun entriesTheServerKeepsFailingBackOffFurther() {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(3), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val failing = Transport { _, _, _ ->
             Response(200, """{"data":{"entries":[{"index":0,"status":"inserted"},{"index":1,"status":"failed"},{"index":2,"status":"inserted"}]}}""")
@@ -180,8 +182,23 @@ class UploaderTest {
     }
 
     @Test
+    fun aReplacedBatchKeepsItsPlace() {
+        val store = newStore()
+        val first = Batches.make(entries(2), Trigger.MANUAL)[0]
+        val second = Batches.make(entries(1), Trigger.MANUAL)[0]
+        store.enqueue(listOf(first, second), "t1", emptyMap(), emptyMap())
+
+        val smaller = Batches.make(entries(1), Trigger.MANUAL)[0]
+        store.replace(first.key, smaller)
+
+        assertEquals(smaller.key, store.next(now)!!.batch.key)
+        store.done(smaller.key)
+        assertEquals(second.key, store.next(now)!!.batch.key)
+    }
+
+    @Test
     fun aDueTimeFromAClockAheadDoesNotBlockTheQueue() {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(1), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val dayAhead = now.plus(Duration.ofDays(1))
         Uploader(store) { _, _, _ -> Response(503, "") }.flush(dayAhead) // the clock was a day ahead
@@ -191,7 +208,7 @@ class UploaderTest {
 
     @Test
     fun anOkThatIsNotJsonStillCounts() {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         val result = Uploader(store) { _, _, _ -> Response(200, "ok") }.flush(now)
 
@@ -201,7 +218,7 @@ class UploaderTest {
 
     @Test
     fun aFailingSourceIsReportedAndTheQueueStillGoes() = runBlocking {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t0", emptyMap(), emptyMap())
         val status = SyncRunner(store, { _, _, _ -> ok(2) }, ZoneId.of("UTC")).run({ _, _, _ ->
             throw IllegalStateException("rate limited")
@@ -215,7 +232,7 @@ class UploaderTest {
 
     @Test
     fun refusedEntriesAreDroppedTheRestGoesAgain() {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(4), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         var calls = 0
         val result = Uploader(store) { _, body, _ ->
@@ -235,7 +252,7 @@ class UploaderTest {
 
     @Test
     fun aRefusalThatNamesNoEntryDropsTheBatchOnce() {
-        val store = MemoryStore()
+        val store = newStore()
         store.enqueue(Batches.make(entries(2), Trigger.MANUAL), "t1", emptyMap(), emptyMap())
         var calls = 0
         Uploader(store) { _, _, _ ->
@@ -257,7 +274,7 @@ class UploaderTest {
 
     @Test
     fun aRunQueuesWithTheCursorAndRecordsStatus() = runBlocking {
-        val store = MemoryStore()
+        val store = newStore()
         val zone = ZoneId.of("Europe/Berlin")
         val day = LocalDate.of(2026, 11, 1)
         val steps = Sample(Kind.STEPS, "s1", "p", Instant.parse("2026-11-01T08:00:00Z"), Instant.parse("2026-11-01T08:10:00Z"), 300.0)
@@ -290,7 +307,7 @@ class UploaderTest {
 
     @Test
     fun readingsAreQueuedWithTheirOwnCursor() = runBlocking {
-        val store = MemoryStore()
+        val store = newStore()
         val t = Instant.parse("2026-11-01T06:30:00Z")
         val weight = Sample(Kind.WEIGHT, "w1", "org.example.scale", t, t, 72.4)
         SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
@@ -307,7 +324,7 @@ class UploaderTest {
 
     @Test
     fun sleepIsQueuedWithItsOwnCursor() = runBlocking {
-        val store = MemoryStore()
+        val store = newStore()
         val stage = Sample(Kind.SLEEP_STAGE, "n1", HealthConnectSource.PEBBLE_APP, Instant.parse("2026-11-01T01:00:00Z"), Instant.parse("2026-11-01T02:00:00Z"), 5.0)
         SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
             HealthConnectSource.Read(emptyList(), "token-1", emptyMap())
@@ -324,7 +341,7 @@ class UploaderTest {
 
     @Test
     fun aFailingSleepReadHoldsNoOtherKindBack() = runBlocking {
-        val store = MemoryStore()
+        val store = newStore()
         val t = Instant.parse("2026-11-01T06:30:00Z")
         val weight = Sample(Kind.WEIGHT, "w1", "org.example.scale", t, t, 72.4)
         val status = SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->

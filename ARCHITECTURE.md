@@ -91,8 +91,6 @@ Each layer talks only to its neighbour directly below.
 
 - Each of the four Android sources carries its own copy of reading changes, reading
   a range and keeping the cursor (`AUDIT.md`, finding 1).
-- The queue on disk has no test; the tests run against a stand-in that rebuilds its
-  rules (`AUDIT.md`, finding 2).
 - `core/` has two ways to the server, the session and the plain client of
   `kladde-push`, which read and judge errors differently (`AUDIT.md`, finding 3).
 - The account reads its two answers (server version, sign-in options) itself, in
