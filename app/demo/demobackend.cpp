@@ -249,8 +249,6 @@ void DemoBackend::answer(const QByteArray &verb, const QString &path, const QByt
         done(ok(request.value(QLatin1String("revoke")).toBool() ? QJsonObject{{QStringLiteral("revoked"), true}} : tokens()));
     } else if (route == QLatin1String("/api/auth/logout")) {
         done(ok(QJsonObject{{QStringLiteral("loggedOut"), true}}));
-    } else if (route == QLatin1String("/api/tokens/measurements")) {
-        done(ok(QJsonObject{{QStringLiteral("token"), QStringLiteral("demo-sync")}, {QStringLiteral("name"), request.value(QLatin1String("name"))}}));
     } else if (route == QLatin1String("/api/dashboard/summary")) {
         done(ok(dashboard()));
     } else if (route == QLatin1String("/api/measurements/series")) {
