@@ -41,7 +41,7 @@ qt_add_resources(kladde kladde_i18n PREFIX /i18n BASE ${CMAKE_CURRENT_BINARY_DIR
 if(KLADDE_DEMO)
     # The world is copied from shrippen.github.io/demo (sync-demo.py), never edited here.
     target_compile_definitions(kladde PRIVATE KLADDE_DEMO)
-    target_sources(kladde PRIVATE demo/demobackend.h demo/demobackend.cpp)
+    target_sources(kladde PRIVATE demo/demobackend.h demo/demobackend.cpp demo/demostart.h demo/demostart.cpp)
     qt_add_resources(kladde demo_world PREFIX /demo BASE ${PROJECT_SOURCE_DIR}/demo
                      FILES ${PROJECT_SOURCE_DIR}/demo/world.json)
 endif()
