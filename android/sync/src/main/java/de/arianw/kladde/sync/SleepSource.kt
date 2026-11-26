@@ -5,8 +5,6 @@ import androidx.health.connect.client.changes.UpsertionChange
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.request.ChangesTokenRequest
-import androidx.health.connect.client.request.ReadRecordsRequest
-import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -28,6 +26,8 @@ class SleepSource(
     private val ranking: Ranking = Ranking(DEFAULT_ORDER),
 ) {
 
+    private val reader = HealthReader(client)
+
     class Read(val samples: List<Sample>, val cursor: String)
 
     /** [since]: when the last read was, null for none. */
@@ -38,23 +38,13 @@ class SleepSource(
             return read(newToken(), backfill, null, zone, now)
         }
 
-        var token: String = cursor
+        val changes = reader.changesSince(cursor) ?: return read(newToken(), backfill, null, zone, now)
         val days = mutableSetOf<LocalDate>()
-        while (true) {
-            val response = client.getChanges(token)
-            if (response.changesTokenExpired) {
-                return read(newToken(), backfill, null, zone, now)
-            }
-            for (change in response.changes) {
-                val s = (change as? UpsertionChange)?.record as? SleepSessionRecord ?: continue
-                days += DayWindow.range(Mapper.dayOf(s.startTime, zone), Mapper.dayOf(s.endTime, zone))
-            }
-            token = response.nextChangesToken
-            if (!response.hasMore) {
-                break
-            }
+        for (change in changes.list) {
+            val s = (change as? UpsertionChange)?.record as? SleepSessionRecord ?: continue
+            days += DayWindow.range(Mapper.dayOf(s.startTime, zone), Mapper.dayOf(s.endTime, zone))
         }
-        return read(token, days, since, zone, now)
+        return read(changes.next, days, since, zone, now)
     }
 
     // The token first: what changes while we read comes again next time (first write wins).
@@ -65,7 +55,7 @@ class SleepSource(
         val held = Mapper.dayOf((since ?: now).minus(SETTLE), zone)
         // A day early: a night begins the evening before.
         val (start, _) = DayWindow.bounds((days + held).min().minusDays(1), zone)
-        val records = readAll(start, now).associateBy { it.metadata.id }
+        val records = reader.all(SleepSessionRecord::class, start, now).associateBy { it.metadata.id }
         val sessions = records.values.map {
             Session(it.metadata.id, it.metadata.dataOrigin.packageName, NO_TYPE, it.title, it.startTime, it.endTime)
         }
@@ -77,23 +67,9 @@ class SleepSource(
 
     /** The apps that wrote sleep from [start] on: the ones the user may put in order. */
     suspend fun apps(start: Instant, now: Instant): Set<String> =
-        readAll(start, now).map { it.metadata.dataOrigin.packageName }.toSet()
-
-    private suspend fun readAll(start: Instant, end: Instant): List<SleepSessionRecord> {
-        val out = mutableListOf<SleepSessionRecord>()
-        var page: String? = null
-        do {
-            val response = client.readRecords(
-                ReadRecordsRequest(SleepSessionRecord::class, TimeRangeFilter.between(start, end), pageSize = PAGE_SIZE, pageToken = page)
-            )
-            out += response.records
-            page = response.pageToken
-        } while (page != null)
-        return out
-    }
+        reader.all(SleepSessionRecord::class, start, now).map { it.metadata.dataOrigin.packageName }.toSet()
 
     companion object {
-        private const val PAGE_SIZE = 5000
         private const val NO_TYPE = 0 // sleep has no sport
 
         const val SLEEP_AS_ANDROID_APP = "com.urbandroid.sleep"

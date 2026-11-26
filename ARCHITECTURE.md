@@ -78,6 +78,7 @@ Each layer talks only to its neighbour directly below.
 |---|---|
 | A new kind of health data from Health Connect | A source in `android/sync/`, its record translation in `RecordSamples.kt`, its permission in `app/android/AndroidManifest.xml` and `KladdeSync.READ_PERMISSIONS`, `Sample.kt`, `Mapper.kt`, with tests; the C++ side stays frozen |
 | A change to how a value is mapped (unit, day, id) | `Mapper.kt`, with a test; the C++ side stays frozen |
+| Something about how every source asks Health Connect (changes, a range, the cursor) | `HealthReader.kt` (`HealthReader`, `Cursor`), a test; a cursor's format is stored on phones and stays |
 | Something about queueing or uploading on the phone | `android/sync/` (`QueueStore`, `Uploader`, `SyncRunner`), a test |
 | A new call to HealthLog for the app | The object of `app/` that sends it through `core/session`; the shape of its answer or body in `core/api`; a test with the fake server |
 | Something new on a page | An object in `app/` that offers it, the page in `app/qml/`; a number it needs is computed in `core/` |
@@ -89,8 +90,6 @@ Each layer talks only to its neighbour directly below.
 
 ## Known deviations
 
-- Each of the four Android sources carries its own copy of reading changes, reading
-  a range and keeping the cursor (`AUDIT.md`, finding 1).
 - The account reads its two answers (server version, sign-in options) itself, in
   `app/account.cpp`, not in `core/api` (not in `AUDIT.md`).
 - The sync bridge carries a demo switch of its own (not in `AUDIT.md`).

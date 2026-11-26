@@ -15,8 +15,6 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ChangesTokenRequest
-import androidx.health.connect.client.request.ReadRecordsRequest
-import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.reflect.KClass
@@ -38,31 +36,22 @@ class ReadingSource(
 
     class Read(val samples: List<Sample>, val cursor: String)
 
-    private val signature = types.map { it.simpleName }.sortedBy { it }.joinToString(",")
+    private val reader = HealthReader(client)
+    private val cursors = Cursor(types)
 
     suspend fun read(cursor: String?, zone: ZoneId, backfillDays: Long, now: Instant): Read {
-        val token = cursor?.removePrefix("$signature$SEPARATOR")?.takeIf { it != cursor }
+        val token = cursors.tokenOf(cursor)
         if (token == null) {
             return backfill(zone, backfillDays, now)
         }
 
-        var next: String = token
+        val changes = reader.changesSince(token) ?: return backfill(zone, backfillDays, now)
         val samples = mutableListOf<Sample>()
-        while (true) {
-            val response = client.getChanges(next)
-            if (response.changesTokenExpired) {
-                return backfill(zone, backfillDays, now)
-            }
-            for (change in response.changes) {
-                val record = (change as? UpsertionChange)?.record ?: continue
-                samples += RecordSamples.samplesOf(record)
-            }
-            next = response.nextChangesToken
-            if (!response.hasMore) {
-                break
-            }
+        for (change in changes.list) {
+            val record = (change as? UpsertionChange)?.record ?: continue
+            samples += RecordSamples.samplesOf(record)
         }
-        return Read(samples, cursorOf(next))
+        return Read(samples, cursors.of(changes.next))
     }
 
     private suspend fun backfill(zone: ZoneId, backfillDays: Long, now: Instant): Read {
@@ -73,24 +62,12 @@ class ReadingSource(
 
         val samples = mutableListOf<Sample>()
         for (type in types) {
-            var page: String? = null
-            do {
-                val response = client.readRecords(
-                    ReadRecordsRequest(type, TimeRangeFilter.between(start, now), pageSize = PAGE_SIZE, pageToken = page)
-                )
-                samples += response.records.flatMap(RecordSamples::samplesOf)
-                page = response.pageToken
-            } while (page != null)
+            samples += reader.all(type, start, now).flatMap(RecordSamples::samplesOf)
         }
-        return Read(samples, cursorOf(token))
+        return Read(samples, cursors.of(token))
     }
 
-    private fun cursorOf(token: String) = "$signature$SEPARATOR$token"
-
     companion object {
-        private const val PAGE_SIZE = 5000
-        private const val SEPARATOR = "|"
-
         val TYPES: Set<KClass<out Record>> = setOf(
             RestingHeartRateRecord::class,
             WeightRecord::class,

@@ -15,7 +15,6 @@ import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ChangesTokenRequest
-import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Duration
 import java.time.Instant
@@ -50,15 +49,17 @@ class DayTotalSource(
         val recordDays: Map<String, Set<LocalDate>>,
     )
 
+    private val reader = HealthReader(client)
+
     // The types and the mapping it was made for: 0.2.0 dated day totals a day late, so its
     // cursor (no MAPPING) reads again and the server moves them to their day (migrate).
-    private val signature = types.map { it.simpleName }.sortedBy { it }.joinToString(",") + MAPPING
+    private val cursors = Cursor(types, MAPPING)
 
     suspend fun read(cursor: String?, zone: ZoneId, backfillDays: Long, daysOf: (String) -> Set<LocalDate>, now: Instant): Read {
         if (types.isEmpty()) {
             return Read(emptyList(), null, emptyMap())
         }
-        val token = cursor?.removePrefix("$signature$SEPARATOR")?.takeIf { it != cursor }
+        val token = cursors.tokenOf(cursor)
         if (token == null && cursor != null && MAPPING !in cursor) {
             return migrate(zone, backfillDays, now)
         }
@@ -66,34 +67,24 @@ class DayTotalSource(
             return backfill(zone, backfillDays, now)
         }
 
-        var next: String = token
+        // Expired: read the window again.
+        val changes = reader.changesSince(token) ?: return backfill(zone, backfillDays, now)
         val days = mutableSetOf<LocalDate>()
         val recordDays = mutableMapOf<String, Set<LocalDate>>()
         val today = Mapper.dayOf(now, zone)
 
-        while (true) {
-            val response = client.getChanges(next)
-            if (response.changesTokenExpired) {
-                // Older than Health Connect keeps changes (30 days): read the window again.
-                return backfill(zone, backfillDays, now)
+        for (change in changes.list) {
+            if (change is DeletionChange) {
+                days += daysOf(change.recordId).ifEmpty { setOf(today, today.minusDays(1)) }
+                continue
             }
-            for (change in response.changes) {
-                if (change is DeletionChange) {
-                    days += daysOf(change.recordId).ifEmpty { setOf(today, today.minusDays(1)) }
-                    continue
-                }
-                val record = (change as? UpsertionChange)?.record ?: continue
-                // Its days now and before: a record rewritten to another time leaves its old day.
-                val current = daysOf(record, zone)
-                days += current + daysOf(record.metadata.id)
-                recordDays[record.metadata.id] = current
-            }
-            next = response.nextChangesToken
-            if (!response.hasMore) {
-                break
-            }
+            val record = (change as? UpsertionChange)?.record ?: continue
+            // Its days now and before: a record rewritten to another time leaves its old day.
+            val current = daysOf(record, zone)
+            days += current + daysOf(record.metadata.id)
+            recordDays[record.metadata.id] = current
         }
-        return Read(aggregate(days, zone, now), cursorOf(next), recordDays)
+        return Read(aggregate(days, zone, now), cursors.of(changes.next), recordDays)
     }
 
     /**
@@ -136,11 +127,11 @@ class DayTotalSource(
         // Each record's days, so its deletion later re-aggregates them.
         val recordDays = mutableMapOf<String, Set<LocalDate>>()
         for (type in types) {
-            for (r in readAll(type, start, now)) {
+            for (r in reader.all(type, start, now)) {
                 recordDays[r.metadata.id] = daysOf(r, zone)
             }
         }
-        return Read(aggregate(DayWindow.range(first, today), zone, now), cursorOf(token), recordDays)
+        return Read(aggregate(DayWindow.range(first, today), zone, now), cursors.of(token), recordDays)
     }
 
     /**
@@ -187,21 +178,6 @@ class DayTotalSource(
             t.value(result)?.let { Sample(t.kind, "day:$day", AGGREGATE, start, until, it) }
         }
 
-    private suspend fun <T : Record> readAll(type: KClass<T>, start: Instant, end: Instant): List<T> {
-        val out = mutableListOf<T>()
-        var page: String? = null
-        do {
-            val response = client.readRecords(
-                ReadRecordsRequest(type, TimeRangeFilter.between(start, end), pageSize = PAGE_SIZE, pageToken = page)
-            )
-            out += response.records
-            page = response.pageToken
-        } while (page != null)
-        return out
-    }
-
-    private fun cursorOf(token: String) = "$signature$SEPARATOR$token"
-
     /** A day total: what Health Connect sums, and how its result reads as the sample's unit. */
     private class Total(val type: KClass<out Record>, val kind: Kind, val metric: AggregateMetric<*>, val value: (AggregationResult) -> Double?)
 
@@ -223,9 +199,6 @@ class DayTotalSource(
             else -> emptySet()
         }
 
-        private const val PAGE_SIZE = 5000
-
-        private const val SEPARATOR = "|"
         private const val MAPPING = ";day-at-start"
         // A day before the earliest 0.1/0.2 can have read: 0.1.0 (1 November 2026) minus the
         // largest window the setting allows (365 days, MoreView).
