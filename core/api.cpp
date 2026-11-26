@@ -2,6 +2,9 @@
 
 #include <QJsonArray>
 
+#include <algorithm>
+#include <cmath>
+
 namespace kladde {
 
 namespace {
@@ -109,6 +112,92 @@ QString formatValue(const QString &kind, double value, std::optional<double> sec
     if (text.endsWith(zero))
         text.chop(zero.size());
     return text;
+}
+
+namespace {
+
+// Totals start at zero; levels (weight, pulse, blood pressure) show their own band.
+bool isTotal(const QString &kind)
+{
+    return kind == QLatin1String("steps") || kind == QLatin1String("sleep");
+}
+
+// Lowest mark of the history scale: 90 % of the lowest value, diastolic ones included.
+double scaleMin(const QString &kind, const QList<SeriesPoint> &points)
+{
+    if (isTotal(kind) || points.isEmpty()) {
+        return 0;
+    }
+
+    double low = points.first().value;
+    for (const SeriesPoint &p : points) {
+        low = std::min({low, p.value, p.secondary.value_or(p.value)});
+    }
+    return std::floor(low * 0.9);
+}
+
+} // namespace
+
+int goodDirection(const QString &kind, int trend, const QString &sentiment)
+{
+    if (sentiment == QLatin1String("positive") && trend != 0) {
+        return trend;
+    }
+    if (sentiment == QLatin1String("negative") && trend != 0) {
+        return -trend;
+    }
+
+    if (kind == QLatin1String("steps") || kind == QLatin1String("sleep") || kind == QLatin1String("mood")) {
+        return 1;
+    }
+    if (kind == QLatin1String("pulse") || kind == QLatin1String("restingHeartRate")
+        || kind == QLatin1String("bloodPressure")) {
+        return -1;
+    }
+    return 0;
+}
+
+SeriesSummary summarize(const QString &kind, const Series &series)
+{
+    const bool pairs = kind == QLatin1String("bloodPressure");
+    SeriesSummary out;
+    for (const SeriesPoint &p : series.points) {
+        if (!pairs || p.secondary) {
+            out.points << p;
+        }
+    }
+
+    const SeriesPoint *lowest = nullptr;
+    const SeriesPoint *highest = nullptr;
+    double sumFirst = 0;
+    double sumSecond = 0;
+    for (const SeriesPoint &p : out.points) {
+        sumFirst += p.value;
+        sumSecond += p.secondary.value_or(0);
+        if (!lowest || p.value < lowest->value) {
+            lowest = &p;
+        }
+        if (!highest || p.value > highest->value) {
+            highest = &p;
+        }
+    }
+
+    out.scaleMin = scaleMin(kind, out.points);
+
+    out.count = pairs ? int(out.points.size()) : series.count;
+    if (pairs && lowest) {
+        const int n = int(out.points.size());
+        out.mean = formatValue(kind, sumFirst / n, sumSecond / n);
+        out.low = formatValue(kind, lowest->value, lowest->secondary);
+        out.high = formatValue(kind, highest->value, highest->secondary);
+        return out;
+    }
+    if (series.count) {
+        out.mean = formatValue(kind, series.mean);
+        out.low = formatValue(kind, series.min);
+        out.high = formatValue(kind, series.max);
+    }
+    return out;
 }
 
 QStringList seriesKinds()

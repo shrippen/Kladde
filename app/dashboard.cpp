@@ -45,9 +45,7 @@ void Dashboard::reload()
             for (double v : m.sparkline)
                 spark << v;
             const int trend = m.trend == QLatin1String("up") ? 1 : m.trend == QLatin1String("down") ? -1 : 0;
-            // The server says whether the move is good; turn that into Kante's "which way is good".
-            const int good = m.sentiment == QLatin1String("positive") ? trend
-                           : m.sentiment == QLatin1String("negative") ? -trend : 0;
+            const int good = kladde::goodDirection(m.kind, trend, m.sentiment);
             m_metrics << QVariantMap{
                 {QStringLiteral("kind"), m.kind},
                 {QStringLiteral("value"), kladde::formatValue(m.kind, *m.latest, m.secondary)},

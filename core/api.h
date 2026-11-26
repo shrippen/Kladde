@@ -62,6 +62,27 @@ Series parseSeries(const QJsonObject &data);
 QString formatValue(const QString &kind, double value, std::optional<double> secondary = {},
                     const QLocale &locale = QLocale());
 
+// Which way is good for a metric: 1 up, -1 down, 0 neither. The server's verdict on the
+// move (`trend` 1 up, -1 down; `sentiment` positive, negative) wins; without one the
+// kind decides (steps: more is good, pulse: less is good).
+int goodDirection(const QString &kind, int trend, const QString &sentiment);
+
+// What the history shows of a series: the points drawn, their count, mean, lowest and
+// highest value as text, and the lowest mark of the scale. Blood pressure is a pair: a
+// point without its diastolic value is left out, and mean, lowest and highest are
+// pairs ("128/82"); lowest and highest are the readings with the lowest and highest
+// systolic value.
+struct SeriesSummary {
+    QList<SeriesPoint> points;
+    int count = 0;
+    QString mean;
+    QString low;
+    QString high;
+    double scaleMin = 0; // totals start at zero, levels at 90 % of their lowest value
+};
+
+SeriesSummary summarize(const QString &kind, const Series &series);
+
 // The kinds the history shows: what the Pebble brings first, then what is typed in.
 QStringList seriesKinds();
 

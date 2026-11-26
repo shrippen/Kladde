@@ -120,7 +120,7 @@ QQC2.ScrollView {
                 label: view.withUnit(history.kind === "bloodPressure" ? qsTr("Change, systolic") : qsTr("Change"))
                 value: history.change.length > 0 ? history.change : "–"
                 trend: history.changeTrend
-                good: history.changeGood !== 0 ? history.changeGood : Metrics.goodDirection(history.kind)
+                good: history.changeGood
             }
             KanteKpi {
                 Layout.fillWidth: true

@@ -95,10 +95,6 @@ Each layer talks only to its neighbour directly below.
   rules (`AUDIT.md`, finding 2).
 - `core/` has two ways to the server, the session and the plain client of
   `kladde-push`, which read and judge errors differently (`AUDIT.md`, finding 3).
-- Home and history compute figures in `app/`, partly twice and without tests
-  (`AUDIT.md`, finding 5).
-- `app/qml/Metrics.js` decides which direction of a value is good when the server
-  does not say (not in `AUDIT.md`).
 - The account reads its two answers (server version, sign-in options) itself, in
   `app/account.cpp`, not in `core/api` (not in `AUDIT.md`).
 - Two lists of kinds are kept equal by hand between `app/` and `core/`

@@ -87,8 +87,7 @@ QQC2.ScrollView {
                                    : Metrics.title(card.modelData.kind)
                             value: card.modelData.value
                             trend: card.modelData.trend
-                            good: card.modelData.good !== 0 ? card.modelData.good
-                                                            : Metrics.goodDirection(card.modelData.kind)
+                            good: card.modelData.good
                         }
                         KanteSparkline {
                             Layout.fillWidth: true
