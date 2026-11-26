@@ -102,6 +102,72 @@ private Q_SLOTS:
         QCOMPARE(formatValue(QStringLiteral("pulse"), 64, {}, QLocale(QLocale::English)), QStringLiteral("64"));
     }
 
+    void goodFollowsServerVerdict()
+    {
+        const QString steps = QStringLiteral("steps");
+        QCOMPARE(goodDirection(steps, 1, QStringLiteral("positive")), 1);
+        QCOMPARE(goodDirection(steps, -1, QStringLiteral("positive")), -1);
+        QCOMPARE(goodDirection(QStringLiteral("weight"), -1, QStringLiteral("positive")), -1);
+        QCOMPARE(goodDirection(QStringLiteral("weight"), 1, QStringLiteral("negative")), -1);
+        QCOMPARE(goodDirection(QStringLiteral("weight"), -1, QStringLiteral("negative")), 1);
+        // The server beats the kind: pulse rising is called good here.
+        QCOMPARE(goodDirection(QStringLiteral("pulse"), 1, QStringLiteral("positive")), 1);
+    }
+
+    void goodFallsBackToKind()
+    {
+        for (const char *kind : {"steps", "sleep", "mood"}) {
+            QCOMPARE(goodDirection(QString::fromLatin1(kind), 0, {}), 1);
+            QCOMPARE(goodDirection(QString::fromLatin1(kind), -1, QStringLiteral("neutral")), 1);
+        }
+        for (const char *kind : {"pulse", "restingHeartRate", "bloodPressure"}) {
+            QCOMPARE(goodDirection(QString::fromLatin1(kind), 1, {}), -1);
+            QCOMPARE(goodDirection(QString::fromLatin1(kind), 0, QStringLiteral("positive")), -1);
+        }
+        QCOMPARE(goodDirection(QStringLiteral("weight"), 1, {}), 0);
+        QCOMPARE(goodDirection(QStringLiteral("bodyFat"), 0, QStringLiteral("positive")), 0);
+    }
+
+    void bloodPressureSummary()
+    {
+        const Series s = parseSeries(json(R"({"kind": "bloodPressure", "unit": "mmHg",
+            "points": [
+              {"at": "2026-10-28T08:00:00.000Z", "value": 140, "secondary": 90},
+              {"at": "2026-10-29T08:00:00.000Z", "value": 120, "secondary": 70},
+              {"at": "2026-10-30T08:00:00.000Z", "value": 150, "secondary": null},
+              {"at": "2026-10-31T08:00:00.000Z", "value": 130, "secondary": 80}],
+            "stats": {"mean": 135, "min": 120, "max": 150, "count": 4}})"));
+        const SeriesSummary sum = summarize(QStringLiteral("bloodPressure"), s);
+        QCOMPARE(sum.points.size(), 3);
+        QCOMPARE(sum.count, 3);
+        QCOMPARE(sum.mean, QStringLiteral("130/80"));
+        QCOMPARE(sum.low, QStringLiteral("120/70"));
+        QCOMPARE(sum.high, QStringLiteral("140/90"));
+        QCOMPARE(sum.scaleMin, 63.0); // floor(70 * 0.9)
+    }
+
+    void singleValueSummary()
+    {
+        const Series s = parseSeries(json(R"({"kind": "weight", "unit": "kg",
+            "points": [
+              {"at": "2026-10-30T08:00:00.000Z", "value": 72.0},
+              {"at": "2026-10-31T08:00:00.000Z", "value": 73.5}],
+            "stats": {"mean": 72.75, "min": 72, "max": 73.5, "count": 2}})"));
+        const SeriesSummary sum = summarize(QStringLiteral("weight"), s);
+        QCOMPARE(sum.points.size(), 2);
+        QCOMPARE(sum.count, 2);
+        QCOMPARE(sum.mean, formatValue(QStringLiteral("weight"), 72.75));
+        QCOMPARE(sum.low, QStringLiteral("72"));
+        QCOMPARE(sum.high, formatValue(QStringLiteral("weight"), 73.5));
+        QCOMPARE(sum.scaleMin, 64.0); // floor(72 * 0.9)
+
+        // Totals start at zero; no readings leave the texts empty.
+        QCOMPARE(summarize(QStringLiteral("steps"), s).scaleMin, 0.0);
+        const SeriesSummary none = summarize(QStringLiteral("weight"), Series());
+        QVERIFY(none.mean.isEmpty() && none.low.isEmpty() && none.high.isEmpty());
+        QCOMPARE(none.scaleMin, 0.0);
+    }
+
     void moodScale()
     {
         const QDateTime at(QDate(2026, 11, 1), QTime(20, 0), QTimeZone::UTC);
