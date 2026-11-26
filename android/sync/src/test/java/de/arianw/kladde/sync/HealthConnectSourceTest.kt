@@ -74,13 +74,13 @@ class HealthConnectSourceTest {
 
     @Test
     fun aCursorForOtherTypesReadsTheWindowAgain() = runBlocking {
-        // 0.1.0's cursor has no types: the first run of 0.2 reads the window anew, and a day
-        // before it, as 0.1.0 dated day totals a day late too (a020CursorReadsTheWindowAgain).
+        // 0.1.0's cursor has no types: the first run of 0.2 reads the window anew (and, as
+        // 0.1.0 dated day totals a day late too, the older totals: a020CursorReadsTheWindowAgain).
         val fake = FakeHealthConnect()
         val read = HealthConnectSource(fake.client).read("token-0.1", zone, 2, { emptySet() }, now)
         assertTrue("getChangesToken" in fake.calls)
         assertTrue("getChanges" !in fake.calls)
-        assertEquals(3, fake.aggregated.size)
+        assertEquals(2, fake.aggregated.size)
         assertTrue(read.cursor!!.endsWith("|token-new"))
 
         // Its own cursor: only the changes.
@@ -92,16 +92,21 @@ class HealthConnectSourceTest {
 
     @Test
     fun a020CursorReadsTheWindowAgain() = runBlocking {
-        // 0.2.0 dated day totals a day late: its cursor (same types) must send the window again.
+        // 0.2.0 dated day totals a day late: its cursor (same types) reads its window again,
+        // and the totals of every day 0.1/0.2 can have sent before it (365 days, the most the
+        // setting allows, before 1 November 2026) and one more, so the chain of moved totals
+        // ends on a day without an old one and HealthLog retires none.
         val types = (HealthConnectSource.TYPES + HealthConnectSource.OPTIONAL_TYPES)
             .map { it.simpleName }.sortedBy { it }.joinToString(",")
-        // Back to a day before 0.1.0's first window (1 November, 2 days: 31 October), so the
-        // move ends on a day without an old total and HealthLog retires none (30.10.–26.11.).
         val fake = FakeHealthConnect()
+        fake.longs = mapOf(StepsRecord.COUNT_TOTAL.metricKey to 100L)
         val later = Instant.parse("2026-11-26T12:00:00Z")
-        HealthConnectSource(fake.client).read("$types|token-0.2", zone, 2, { emptySet() }, later)
+        val read = HealthConnectSource(fake.client).read("$types|token-0.2", zone, 2, { emptySet() }, later)
         assertTrue("getChanges" !in fake.calls)
-        assertEquals(28, fake.aggregated.size)
+        assertEquals(2, fake.aggregated.size)
+
+        val stepDays = read.samples.filter { it.kind == Kind.STEPS }.map { Mapper.dayOfSample(it, zone) }.toSet()
+        assertEquals(DayWindow.range(LocalDate.of(2025, 11, 1), LocalDate.of(2026, 11, 26)), stepDays)
     }
 
     @Test

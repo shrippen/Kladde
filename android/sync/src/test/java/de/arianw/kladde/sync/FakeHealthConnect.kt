@@ -3,16 +3,19 @@ package de.arianw.kladde.sync
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.aggregate.AggregationResult
 import androidx.health.connect.client.aggregate.AggregationResultGroupedByDuration
+import androidx.health.connect.client.aggregate.AggregationResultGroupedByPeriod
 import androidx.health.connect.client.changes.Change
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.response.ReadRecordsResponse
 import androidx.health.connect.client.request.AggregateGroupByDurationRequest
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.response.ChangesResponse
 import java.lang.reflect.Proxy
 import java.time.Instant
+import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 /**
@@ -36,6 +39,9 @@ class FakeHealthConnect {
     val calls = mutableListOf<String>()
     val aggregated = mutableListOf<Pair<Instant, Instant>>()
 
+    /** The local ranges asked by day (aggregateGroupByPeriod); each day answers longs/doubles. */
+    val periods = mutableListOf<Pair<LocalDateTime, LocalDateTime>>()
+
     val client: HealthConnectClient = Proxy.newProxyInstance(
         HealthConnectClient::class.java.classLoader, arrayOf(HealthConnectClient::class.java),
     ) { _, method, args ->
@@ -58,6 +64,15 @@ class FakeHealthConnect {
                     ), emptyMap(), emptySet())
                     AggregationResultGroupedByDuration(result, start, start.plusSeconds(600), ZoneOffset.UTC)
                 }
+            }
+            "aggregateGroupByPeriod" -> {
+                val filter = (args[0] as AggregateGroupByPeriodRequest).let { it.javaClass.getDeclaredMethod("getTimeRangeFilter\$connect_client_release").invoke(it) }
+                val from = filter.javaClass.getDeclaredMethod("getLocalStartTime").invoke(filter) as LocalDateTime
+                val to = filter.javaClass.getDeclaredMethod("getLocalEndTime").invoke(filter) as LocalDateTime
+                periods += from to to
+                generateSequence(from) { it.plusDays(1) }.takeWhile { it.isBefore(to) }.map {
+                    AggregationResultGroupedByPeriod(AggregationResult(longs, doubles, emptySet()), it, it.plusDays(1))
+                }.toList()
             }
             "readRecords" -> {
                 val type = (args[0] as ReadRecordsRequest<*>).recordType

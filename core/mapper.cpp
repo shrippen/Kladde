@@ -158,8 +158,7 @@ MapResult mapToBatchEntries(const Samples &samples, const QTimeZone &accountZone
     auto addDays = [&](const QMap<QDate, double> &days, const QString &identifier,
                        const QString &unit) {
         for (auto it = days.cbegin(); it != days.cend(); ++it) {
-            // Start and end at the day's midnight, as the iOS app sends it: HealthLog
-            // files a value under its endDate, so the next midnight would be a day late.
+            // Ends at its own midnight (iOS app too): HealthLog dates a value by endDate.
             const QDateTime start = it.key().startOfDay(accountZone);
             result.entries << entry(identifier, it.value(), unit, start, start,
                                     QStringLiteral("stats:%1:%2")

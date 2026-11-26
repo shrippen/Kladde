@@ -24,6 +24,7 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.AggregateGroupByDurationRequest
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -31,8 +32,8 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.Period
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import kotlin.reflect.KClass
 
 /**
@@ -71,7 +72,7 @@ class HealthConnectSource(
         }
         val token = cursor?.removePrefix("$signature$SEPARATOR")?.takeIf { it != cursor }
         if (token == null && cursor != null && MAPPING !in cursor) {
-            return backfill(zone, migrationDays(zone, backfillDays, now), now)
+            return migrate(zone, backfillDays, now)
         }
         if (token == null) {
             return backfill(zone, backfillDays, now)
@@ -108,13 +109,35 @@ class HealthConnectSource(
     }
 
     /**
-     * Back to a day before the earliest total 0.1/0.2 can have sent (0.1.0's first window).
-     * A moved total takes the time of the old total of the day before, and HealthLog
-     * retires that row; the chain must end on a day without one, or a day is lost.
+     * 0.1/0.2 dated day totals a day late. The window as always, and the totals of every day
+     * before it they can have sent: a resend moves a total onto the time the old total of the
+     * day before holds, and HealthLog retires that row, so the chain must end on a day without
+     * one. Heart rate was dated right and stays out; one call per [MIGRATION_CHUNK] days.
      */
-    private fun migrationDays(zone: ZoneId, backfillDays: Long, now: Instant): Long {
-        val first = FIRST_RELEASE.minusDays(backfillDays)
-        return maxOf(backfillDays, ChronoUnit.DAYS.between(first, Mapper.dayOf(now, zone)) + 1)
+    private suspend fun migrate(zone: ZoneId, backfillDays: Long, now: Instant): Read {
+        val window = backfill(zone, backfillDays, now)
+        val windowFirst = Mapper.dayOf(now, zone).minusDays(backfillDays - 1)
+        val totals = TOTALS.filter { it.type in types }
+        val samples = mutableListOf<Sample>()
+
+        var from = MIGRATION_FIRST
+        while (totals.isNotEmpty() && from.isBefore(windowFirst)) {
+            val until = minOf(from.plusDays(MIGRATION_CHUNK), windowFirst)
+            val days = client.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(
+                totals.map { it.metric }.toSet(),
+                TimeRangeFilter.between(from.atStartOfDay(), until.atStartOfDay()),
+                Period.ofDays(1),
+            ))
+            for (d in days) {
+                val (start, end) = DayWindow.bounds(d.startTime.toLocalDate(), zone)
+                for (t in totals) {
+                    val value = t.value(d.result) ?: continue
+                    samples += Sample(t.kind, "day:${d.startTime.toLocalDate()}", AGGREGATE, start, end, value)
+                }
+            }
+            from = until
+        }
+        return Read(samples + window.samples, window.cursor, window.recordDays)
     }
 
     private suspend fun backfill(zone: ZoneId, backfillDays: Long, now: Instant): Read {
@@ -219,7 +242,10 @@ class HealthConnectSource(
 
         private const val SEPARATOR = "|"
         private const val MAPPING = ";day-at-start"
-        private val FIRST_RELEASE: LocalDate = LocalDate.of(2026, 11, 1) // 0.1.0
+        // A day before the earliest 0.1/0.2 can have read: 0.1.0 (1 November 2026) minus the
+        // largest window the setting allows (365 days, MoreView).
+        private val MIGRATION_FIRST: LocalDate = LocalDate.of(2026, 11, 1).minusDays(365)
+        private const val MIGRATION_CHUNK = 31L
         private const val AGGREGATE = "health-connect" // the app of a sample Health Connect summed
         private val BUCKET: Duration = Duration.ofMinutes(10)
 
