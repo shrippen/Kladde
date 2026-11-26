@@ -20,6 +20,7 @@ import argparse
 import collections
 import enum
 import fnmatch
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -54,6 +55,15 @@ READ_AS = {".qml": ".js"}
 # dedent: the sixth function with one `if` reads as nesting 6, and the count runs on into
 # the next file. Both are therefore read without the nesting measure.
 NO_NESTING = {".lua", ".gd"}
+
+# Kotlin: lizard reads on to the next `{` or `}` for a function without a block body.
+# kotlin_view() rewrites those two kinds before lizard sees the code.
+KOTLIN_SUFFIXES = {".kt", ".kts"}
+
+# Kotlin tokens that continue an expression on the next line, and the ones that end a
+# line unfinished. Example: "x\n    .map { it }" goes on; "a +\n b" goes on.
+KOTLIN_NEXT = ("catch", "finally", "else", ".", "?", "&&", "||")
+KOTLIN_OPEN_END = "=+-*/%&|,.:"
 
 # A script without an ending is read as the language its first line names.
 # Example: "#!/usr/bin/env python3" -> ".py".
@@ -120,6 +130,256 @@ def script_suffix(code):
     return ""
 
 
+def string_end(code, i):
+    """Returns the index after the string that opens at code[i], templates included.
+
+    Example: `"a ${if (x) "}" else "b"}"` is one string.
+    """
+    quote = '"""' if code.startswith('"""', i) else code[i]
+    j = i + len(quote)
+
+    while j < len(code) and not code.startswith(quote, j):
+        if code[j] == "\n" and len(quote) == 1:
+            return j
+
+        if code.startswith("${", j) and quote != "'":
+            j = template_end(code, j + 2)
+            continue
+
+        # Raw strings ("""...""") know no escapes.
+        j += 2 if code[j] == "\\" and len(quote) == 1 else 1
+
+    return min(j + len(quote), len(code))
+
+
+def template_end(code, i):
+    """Returns the index after the `${ ... }` whose content starts at code[i]."""
+    depth = 1
+
+    while i < len(code) and depth:
+        if code[i] in "\"'":
+            i = string_end(code, i)
+            continue
+
+        depth += code[i] == "{"
+        depth -= code[i] == "}"
+        i += 1
+
+    return i
+
+
+def kotlin_mask(code):
+    """Returns (masked code, spans of strings with a template).
+
+    Masked: comments blanked, strings and chars filled, same length and lines. A string
+    stays a token, so `else "0"` still has a body.
+    """
+    masked = list(code)
+    templated = []
+    i = 0
+
+    while i < len(code):
+        end = None
+
+        if code.startswith("//", i):
+            end = code.find("\n", i)
+        elif code.startswith("/*", i):
+            end = code.find("*/", i) + 2
+        elif code[i] in "\"'":
+            end = string_end(code, i)
+
+        if end is None:
+            i += 1
+            continue
+
+        end = len(code) if end <= i else end
+        fill = " " if code[i] == "/" else "_"
+
+        for j in range(i, end):
+            masked[j] = masked[j] if masked[j] == "\n" else fill
+
+        if code[i] != "/" and "${" in code[i:end]:
+            templated.append((i, end))
+
+        i = end
+
+    return "".join(masked), templated
+
+
+def match_close(text, start):
+    """Returns the index after the bracket group that opens at text[start]."""
+    depth = 0
+
+    for i in range(start, len(text)):
+        depth += text[i] in "([{"
+        depth -= text[i] in ")]}"
+
+        if depth == 0:
+            return i + 1
+
+    return len(text)
+
+
+def kotlin_body(text, pos):
+    """Returns (kind, index) for the function whose parameter list ends before pos.
+
+    kind is "block" (index of its `{`), "expr" (index of its `=`) or "none".
+    """
+    depth = 0
+    i = pos
+
+    while i < len(text):
+        char = text[i]
+
+        if text.startswith("->", i):
+            i += 2
+            continue
+
+        if depth == 0 and char == "{":
+            return "block", i
+
+        if depth == 0 and char == "=":
+            return "expr", i
+
+        depth += char in "(<["
+        depth -= char in ")>]"
+
+        if depth == 0 and char == "\n":
+            after = text[i:].lstrip()
+
+            if not after.startswith(("{", "=")) or after.startswith("=="):
+                return "none", i
+
+        i += 1
+
+    return "none", len(text)
+
+
+def goes_on(text, last, newline):
+    """Tells whether the expression ending at `last` continues after the line break."""
+    after = text[newline:].lstrip()
+
+    postfix = text[last - 2 : last] in ("++", "--")
+
+    return bool(after) and ((text[last - 1] in KOTLIN_OPEN_END and not postfix) or after.startswith(KOTLIN_NEXT))
+
+
+def expr_end(text, start, stops=()):
+    """Returns the index after the expression that starts at text[start].
+
+    A word in `stops` at the top level ends it too. Example: "else" in `if (a) b else c`.
+    """
+    depth = 0
+    last = start
+
+    for i in range(start, len(text)):
+        char = text[i]
+
+        if depth == 0 and i > start and any(re.match(rf"\b{w}\b", text[i:]) for w in stops):
+            return last
+
+        depth += char in "([{"
+        depth -= char in ")]}"
+
+        if depth < 0 or (depth == 0 and char == ";"):
+            return last
+
+        if not char.isspace():
+            last = i + 1
+
+        if depth or char != "\n":
+            continue
+
+        if not goes_on(text, last, i):
+            return last
+
+    return last
+
+
+def kotlin_ends(text):
+    """Returns the index after each braceless `if`, `else`, `for` and `while` body."""
+    ends = []
+
+    for found in re.finditer(r"\b(if|for|while)\s*\(|\belse\b(?!\s*(\{|if\b))", text):
+        at = found.end()
+
+        if found.group(1):
+            at = match_close(text, at - 1)
+
+        # `} while (x)` closes a do-while: no body follows.
+        if found.group(1) == "while" and re.search(r"\}[ \t]*$", text[: found.start()]):
+            ends.append(at)
+            continue
+
+        body = at + len(text[at:]) - len(text[at:].lstrip())
+
+        if not text.startswith("{", body):
+            ends.append(expr_end(text, body, stops=("else",)))
+
+    return ends
+
+
+def kotlin_arrows(text):
+    """Returns the index of each `->` that is not a branch of a `when`."""
+    branch_braces = set()
+
+    for found in re.finditer(r"\bwhen\b\s*", text):
+        at = found.end()
+        at = match_close(text, at) if text.startswith("(", at) else at
+        at += len(text[at:]) - len(text[at:].lstrip())
+
+        if text.startswith("{", at):
+            branch_braces.add(at)
+
+    arrows, braces = [], []
+
+    for i, char in enumerate(text):
+        if char == "{":
+            braces.append(i in branch_braces)
+        elif char == "}" and braces:
+            braces.pop()
+        elif text.startswith("->", i) and not (braces and braces[-1]):
+            arrows.append(i)
+
+    return arrows
+
+
+def kotlin_view(code):
+    """Returns Kotlin code in which lizard measures every function by its own lines.
+
+    A function without a block ends where lizard misses it, so the rest of the file
+    counts to it: `fun f(x: Int) = x + 1` becomes `fun f(x: Int) { x + 1 }`, and
+    `fun f(x: Int): Int` (interface, abstract) loses its `fun`. A braceless `if` body
+    never closes its nesting, so `;` ends it. A lambda's `->` makes lizard open a function
+    that swallows the rest, so it is blanked. An identifier `with` reads as Python's `with`
+    and opens a nesting that never closes, so it is renamed. Lines stay the same.
+    """
+    text, templated = kotlin_mask(code)
+
+    # lizard ends a string at the first inner quote of a template; give it the filled one.
+    for begin, end in reversed(templated):
+        code = code[:begin] + text[begin:end] + code[end:]
+
+    edits = [(end, end, ";") for end in kotlin_ends(text)]
+    edits += [(at, at + 2, "  ") for at in kotlin_arrows(text)]
+    edits += [(m.start(), m.end(), "w1th") for m in re.finditer(r"\bwith\b(?!\s*\()", text)]
+
+    for found in re.finditer(r"\bfun\b(?!\s+interface)", text):
+        start = text.find("(", found.end())
+        kind, at = kotlin_body(text, match_close(text, start))
+
+        if kind == "none":
+            edits.append((found.start(), found.end(), " " * 3))
+        elif kind == "expr":
+            edits.append((at, at + 1, "{"))
+            edits.append((expr_end(text, at + 1),) * 2 + ("}",))
+
+    for begin, end, new in sorted(edits, reverse=True):
+        code = code[:begin] + new + code[end:]
+
+    return code
+
+
 def function_values(path, code, analyzers):
     """Yields (function name, line, {metric: value}) for each function lizard finds."""
     ending = Path(path).suffix
@@ -127,6 +387,7 @@ def function_values(path, code, analyzers):
     # lizard picks its reader by the name: QML and scripts without an ending get one added.
     name = path + (READ_AS.get(suffix, "") if ending else suffix)
     nested = suffix not in NO_NESTING
+    code = kotlin_view(code) if suffix in KOTLIN_SUFFIXES else code
     analyzer = analyzers[nested]
 
     if lizard.get_reader_for(name) is None:
