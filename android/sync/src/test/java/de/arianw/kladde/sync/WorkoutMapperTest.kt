@@ -18,7 +18,7 @@ class WorkoutMapperTest {
     private val now = Instant.parse("2026-10-11T12:00:00Z")
     private val order = WorkoutMapper.DEFAULT_ORDER
     private val freeletics = WorkoutMapper.FREELETICS_APP
-    private val pebble = HealthConnectSource.PEBBLE_APP
+    private val pebble = RecordSamples.PEBBLE_APP
 
     private fun pick(sessions: List<Session>, order: List<String>, days: Set<LocalDate>, zone: ZoneId, now: Instant, since: Instant? = null) =
         Sessions.select(sessions, Ranking(order), days, zone, now, WorkoutMapper.SETTLE, since)

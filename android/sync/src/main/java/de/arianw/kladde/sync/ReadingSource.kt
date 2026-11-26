@@ -55,7 +55,7 @@ class ReadingSource(
             }
             for (change in response.changes) {
                 val record = (change as? UpsertionChange)?.record ?: continue
-                samples += HealthConnectSource.samplesOf(record)
+                samples += RecordSamples.samplesOf(record)
             }
             next = response.nextChangesToken
             if (!response.hasMore) {
@@ -78,7 +78,7 @@ class ReadingSource(
                 val response = client.readRecords(
                     ReadRecordsRequest(type, TimeRangeFilter.between(start, now), pageSize = PAGE_SIZE, pageToken = page)
                 )
-                samples += response.records.flatMap(HealthConnectSource::samplesOf)
+                samples += response.records.flatMap(RecordSamples::samplesOf)
                 page = response.pageToken
             } while (page != null)
         }

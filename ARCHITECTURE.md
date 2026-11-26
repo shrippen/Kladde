@@ -76,7 +76,7 @@ Each layer talks only to its neighbour directly below.
 
 | Change | Touch |
 |---|---|
-| A new kind of health data from Health Connect | A source in `android/sync/`, its permission in `app/android/AndroidManifest.xml` and `KladdeSync.READ_PERMISSIONS`, `Sample.kt`, `Mapper.kt`, with tests; the C++ side stays frozen |
+| A new kind of health data from Health Connect | A source in `android/sync/`, its record translation in `RecordSamples.kt`, its permission in `app/android/AndroidManifest.xml` and `KladdeSync.READ_PERMISSIONS`, `Sample.kt`, `Mapper.kt`, with tests; the C++ side stays frozen |
 | A change to how a value is mapped (unit, day, id) | `Mapper.kt`, with a test; the C++ side stays frozen |
 | Something about queueing or uploading on the phone | `android/sync/` (`QueueStore`, `Uploader`, `SyncRunner`), a test |
 | A new call to HealthLog for the app | The object of `app/` that sends it through `core/session`; the shape of its answer or body in `core/api`; a test with the fake server |

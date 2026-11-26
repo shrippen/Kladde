@@ -11,14 +11,14 @@ class AppOrderTest {
 
     @Test
     fun onlyTheAppsThatWroteAreShownNewOnesLast() {
-        val seen = setOf(WorkoutMapper.FIT_APP, other, HealthConnectSource.PEBBLE_APP)
-        assertEquals(listOf(HealthConnectSource.PEBBLE_APP, WorkoutMapper.FIT_APP, other), AppOrder.shown(order, seen))
+        val seen = setOf(WorkoutMapper.FIT_APP, other, RecordSamples.PEBBLE_APP)
+        assertEquals(listOf(RecordSamples.PEBBLE_APP, WorkoutMapper.FIT_APP, other), AppOrder.shown(order, seen))
     }
 
     @Test
     fun aMoveKeepsTheHiddenAppsAfterTheShown() {
-        val shown = listOf(WorkoutMapper.FIT_APP, HealthConnectSource.PEBBLE_APP)
-        assertEquals(listOf(WorkoutMapper.FIT_APP, HealthConnectSource.PEBBLE_APP, WorkoutMapper.FREELETICS_APP), AppOrder.stored(order, shown))
+        val shown = listOf(WorkoutMapper.FIT_APP, RecordSamples.PEBBLE_APP)
+        assertEquals(listOf(WorkoutMapper.FIT_APP, RecordSamples.PEBBLE_APP, WorkoutMapper.FREELETICS_APP), AppOrder.stored(order, shown))
     }
 
     @Test
