@@ -93,7 +93,12 @@ void startDemo(QGuiApplication &app, QQmlApplicationEngine &engine, Account &acc
     // The window exists only once Main.qml is loaded.
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &app,
                      [&app, &history, plan, shotDir](QObject *root) {
-                         runShots(app, qobject_cast<QQuickWindow *>(root), history, plan, shotDir);
+                         // A failed load sends no window; main() then exits with 1.
+                         auto *window = qobject_cast<QQuickWindow *>(root);
+                         if (!window) {
+                             return;
+                         }
+                         runShots(app, window, history, plan, shotDir);
                      },
                      Qt::SingleShotConnection);
 }
