@@ -63,11 +63,6 @@ QString Account::error() const
     return Errors::describe(status, code);
 }
 
-Account::State Account::state() const
-{
-    return static_cast<State>(m_session.state());
-}
-
 void Account::setServer(const QString &server)
 {
     QString s = server.trimmed();

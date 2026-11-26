@@ -40,7 +40,7 @@ Kirigami.ApplicationWindow {
     // The open tab of the main page.
     property int tab: 0
 
-    readonly property bool signedIn: account.state === Account.SignedIn
+    readonly property bool signedIn: account.state === Session.SignedIn
     onSignedInChanged: show()
     Component.onCompleted: show()
 
