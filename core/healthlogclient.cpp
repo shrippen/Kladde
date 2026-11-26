@@ -1,4 +1,5 @@
 #include "healthlogclient.h"
+#include "http.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -9,26 +10,32 @@
 
 namespace kladde {
 
+namespace {
+
+constexpr int HttpOk = 200;
+constexpr int HttpConflict = 409;
+constexpr int HttpTooManyRequests = 429;
+constexpr int HttpServerError = 500;
+
+} // namespace
+
 bool BatchResult::retryable() const
 {
-    return !ok && (httpStatus == 0 || httpStatus == 429 || httpStatus >= 500);
+    return !ok && (httpStatus == 0 || httpStatus == HttpConflict || httpStatus == HttpTooManyRequests
+                   || httpStatus >= HttpServerError);
 }
 
-BatchResult parseBatchResponse(int httpStatus, const QByteArray &body)
+namespace {
+
+BatchResult batchResult(const ApiReply &reply)
 {
     BatchResult r;
-    r.httpStatus = httpStatus;
-    const QJsonObject root = QJsonDocument::fromJson(body).object();
-    if (httpStatus != 200) {
-        const QString code = root.value(QLatin1String("meta")).toObject()
-                                 .value(QLatin1String("errorCode")).toString();
-        r.error = !code.isEmpty() ? code
-                  : !root.value(QLatin1String("error")).toString().isEmpty()
-                      ? root.value(QLatin1String("error")).toString()
-                      : QStringLiteral("HTTP %1").arg(httpStatus);
+    r.httpStatus = reply.status;
+    if (reply.status != HttpOk) {
+        r.error = reply.error();
         return r;
     }
-    const QJsonObject data = root.value(QLatin1String("data")).toObject();
+    const QJsonObject data = reply.data().toObject();
     if (data.isEmpty()) {
         r.error = QStringLiteral("answer without data");
         return r;
@@ -48,6 +55,16 @@ BatchResult parseBatchResponse(int httpStatus, const QByteArray &body)
     return r;
 }
 
+} // namespace
+
+BatchResult parseBatchResponse(int httpStatus, const QByteArray &body)
+{
+    ApiReply reply;
+    reply.status = httpStatus;
+    reply.root = QJsonDocument::fromJson(body).object();
+    return batchResult(reply);
+}
+
 HealthLogClient::HealthLogClient(QObject *parent)
     : QObject(parent)
     , m_nam(new QNetworkAccessManager(this))
@@ -64,65 +81,40 @@ void HealthLogClient::setToken(const QString &token)
     m_token = token;
 }
 
-QNetworkReply *HealthLogClient::get(const QString &path, bool withToken)
+QNetworkReply *HealthLogClient::get(const QString &path)
 {
-    QNetworkRequest req(m_server.resolved(QUrl(path)));
-    if (withToken)
-        req.setRawHeader("Authorization", "Bearer " + m_token.toUtf8());
+    QNetworkRequest req = apiRequest(m_server.resolved(QUrl(path)));
+    req.setRawHeader("Authorization", "Bearer " + m_token.toUtf8());
     return m_nam->get(req);
-}
-
-void HealthLogClient::fetchVersion()
-{
-    QNetworkReply *reply = get(QStringLiteral("/api/version"), false);
-    connect(reply, &QNetworkReply::finished, this, [this, reply] {
-        reply->deleteLater();
-        const QJsonObject data =
-            QJsonDocument::fromJson(reply->readAll()).object().value(QLatin1String("data")).toObject();
-        const QString version = data.value(QLatin1String("version")).toString();
-        if (reply->error() != QNetworkReply::NoError || version.isEmpty())
-            Q_EMIT versionReceived(false, {}, reply->errorString());
-        else
-            Q_EMIT versionReceived(true, version, {});
-    });
 }
 
 void HealthLogClient::fetchMe()
 {
-    QNetworkReply *reply = get(QStringLiteral("/api/auth/me"), true);
+    QNetworkReply *reply = get(QStringLiteral("/api/auth/me"));
     connect(reply, &QNetworkReply::finished, this, [this, reply] {
         reply->deleteLater();
-        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
-        const QString tz = root.value(QLatin1String("data")).toObject()
-                               .value(QLatin1String("timezone")).toString();
+        const ApiReply r = readReply(reply);
+        const QString tz = r.data().toObject().value(QLatin1String("timezone")).toString();
         const QTimeZone zone(tz.toUtf8());
-        if (status == 200 && zone.isValid()) {
+        if (r.status == HttpOk && zone.isValid()) {
             Q_EMIT meReceived(true, zone, {});
             return;
         }
         // A measurements:write token does not reach /api/auth/me (403 auth.scope.insufficient).
-        const QString code = root.value(QLatin1String("meta")).toObject()
-                                 .value(QLatin1String("errorCode")).toString();
-        Q_EMIT meReceived(false, {}, !code.isEmpty() ? code : reply->errorString());
+        Q_EMIT meReceived(false, {}, r.error());
     });
 }
 
 void HealthLogClient::postBatch(const Batch &batch)
 {
-    QNetworkRequest req(m_server.resolved(QUrl(QStringLiteral("/api/measurements/batch"))));
-    req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    QNetworkRequest req = apiRequest(m_server.resolved(QUrl(QStringLiteral("/api/measurements/batch"))));
     req.setRawHeader("Authorization", "Bearer " + m_token.toUtf8());
     req.setRawHeader("Idempotency-Key", batch.idempotencyKey.toLatin1());
     QNetworkReply *reply = m_nam->post(req, batch.body);
     const QString key = batch.idempotencyKey;
     connect(reply, &QNetworkReply::finished, this, [this, reply, key] {
         reply->deleteLater();
-        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        BatchResult r = parseBatchResponse(status, reply->readAll());
-        if (status == 0)
-            r.error = reply->errorString();
-        Q_EMIT batchFinished(key, r);
+        Q_EMIT batchFinished(key, batchResult(readReply(reply)));
     });
 }
 

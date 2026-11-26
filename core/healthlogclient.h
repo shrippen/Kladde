@@ -23,8 +23,8 @@ struct BatchResult {
     int failed = 0;
     QStringList skipped; // "index: reason"
 
-    // Whether sending the same batch again later can succeed (network trouble, 429, 5xx).
-    // A 4xx other than 429 is permanent for the batch as sent.
+    // Whether sending the same batch again later can succeed: no answer, 409, 429, 5xx
+    // (as Android's Uploader). Only 422 is final; other statuses (401, 404 …) need a fix first.
     bool retryable() const;
 };
 
@@ -42,18 +42,15 @@ public:
 
     // GET /api/auth/me: the account's time zone (needed for day totals). Emits meReceived.
     void fetchMe();
-    // GET /api/version (no token needed). Emits versionReceived.
-    void fetchVersion();
     // POST /api/measurements/batch. Emits batchFinished with the batch's key.
     void postBatch(const Batch &batch);
 
 Q_SIGNALS:
     void meReceived(bool ok, const QTimeZone &zone, const QString &error);
-    void versionReceived(bool ok, const QString &version, const QString &error);
     void batchFinished(const QString &idempotencyKey, const kladde::BatchResult &result);
 
 private:
-    QNetworkReply *get(const QString &path, bool withToken);
+    QNetworkReply *get(const QString &path);
 
     QNetworkAccessManager *m_nam;
     QUrl m_server;

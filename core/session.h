@@ -1,5 +1,6 @@
 #pragma once
 
+#include "http.h"
 #include "secretstore.h"
 
 #include <QDateTime>
@@ -14,19 +15,6 @@
 class QNetworkAccessManager;
 
 namespace kladde {
-
-// One answer of the HealthLog API: {data, error, meta}.
-struct ApiReply {
-    int status = 0; // 0: no answer (network, TLS, timeout)
-    QJsonObject root;
-    QString transportError;
-
-    bool ok() const { return status >= 200 && status < 300; }
-    QJsonValue data() const { return root.value(QLatin1String("data")); }
-    // meta.errorCode, else the error text, else the transport error or "HTTP <status>".
-    // For people: the app's Errors::describe, translated.
-    QString error() const;
-};
 
 // A signed-in user of one HealthLog instance, as the native apps do it (X-Client-Type:
 // native): password login, second factor, a short-lived access token and a one-time

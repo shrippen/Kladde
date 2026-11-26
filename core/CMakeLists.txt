@@ -3,6 +3,7 @@ add_library(kladde-core STATIC
     hcjson.h hcjson.cpp
     mapper.h mapper.cpp
     batch.h batch.cpp
+    http.h http.cpp
     healthlogclient.h healthlogclient.cpp
     secretstore.h
     session.h session.cpp

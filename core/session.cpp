@@ -1,7 +1,6 @@
 #include "session.h"
 #include "pkce.h"
 
-#include <QCoreApplication>
 #include <QHostAddress>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -17,36 +16,13 @@ namespace kladde {
 
 namespace {
 
-constexpr int TransferTimeoutMs = 30000;
 // Error codes of the SSO callback (?error=…) become "sso.<reason>".
 const auto SsoErrorPrefix = QStringLiteral("sso.");
 
-// e.g. "Kladde/0.1.0"
-QString userAgent()
-{
-    const QString version = QCoreApplication::applicationVersion();
-    return version.isEmpty() ? QStringLiteral("Kladde") : QStringLiteral("Kladde/") + version;
-}
 // Refresh this long before the access token runs out, not on the first 401.
 constexpr qint64 RefreshMarginSecs = 60;
 
 } // namespace
-
-QString ApiReply::error() const
-{
-    const QString code = root.value(QLatin1String("meta")).toObject()
-                             .value(QLatin1String("errorCode")).toString();
-    if (!code.isEmpty())
-        return code;
-    const QJsonValue e = root.value(QLatin1String("error"));
-    if (e.isString() && !e.toString().isEmpty())
-        return e.toString();
-    if (e.isObject() && !e.toObject().value(QLatin1String("message")).toString().isEmpty())
-        return e.toObject().value(QLatin1String("message")).toString();
-    if (status == 0)
-        return transportError.isEmpty() ? QStringLiteral("no connection") : transportError;
-    return QStringLiteral("HTTP %1").arg(status);
-}
 
 Session::Session(SecretStore *secrets, QObject *parent)
     : QObject(parent)
@@ -119,16 +95,7 @@ void Session::raw(const QByteArray &verb, const QString &path, const QByteArray 
         });
         return;
     }
-    QNetworkRequest req(base.resolved(QUrl(path)));
-    req.setTransferTimeout(TransferTimeoutMs);
-    req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-    req.setRawHeader("Accept", "application/json");
-    req.setRawHeader("X-Client-Type", "native");
-    // Not Qt's "Mozilla/5.0" and no cookies: HealthLog takes either for a browser and
-    // gives it no refresh token.
-    req.setHeader(QNetworkRequest::UserAgentHeader, userAgent());
-    req.setAttribute(QNetworkRequest::CookieLoadControlAttribute, QNetworkRequest::Manual);
-    req.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
+    QNetworkRequest req = apiRequest(base.resolved(QUrl(path)));
     if (!m_deviceId.isEmpty())
         req.setRawHeader("X-Device-Id", m_deviceId.toUtf8());
     if (withToken && !m_accessToken.isEmpty())
@@ -139,11 +106,7 @@ void Session::raw(const QByteArray &verb, const QString &path, const QByteArray 
     QNetworkReply *reply = verb == "GET" ? m_nam->get(req) : m_nam->sendCustomRequest(req, verb, body);
     connect(reply, &QNetworkReply::finished, this, [reply, done] {
         reply->deleteLater();
-        ApiReply r;
-        r.status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        r.root = QJsonDocument::fromJson(reply->readAll()).object();
-        if (r.status == 0)
-            r.transportError = reply->errorString();
+        const ApiReply r = readReply(reply);
         done(r);
     });
 }
