@@ -3,6 +3,34 @@
 The release notes of Kladde, newest first. Each section is the text of the release on Gitea and
 GitHub and of its entry in `#changes` on the landing page (`docs/index.html`).
 
+## [0.2.1] — 2026-11-26
+
+### English
+
+Daily totals now land on their own day in HealthLog. Up to now steps, distance, energy and floors showed one day late.
+
+#### Fixed
+- Steps, distance, active energy and floors showed in HealthLog on the following day: HealthLog dates a value by its end, and Kladde ended a day's total at the next midnight. They now start and end at the day's own midnight, as the HealthLog iPhone app sends them.
+- The refresh icon when pulling down on Home was missing on the phone.
+
+#### Note
+- After the update Kladde sends the daily totals since 1 November 2025 once more, and HealthLog moves each to its day. Nothing to do; the first sync takes a little longer. No day is lost, and values from other apps stay as they are.
+
+[All changes](https://github.com/shrippen/Kladde/compare/v0.2.0...v0.2.1)
+
+### Deutsch
+
+Tagessummen stehen in HealthLog jetzt an ihrem eigenen Tag. Bisher zeigten Schritte, Strecke, Energie und Stockwerke einen Tag zu spät.
+
+#### Behoben
+- Schritte, Strecke, aktive Energie und Stockwerke standen in HealthLog am Folgetag: HealthLog datiert einen Wert nach seinem Ende, und Kladde ließ die Summe eines Tages um Mitternacht danach enden. Jetzt beginnt und endet sie um Mitternacht des Tages selbst, so wie die iPhone-App von HealthLog sie schickt.
+- Das Symbol zum Aktualisieren beim Herunterziehen auf „Start“ fehlte auf dem Telefon.
+
+#### Hinweis
+- Nach dem Update schickt Kladde die Tagessummen seit dem 1. November 2025 einmal neu, und HealthLog setzt jede an ihren Tag. Nichts zu tun; der erste Abgleich dauert etwas länger. Kein Tag geht verloren, Werte anderer Apps bleiben, wie sie sind.
+
+[Alle Änderungen](https://github.com/shrippen/Kladde/compare/v0.2.0...v0.2.1)
+
 ## [0.2.0] — 2026-11-02
 
 ### English
