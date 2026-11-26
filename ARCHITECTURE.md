@@ -100,5 +100,4 @@ Each layer talks only to its neighbour directly below.
 - Two lists of kinds are kept equal by hand between `app/` and `core/`
   (`AUDIT.md`, finding 6).
 - The start of the app is interwoven with the demo mode (`AUDIT.md`, finding 7); the
-  sync bridge carries a demo switch of its own (not in `AUDIT.md`); the demo world
-  still answers a request the app no longer makes (`AUDIT.md`, finding 8).
+  sync bridge carries a demo switch of its own (not in `AUDIT.md`).
