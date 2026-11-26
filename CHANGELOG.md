@@ -3,6 +3,36 @@
 The release notes of Kladde, newest first. Each section is the text of the release on Gitea and
 GitHub and of its entry in `#changes` on the landing page (`docs/index.html`).
 
+## [0.2.2] — 2026-11-26
+
+### English
+
+A maintenance release: nothing changes in use. Inside, Kladde was tidied after a code audit, so later changes are less likely to break the sync.
+
+#### Improved
+- Reading from Health Connect is one shared path for daily totals, readings, sleep and trainings instead of four copies, now tested for each of them; a fix there reaches all four at once.
+- The upload queue on the phone is now tested itself, not only a stand-in, so its order rules (strictly in turn, a replaced batch keeps its place) are checked where they run.
+- Which direction of a value counts as good, and the blood pressure figures in the history, are worked out in one tested place.
+
+#### Note
+- Your sync state carries over; the update reads nothing again.
+
+[All changes](https://github.com/shrippen/Kladde/compare/v0.2.1...v0.2.2)
+
+### Deutsch
+
+Ein Wartungs-Release: Im Gebrauch ändert sich nichts. Innen wurde Kladde nach einem Code-Audit aufgeräumt, damit spätere Änderungen den Abgleich seltener brechen.
+
+#### Verbessert
+- Das Lesen aus Health Connect ist ein gemeinsamer Weg für Tagessummen, Einzelwerte, Schlaf und Training statt vier Kopien und für jede Art getestet; eine Korrektur dort wirkt auf alle vier zugleich.
+- Die Warteschlange auf dem Telefon wird jetzt selbst getestet, nicht nur ein Ersatz; ihre Regeln (streng der Reihe nach, ein ersetzter Stapel behält seinen Platz) werden dort geprüft, wo sie laufen.
+- Welche Richtung eines Werts als gut gilt und die Blutdruck-Kennzahlen im Verlauf werden an einer getesteten Stelle berechnet.
+
+#### Hinweis
+- Der Stand des Abgleichs bleibt erhalten; das Update liest nichts neu.
+
+[Alle Änderungen](https://github.com/shrippen/Kladde/compare/v0.2.1...v0.2.2)
+
 ## [0.2.1] — 2026-11-26
 
 ### English
