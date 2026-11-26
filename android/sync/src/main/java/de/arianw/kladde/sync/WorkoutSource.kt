@@ -8,8 +8,6 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.ChangesTokenRequest
-import androidx.health.connect.client.request.ReadRecordsRequest
-import androidx.health.connect.client.time.TimeRangeFilter
 import org.json.JSONObject
 import java.time.Duration
 import java.time.Instant
@@ -31,6 +29,8 @@ class WorkoutSource(
     private val ranking: Ranking = Ranking(WorkoutMapper.DEFAULT_ORDER),
 ) {
 
+    private val reader = HealthReader(client)
+
     class Read(val entries: List<JSONObject>, val cursor: String)
 
     /** [since]: when the last read was, null for none. */
@@ -41,23 +41,13 @@ class WorkoutSource(
             return read(newToken(), backfill, null, zone, now)
         }
 
-        var token: String = cursor
+        val changes = reader.changesSince(cursor) ?: return read(newToken(), backfill, null, zone, now)
         val days = mutableSetOf<LocalDate>()
-        while (true) {
-            val response = client.getChanges(token)
-            if (response.changesTokenExpired) {
-                return read(newToken(), backfill, null, zone, now)
-            }
-            for (change in response.changes) {
-                val s = (change as? UpsertionChange)?.record as? ExerciseSessionRecord ?: continue
-                days += DayWindow.range(Mapper.dayOf(s.startTime, zone), Mapper.dayOf(s.endTime, zone))
-            }
-            token = response.nextChangesToken
-            if (!response.hasMore) {
-                break
-            }
+        for (change in changes.list) {
+            val s = (change as? UpsertionChange)?.record as? ExerciseSessionRecord ?: continue
+            days += DayWindow.range(Mapper.dayOf(s.startTime, zone), Mapper.dayOf(s.endTime, zone))
         }
-        return read(token, days, since, zone, now)
+        return read(changes.next, days, since, zone, now)
     }
 
     // The token first: what changes while we read comes again next time (first write wins).
@@ -68,7 +58,7 @@ class WorkoutSource(
         val held = Mapper.dayOf((since ?: now).minus(WorkoutMapper.SETTLE), zone)
         // A day early: a training over midnight, or one overlapping it, began the day before.
         val (start, _) = DayWindow.bounds((days + held).min().minusDays(1), zone)
-        val sessions = readAll(ExerciseSessionRecord::class, start, now).map {
+        val sessions = reader.all(ExerciseSessionRecord::class, start, now).map {
             Session(it.metadata.id, it.metadata.dataOrigin.packageName, it.exerciseType, it.title, it.startTime, it.endTime)
         }
 
@@ -77,7 +67,7 @@ class WorkoutSource(
         for (group in clusters(workouts)) {
             val from = group.minOf { it.start }
             val to = group.maxOf { it.end }
-            val samples = STAT_TYPES.flatMap { type -> readAll(type, from, to).flatMap(RecordSamples::samplesOf) }
+            val samples = STAT_TYPES.flatMap { type -> reader.all(type, from, to).flatMap(RecordSamples::samplesOf) }
             entries += group.map { WorkoutMapper.entry(it, samples) }
         }
         return Read(entries, token)
@@ -102,24 +92,9 @@ class WorkoutSource(
 
     /** The apps that wrote trainings from [start] on: the ones the user may put in order. */
     suspend fun apps(start: Instant, now: Instant): Set<String> =
-        readAll(ExerciseSessionRecord::class, start, now).map { it.metadata.dataOrigin.packageName }.toSet()
-
-    /** Every app's records: the mapper picks. */
-    private suspend fun <T : Record> readAll(type: KClass<T>, start: Instant, end: Instant): List<T> {
-        val out = mutableListOf<T>()
-        var page: String? = null
-        do {
-            val response = client.readRecords(
-                ReadRecordsRequest(type, TimeRangeFilter.between(start, end), pageSize = PAGE_SIZE, pageToken = page)
-            )
-            out += response.records
-            page = response.pageToken
-        } while (page != null)
-        return out
-    }
+        reader.all(ExerciseSessionRecord::class, start, now).map { it.metadata.dataOrigin.packageName }.toSet()
 
     companion object {
-        private const val PAGE_SIZE = 5000
         private val CLUSTER_GAP: Duration = Duration.ofDays(1)
 
         val TYPES: Set<KClass<out Record>> = setOf(ExerciseSessionRecord::class)

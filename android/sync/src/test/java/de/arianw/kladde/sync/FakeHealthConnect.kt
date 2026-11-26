@@ -36,7 +36,19 @@ class FakeHealthConnect {
     /** What readRecords finds, any time asked. */
     var records: List<Record> = emptyList()
 
+    /** Pages of this many changes (tokens "page-N"); null: all in one. */
+    var changesPerPage: Int? = null
+
+    /** Every changes token expired. */
+    var tokenExpired = false
+
+    /** Pages of this many records (tokens are offsets); null: all in one. */
+    var recordsPerPage: Int? = null
+
     val calls = mutableListOf<String>()
+
+    /** The time ranges readRecords was asked for. */
+    val ranges = mutableListOf<Pair<Instant, Instant>>()
     val aggregated = mutableListOf<Pair<Instant, Instant>>()
 
     /** The local ranges asked by day (aggregateGroupByPeriod); each day answers longs/doubles. */
@@ -48,7 +60,7 @@ class FakeHealthConnect {
         calls += method.name
         when (method.name) {
             "getChangesToken" -> "token-new"
-            "getChanges" -> ChangesResponse(changes, "token-next", false, false)
+            "getChanges" -> changesPage(args[0] as String)
             "aggregate" -> {
                 val filter = (args[0] as AggregateRequest).let { it.javaClass.getDeclaredMethod("getTimeRangeFilter\$connect_client_release").invoke(it) }
                 aggregated += timeRange(filter)
@@ -75,12 +87,33 @@ class FakeHealthConnect {
                 }.toList()
             }
             "readRecords" -> {
-                val type = (args[0] as ReadRecordsRequest<*>).recordType
-                ReadRecordsResponse(records.filter { type.isInstance(it) }, null)
+                val request = args[0] as ReadRecordsRequest<*>
+                ranges += timeRange(request.timeRangeFilter)
+                val found = records.filter { request.recordType.isInstance(it) }
+                val per = recordsPerPage
+                val from = request.pageToken?.toInt() ?: 0
+                if (per == null) {
+                    ReadRecordsResponse(found, null)
+                } else {
+                    ReadRecordsResponse(found.drop(from).take(per), if (from + per < found.size) "${from + per}" else null)
+                }
             }
             else -> error("not faked: ${method.name}")
         }
     } as HealthConnectClient
+
+    private fun changesPage(token: String): ChangesResponse {
+        val per = changesPerPage
+        if (tokenExpired) {
+            return ChangesResponse(emptyList(), "token-next", false, true)
+        }
+        if (per == null) {
+            return ChangesResponse(changes, "token-next", false, false)
+        }
+        val page = token.removePrefix("page-").toIntOrNull() ?: 0
+        val more = (page + 1) * per < changes.size
+        return ChangesResponse(changes.drop(page * per).take(per), if (more) "page-${page + 1}" else "token-next", more, false)
+    }
 
     private fun AggregateGroupByDurationRequest.getTimeRangeFilter(): Any =
         javaClass.getDeclaredMethod("getTimeRangeFilter\$connect_client_release").invoke(this)
