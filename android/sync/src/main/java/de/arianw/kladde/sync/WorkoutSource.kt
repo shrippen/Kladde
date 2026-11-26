@@ -77,7 +77,7 @@ class WorkoutSource(
         for (group in clusters(workouts)) {
             val from = group.minOf { it.start }
             val to = group.maxOf { it.end }
-            val samples = STAT_TYPES.flatMap { type -> readAll(type, from, to).flatMap(HealthConnectSource::samplesOf) }
+            val samples = STAT_TYPES.flatMap { type -> readAll(type, from, to).flatMap(RecordSamples::samplesOf) }
             entries += group.map { WorkoutMapper.entry(it, samples) }
         }
         return Read(entries, token)
@@ -124,7 +124,7 @@ class WorkoutSource(
 
         val TYPES: Set<KClass<out Record>> = setOf(ExerciseSessionRecord::class)
 
-        /** What a training's figures come from; read with HealthConnectSource's permissions. */
+        /** What a training's figures come from; read with DayTotalSource's permissions. */
         private val STAT_TYPES: List<KClass<out Record>> = listOf(HeartRateRecord::class, StepsRecord::class, DistanceRecord::class)
     }
 }

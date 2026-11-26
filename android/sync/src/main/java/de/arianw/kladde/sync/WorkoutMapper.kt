@@ -21,7 +21,7 @@ object WorkoutMapper {
     const val FIT_APP = "com.google.android.apps.fitness"
 
     /** Owner, 1.11.2026: Freeletics, then the Pebble app, then Google Fit. */
-    val DEFAULT_ORDER = listOf(FREELETICS_APP, HealthConnectSource.PEBBLE_APP, FIT_APP)
+    val DEFAULT_ORDER = listOf(FREELETICS_APP, RecordSamples.PEBBLE_APP, FIT_APP)
 
     private const val SOURCE = "APPLE_HEALTH" // like the measurements: the session's client
     private const val ID_PREFIX = "hc:"

@@ -40,13 +40,13 @@ object KladdeSync {
 
     /** Without these the sync has nothing to do: the watch's kinds, history, background. */
     private val REQUIRED: Set<String> =
-        (HealthConnectSource.TYPES + SleepSource.TYPES).map { HealthPermission.getReadPermission(it) }.toSet() +
+        (DayTotalSource.TYPES + SleepSource.TYPES).map { HealthPermission.getReadPermission(it) }.toSet() +
             HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY +
             HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
 
     /** Read once allowed; each source skips what is not (readings, trainings). */
     private val OPTIONAL: Set<String> =
-        (HealthConnectSource.OPTIONAL_TYPES + ReadingSource.TYPES + WorkoutSource.TYPES).map { HealthPermission.getReadPermission(it) }.toSet()
+        (DayTotalSource.OPTIONAL_TYPES + ReadingSource.TYPES + WorkoutSource.TYPES).map { HealthPermission.getReadPermission(it) }.toSet()
 
     val READ_PERMISSIONS: Set<String> = REQUIRED + OPTIONAL
 

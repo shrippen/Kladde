@@ -71,7 +71,7 @@ class SleepSource(
         }
 
         val nights = Sessions.select(sessions, ranking, days, zone, now, SETTLE, since)
-        val samples = nights.flatMap { night -> night.sessions.flatMap { HealthConnectSource.samplesOf(records.getValue(it.id)) } }
+        val samples = nights.flatMap { night -> night.sessions.flatMap { RecordSamples.samplesOf(records.getValue(it.id)) } }
         return Read(samples, token)
     }
 
@@ -99,7 +99,7 @@ class SleepSource(
         const val SLEEP_AS_ANDROID_APP = "com.urbandroid.sleep"
 
         /** Owner, 1.11.2026: the Pebble app, then Sleep as Android, then Google Fit. */
-        val DEFAULT_ORDER = listOf(HealthConnectSource.PEBBLE_APP, SLEEP_AS_ANDROID_APP, WorkoutMapper.FIT_APP)
+        val DEFAULT_ORDER = listOf(RecordSamples.PEBBLE_APP, SLEEP_AS_ANDROID_APP, WorkoutMapper.FIT_APP)
 
         /** The Pebble app syncs the night from the watch later than the phone writes its own. */
         val SETTLE: Duration = Duration.ofHours(4)

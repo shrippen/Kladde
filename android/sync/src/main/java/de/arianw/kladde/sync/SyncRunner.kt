@@ -22,7 +22,7 @@ class SyncRunner(
 
     /** Reads new data; the source is a function so tests and other sources can stand in. */
     fun interface Reader {
-        suspend fun read(cursor: String?, zone: ZoneId, now: Instant): HealthConnectSource.Read
+        suspend fun read(cursor: String?, zone: ZoneId, now: Instant): DayTotalSource.Read
     }
 
     fun interface ReadingReader {

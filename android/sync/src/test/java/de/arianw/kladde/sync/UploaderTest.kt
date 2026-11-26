@@ -58,7 +58,7 @@ abstract class UploaderTest {
         val store = newStore()
         val steps = Sample(Kind.STEPS, "s1", "p", Instant.parse("2026-11-01T08:00:00Z"), Instant.parse("2026-11-01T08:10:00Z"), 300.0)
         val status = SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
-            HealthConnectSource.Read(listOf(steps), "token-1", emptyMap())
+            DayTotalSource.Read(listOf(steps), "token-1", emptyMap())
         }, Trigger.MANUAL, now) { _, _, _, _ -> throw SecurityException("READ_EXERCISE") }
 
         assertEquals("token-1", store.cursor())
@@ -281,7 +281,7 @@ abstract class UploaderTest {
 
         val status = SyncRunner(store, { _, _, _ -> Response(0, "offline") }, zone).run({ cursor, _, _ ->
             assertNull(cursor)
-            HealthConnectSource.Read(listOf(steps), "token-1", mapOf("s1" to setOf(day)))
+            DayTotalSource.Read(listOf(steps), "token-1", mapOf("s1" to setOf(day)))
         }, Trigger.MANUAL, now)
 
         // Offline: the data stays queued, the cursor moved with it, nothing is lost.
@@ -311,7 +311,7 @@ abstract class UploaderTest {
         val t = Instant.parse("2026-11-01T06:30:00Z")
         val weight = Sample(Kind.WEIGHT, "w1", "org.example.scale", t, t, 72.4)
         SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
-            HealthConnectSource.Read(emptyList(), "token-1", emptyMap())
+            DayTotalSource.Read(emptyList(), "token-1", emptyMap())
         }, Trigger.MANUAL, now, readings = { cursor, _, _ ->
             assertNull(cursor)
             ReadingSource.Read(listOf(weight), "Weight|r1")
@@ -325,9 +325,9 @@ abstract class UploaderTest {
     @Test
     fun sleepIsQueuedWithItsOwnCursor() = runBlocking {
         val store = newStore()
-        val stage = Sample(Kind.SLEEP_STAGE, "n1", HealthConnectSource.PEBBLE_APP, Instant.parse("2026-11-01T01:00:00Z"), Instant.parse("2026-11-01T02:00:00Z"), 5.0)
+        val stage = Sample(Kind.SLEEP_STAGE, "n1", RecordSamples.PEBBLE_APP, Instant.parse("2026-11-01T01:00:00Z"), Instant.parse("2026-11-01T02:00:00Z"), 5.0)
         SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
-            HealthConnectSource.Read(emptyList(), "token-1", emptyMap())
+            DayTotalSource.Read(emptyList(), "token-1", emptyMap())
         }, Trigger.MANUAL, now, sleep = { cursor, since, _, _ ->
             assertNull(cursor)
             assertNull(since)
@@ -345,7 +345,7 @@ abstract class UploaderTest {
         val t = Instant.parse("2026-11-01T06:30:00Z")
         val weight = Sample(Kind.WEIGHT, "w1", "org.example.scale", t, t, 72.4)
         val status = SyncRunner(store, { _, _, _ -> Response(0, "offline") }, ZoneId.of("UTC")).run({ _, _, _ ->
-            HealthConnectSource.Read(emptyList(), "token-1", emptyMap())
+            DayTotalSource.Read(emptyList(), "token-1", emptyMap())
         }, Trigger.MANUAL, now, readings = { _, _, _ ->
             ReadingSource.Read(listOf(weight), "Weight|r1")
         }, sleep = { _, _, _, _ ->

@@ -29,7 +29,7 @@ class SleepSourceTest {
         return m
     }
 
-    private val pebble = night("p", HealthConnectSource.PEBBLE_APP, "2026-10-31T22:00:00Z", "2026-11-01T05:00:00Z")
+    private val pebble = night("p", RecordSamples.PEBBLE_APP, "2026-10-31T22:00:00Z", "2026-11-01T05:00:00Z")
     private val phone = night("s", SleepSource.SLEEP_AS_ANDROID_APP, "2026-10-31T21:50:00Z", "2026-11-01T05:10:00Z")
 
     private suspend fun ids(records: List<SleepSessionRecord>, now: Instant, ranking: Ranking = Ranking(SleepSource.DEFAULT_ORDER)): Set<String> {
@@ -71,7 +71,7 @@ class SleepSourceTest {
     @Test
     fun aReorderKeepsTheWinnerOfANightAlreadySent() = runBlocking {
         // Pebble's night went; at 10:00 the user put Sleep as Android first, then read again.
-        val ranking = Ranking(SleepSource.DEFAULT_ORDER).changed(listOf(SleepSource.SLEEP_AS_ANDROID_APP, HealthConnectSource.PEBBLE_APP), Instant.parse("2026-11-01T10:00:00Z"))
+        val ranking = Ranking(SleepSource.DEFAULT_ORDER).changed(listOf(SleepSource.SLEEP_AS_ANDROID_APP, RecordSamples.PEBBLE_APP), Instant.parse("2026-11-01T10:00:00Z"))
         assertEquals(setOf("p"), ids(listOf(pebble, phone), morning, ranking))
     }
 
@@ -88,9 +88,9 @@ class SleepSourceTest {
     fun aNightPastTheReorderKeepsTheSentOneOut() = runBlocking {
         // The watch stopped at 03:00, its night went at 07:00; the phone's ran to 07:30.
         // At 07:15 the user put Sleep as Android first, then read again.
-        val watch = night("p", HealthConnectSource.PEBBLE_APP, "2026-10-31T23:00:00Z", "2026-11-01T03:00:00Z")
+        val watch = night("p", RecordSamples.PEBBLE_APP, "2026-10-31T23:00:00Z", "2026-11-01T03:00:00Z")
         val longer = night("s", SleepSource.SLEEP_AS_ANDROID_APP, "2026-10-31T22:50:00Z", "2026-11-01T07:30:00Z")
-        val ranking = Ranking(SleepSource.DEFAULT_ORDER).changed(listOf(SleepSource.SLEEP_AS_ANDROID_APP, HealthConnectSource.PEBBLE_APP), Instant.parse("2026-11-01T07:15:00Z"))
+        val ranking = Ranking(SleepSource.DEFAULT_ORDER).changed(listOf(SleepSource.SLEEP_AS_ANDROID_APP, RecordSamples.PEBBLE_APP), Instant.parse("2026-11-01T07:15:00Z"))
         assertEquals(setOf("p"), ids(listOf(watch, longer), Instant.parse("2026-11-01T11:30:00Z"), ranking))
     }
 }
