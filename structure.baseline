@@ -12,7 +12,7 @@ android/sync/src/main/java/de/arianw/kladde/sync/WorkoutMapper.kt	sportType	ccn=
 android/sync/src/test/java/de/arianw/kladde/sync/MemoryStore.kt	replace	nesting=6
 app/demo/demobackend.cpp	DemoBackend::answer	nesting=8
 app/demo/demobackend.cpp	DemoBackend::points	ccn=16 nesting=5
-app/main.cpp	main	ccn=26 length=154
+app/main.cpp	main	ccn=26 length=150
 core/hcjson.cpp	kladde::parseHealthConnectJson	ccn=35 length=135 nesting=7
 core/mapper.cpp	kladde::mapToBatchEntries	length=88
 spikes/hc-probe/app/src/main/java/de/arianw/kladde/probe/MainActivity.kt	toJson	ccn=19
