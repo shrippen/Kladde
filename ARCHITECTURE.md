@@ -93,3 +93,5 @@ Each layer talks only to its neighbour directly below.
 - The account reads its two answers (server version, sign-in options) itself, in
   `app/account.cpp`, not in `core/api` (not in `AUDIT.md`).
 - The sync bridge carries a demo switch of its own (not in `AUDIT.md`).
+- The sync run (`SyncRunner`) calls each of the four sources through an interface and
+  an error block of its own (`AUDIT.md`, finding 1, the part left open).
