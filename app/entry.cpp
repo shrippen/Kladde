@@ -12,11 +12,6 @@ using kladde::ApiReply;
 
 namespace {
 
-kladde::EntryKind core(Entry::Kind kind)
-{
-    return static_cast<kladde::EntryKind>(kind);
-}
-
 QHash<QString, double> numbers(const QVariantMap &values)
 {
     QHash<QString, double> out;
@@ -47,15 +42,15 @@ Entry::Entry(kladde::Session *session, QObject *parent)
     });
 }
 
-QStringList Entry::invalidFields(Kind kind, const QVariantMap &values) const
+QStringList Entry::invalidFields(kladde::EntryKind kind, const QVariantMap &values) const
 {
-    return kladde::validateEntry(core(kind), numbers(values));
+    return kladde::validateEntry(kind, numbers(values));
 }
 
-QString Entry::range(Kind kind, const QString &field) const
+QString Entry::range(kladde::EntryKind kind, const QString &field) const
 {
     const QLocale locale;
-    for (const kladde::EntryField &f : kladde::entryFields(core(kind))) {
+    for (const kladde::EntryField &f : kladde::entryFields(kind)) {
         if (f.name == field)
             return QStringLiteral("%1 – %2").arg(locale.toString(f.min), locale.toString(f.max));
     }
@@ -70,20 +65,20 @@ void Entry::reset()
     Q_EMIT changed();
 }
 
-void Entry::save(Kind kind, const QVariantMap &values, const QDateTime &at, const QString &note)
+void Entry::save(kladde::EntryKind kind, const QVariantMap &values, const QDateTime &at, const QString &note)
 {
     if (m_busy)
         return;
     const QHash<QString, double> v = numbers(values);
-    if (!kladde::validateEntry(core(kind), v).isEmpty())
+    if (!kladde::validateEntry(kind, v).isEmpty())
         return;
 
-    if (kind == Kind::Mood) {
+    if (kind == kladde::EntryKind::Mood) {
         m_path = QStringLiteral("/api/mood-entries");
         m_body = kladde::moodBody(qRound(v.value(QStringLiteral("value"))), at, note.trimmed());
     } else {
         m_path = QStringLiteral("/api/measurements");
-        const QList<QJsonObject> bodies = kladde::measurementBodies(core(kind), v, at, note.trimmed());
+        const QList<QJsonObject> bodies = kladde::measurementBodies(kind, v, at, note.trimmed());
         if (bodies.size() == 1) {
             m_body = bodies.first();
         } else {

@@ -17,6 +17,11 @@ if(KLADDE_APP)
     target_link_libraries(test_account PRIVATE kladde-core Qt6::Gui Qt6::Test)
     add_test(NAME test_account COMMAND test_account)
 
+    qt_add_executable(test_entry test_entry.cpp ${app}/entry.cpp ${app}/errors.cpp)
+    target_include_directories(test_entry PRIVATE ${app})
+    target_link_libraries(test_entry PRIVATE kladde-core Qt6::Test)
+    add_test(NAME test_entry COMMAND test_entry)
+
     qt_add_executable(test_syncbridge test_syncbridge.cpp syncbridge_fake.h syncbridge_fake.cpp ${app}/syncbridge.cpp)
     target_include_directories(test_syncbridge PRIVATE ${app})
     target_link_libraries(test_syncbridge PRIVATE Qt6::Core Qt6::Gui Qt6::Test)

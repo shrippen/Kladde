@@ -100,7 +100,7 @@ private Q_SLOTS:
         QVERIFY(QTest::qWaitFor([&] { return m_pending.size() == 1; }, 5000));
         m_pending[0].done(refused(Unauthorized, QStringLiteral("auth.invalid_credentials")));
 
-        QCOMPARE(account.state(), Account::State::SignedOut);
+        QCOMPARE(account.state(), Session::State::SignedOut);
         QCOMPARE(account.error(), QStringLiteral("Not accepted: the e-mail, user name or password is not right."));
     }
 
@@ -117,7 +117,7 @@ private Q_SLOTS:
         account.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
         QVERIFY(QTest::qWaitFor([&] { return m_pending.size() == 1; }, 5000));
         m_pending[0].done(tokens());
-        QCOMPARE(account.state(), Account::State::SignedIn);
+        QCOMPARE(account.state(), Session::State::SignedIn);
         QTest::qWait(50);
         QCOMPARE(count(MintPath), 0);
     }
@@ -135,7 +135,7 @@ private Q_SLOTS:
         account.login(QStringLiteral("weber@x"), QStringLiteral("pw"));
         QVERIFY(QTest::qWaitFor([&] { return m_pending.size() == 1; }, 5000));
         m_pending[0].done(tokens());
-        QCOMPARE(account.state(), Account::State::SignedIn);
+        QCOMPARE(account.state(), Session::State::SignedIn);
         QVERIFY(sync.configured());
         QCOMPARE(FakeSync::server, ServerB);
         QVERIFY(!FakeSync::device.isEmpty());
@@ -163,7 +163,7 @@ private Q_SLOTS:
         again.restore();
         QVERIFY(QTest::qWaitFor([&] { return count(QStringLiteral("/api/auth/refresh")) == 1; }, 5000));
         m_pending.last().done(tokens());
-        QCOMPARE(again.state(), Account::State::SignedIn);
+        QCOMPARE(again.state(), Session::State::SignedIn);
         QCOMPARE(FakeSync::queueDrops, 1);
     }
 

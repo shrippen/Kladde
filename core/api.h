@@ -4,12 +4,14 @@
 #include <QJsonObject>
 #include <QList>
 #include <QLocale>
+#include <QObject>
 #include <QString>
 #include <QStringList>
 
 #include <optional>
 
 namespace kladde {
+Q_NAMESPACE
 
 // One tile of GET /api/dashboard/summary.
 struct Metric {
@@ -89,6 +91,7 @@ QStringList seriesKinds();
 // A manual entry (Lastenheft LF-30 … LF-33). One form kind can mean several measurements:
 // blood pressure is systolic and diastolic, sent as two POSTs, plus the pulse if given.
 enum class EntryKind { Weight, BloodPressure, Pulse, BodyFat, Mood };
+Q_ENUM_NS(EntryKind)
 
 struct EntryField {
     QString name; // value, systolic, diastolic, pulse

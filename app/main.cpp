@@ -32,6 +32,18 @@
 #include <QTranslator>
 #include <QtQml/qqml.h>
 
+// What QML gets as types; Session and EntryKind are the core's enums, passed on as they are.
+void registerTypes()
+{
+    const char *uri = "Kladde.Core";
+    const QString why = QStringLiteral("provided by the app");
+    qmlRegisterUncreatableType<Account>(uri, 1, 0, "Account", why);
+    qmlRegisterUncreatableType<Entry>(uri, 1, 0, "Entry", why);
+    qmlRegisterUncreatableMetaObject(kladde::Session::staticMetaObject, uri, 1, 0, "Session", why);
+    qmlRegisterUncreatableMetaObject(kladde::staticMetaObject, uri, 1, 0, "EntryKind", why);
+    qmlRegisterUncreatableType<SyncBridge>(uri, 1, 0, "SyncBridge", why);
+}
+
 int main(int argc, char **argv)
 {
 #ifdef Q_OS_ANDROID
@@ -113,11 +125,7 @@ int main(int argc, char **argv)
     account.setServer(demo.server());
 #endif
 
-    const char *uri = "Kladde.Core";
-    const QString why = QStringLiteral("provided by the app");
-    qmlRegisterUncreatableType<Account>(uri, 1, 0, "Account", why);
-    qmlRegisterUncreatableType<Entry>(uri, 1, 0, "Entry", why);
-    qmlRegisterUncreatableType<SyncBridge>(uri, 1, 0, "SyncBridge", why);
+    registerTypes();
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("account"), &account);

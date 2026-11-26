@@ -11,8 +11,8 @@ Kirigami.ScrollablePage {
     id: page
     title: qsTr("Connect HealthLog")
 
-    readonly property bool needsMfa: account.state === Account.NeedsMfa
-    readonly property bool working: account.state === Account.SigningIn || account.state === Account.Restoring
+    readonly property bool needsMfa: account.state === Session.NeedsMfa
+    readonly property bool working: account.state === Session.SigningIn || account.state === Session.Restoring
 
     // A known server is checked at once: the SSO button shows only after the check.
     Component.onCompleted: {

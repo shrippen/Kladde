@@ -17,7 +17,7 @@ class Account : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString server READ server WRITE setServer NOTIFY serverChanged)
-    Q_PROPERTY(State state READ state NOTIFY stateChanged)
+    Q_PROPERTY(kladde::Session::State state READ state NOTIFY stateChanged)
     Q_PROPERTY(QString username READ username NOTIFY stateChanged)
     Q_PROPERTY(QString error READ error NOTIFY stateChanged)
     Q_PROPERTY(bool recoveryAllowed READ recoveryAllowed NOTIFY stateChanged)
@@ -27,8 +27,6 @@ class Account : public QObject
     // The server's SSO button text ("authentik"), empty where there is no SSO sign-in.
     Q_PROPERTY(QString ssoLabel READ ssoLabel NOTIFY probeChanged)
 public:
-    enum class State { SignedOut, Restoring, SigningIn, NeedsMfa, SignedIn };
-    Q_ENUM(State)
     enum class Probe { Unknown, Checking, Reachable, Unreachable };
     Q_ENUM(Probe)
 
@@ -38,7 +36,7 @@ public:
 
     QString server() const { return m_server; }
     void setServer(const QString &server);
-    State state() const;
+    kladde::Session::State state() const { return m_session.state(); }
     QString username() const { return m_session.username(); }
     QString error() const;
     bool recoveryAllowed() const { return m_session.mfaMethods().contains(QLatin1String("recovery")); }

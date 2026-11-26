@@ -14,22 +14,22 @@ QQC2.ScrollView {
     contentWidth: availableWidth
 
     readonly property var kinds: [
-        { kind: Entry.Weight, label: qsTr("Weight"),
+        { kind: EntryKind.Weight, label: qsTr("Weight"),
           fields: [{ name: "value", label: qsTr("Weight"), unit: "kg" }] },
-        { kind: Entry.BloodPressure, label: qsTr("Blood pressure"),
+        { kind: EntryKind.BloodPressure, label: qsTr("Blood pressure"),
           fields: [{ name: "systolic", label: qsTr("Systolic"), unit: "mmHg" },
                    { name: "diastolic", label: qsTr("Diastolic"), unit: "mmHg" },
                    { name: "pulse", label: qsTr("Pulse (optional)"), unit: qsTr("bpm") }] },
-        { kind: Entry.Pulse, label: qsTr("Pulse"),
+        { kind: EntryKind.Pulse, label: qsTr("Pulse"),
           fields: [{ name: "value", label: qsTr("Pulse"), unit: qsTr("bpm") }] },
-        { kind: Entry.BodyFat, label: qsTr("Body fat"),
+        { kind: EntryKind.BodyFat, label: qsTr("Body fat"),
           fields: [{ name: "value", label: qsTr("Body fat"), unit: "%" }] },
-        { kind: Entry.Mood, label: qsTr("Mood"), fields: [] }
+        { kind: EntryKind.Mood, label: qsTr("Mood"), fields: [] }
     ]
     readonly property var current: kinds[kindBox.currentIndex]
     property var values: ({})
     property int mood: 3
-    readonly property var entered: current.kind === Entry.Mood ? { value: mood } : values
+    readonly property var entered: current.kind === EntryKind.Mood ? { value: mood } : values
     readonly property var invalid: entry.invalidFields(current.kind, entered)
 
     function fresh() {
@@ -122,7 +122,7 @@ QQC2.ScrollView {
 
         ColumnLayout {
             Layout.fillWidth: true
-            visible: view.current.kind === Entry.Mood
+            visible: view.current.kind === EntryKind.Mood
             KanteSectionLabel { text: qsTr("How are you?") }
             KanteSegmented {
                 Layout.fillWidth: true

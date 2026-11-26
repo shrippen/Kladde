@@ -93,7 +93,5 @@ Each layer talks only to its neighbour directly below.
   a range and keeping the cursor (`AUDIT.md`, finding 1).
 - The account reads its two answers (server version, sign-in options) itself, in
   `app/account.cpp`, not in `core/api` (not in `AUDIT.md`).
-- Two lists of kinds are kept equal by hand between `app/` and `core/`
-  (`AUDIT.md`, finding 6).
 - The start of the app is interwoven with the demo mode (`AUDIT.md`, finding 7); the
   sync bridge carries a demo switch of its own (not in `AUDIT.md`).

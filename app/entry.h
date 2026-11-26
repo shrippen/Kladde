@@ -1,5 +1,6 @@
 #pragma once
 
+#include "api.h"
 #include "session.h"
 
 #include <QDateTime>
@@ -18,20 +19,16 @@ class Entry : public QObject
     Q_PROPERTY(bool busy READ busy NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
 public:
-    // The same order as kladde::EntryKind.
-    enum class Kind { Weight, BloodPressure, Pulse, BodyFat, Mood };
-    Q_ENUM(Kind)
-
     explicit Entry(kladde::Session *session, QObject *parent = nullptr);
 
     bool busy() const { return m_busy; }
     QString error() const { return m_error; }
 
     // The field names (value, systolic, diastolic, pulse) that are missing or out of range.
-    Q_INVOKABLE QStringList invalidFields(Kind kind, const QVariantMap &values) const;
+    Q_INVOKABLE QStringList invalidFields(kladde::EntryKind kind, const QVariantMap &values) const;
     // "20 – 350", for the field's hint.
-    Q_INVOKABLE QString range(Kind kind, const QString &field) const;
-    Q_INVOKABLE void save(Kind kind, const QVariantMap &values, const QDateTime &at, const QString &note);
+    Q_INVOKABLE QString range(kladde::EntryKind kind, const QString &field) const;
+    Q_INVOKABLE void save(kladde::EntryKind kind, const QVariantMap &values, const QDateTime &at, const QString &note);
     // A new entry: forget the keys of the last one.
     Q_INVOKABLE void reset();
 
