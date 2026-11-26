@@ -20,6 +20,8 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric runs the real SQLite queue in JVM tests.
+        unitTests.isIncludeAndroidResources = true
     }
     sourceSets {
         getByName("test").resources.srcDir("../../tests/fixtures")
@@ -41,6 +43,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Android's org.json is a stub in JVM unit tests; the real one for the tests.
     testImplementation("org.json:json:20250517")
+    testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation("androidx.test:core:1.6.1")
 
     androidTestImplementation("androidx.test:core:1.6.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
