@@ -9,16 +9,6 @@
 
 using kladde::ApiReply;
 
-namespace {
-
-// Totals start at zero; levels (weight, pulse, blood pressure) show their own band.
-bool isTotal(const QString &kind)
-{
-    return kind == QLatin1String("steps") || kind == QLatin1String("sleep");
-}
-
-} // namespace
-
 History::History(kladde::Session *session, QObject *parent)
     : QObject(parent)
     , m_session(session)
@@ -98,67 +88,35 @@ void History::reload()
         const QLocale locale;
         const QString dateFormat = m_days <= 31 ? QStringLiteral("d.M.") : QStringLiteral("d.M.yy");
 
-        // Blood pressure is a pair: a point without its diastolic value is left out, not
-        // drawn with the systolic one in its place.
-        const bool pairs = kind == QLatin1String("bloodPressure");
-        QList<kladde::SeriesPoint> shown;
-        for (const kladde::SeriesPoint &p : s.points) {
-            if (!pairs || p.secondary)
-                shown << p;
-        }
+        const kladde::SeriesSummary sum = kladde::summarize(kind, s);
 
+        // Blood pressure is drawn as a pair of lines.
+        const bool pairs = kind == QLatin1String("bloodPressure");
         QVariantList first;
         QVariantList second;
         m_labels.clear();
-        double sumSecondary = 0;
-        const kladde::SeriesPoint *lowest = nullptr;
-        const kladde::SeriesPoint *highest = nullptr;
-        for (const kladde::SeriesPoint &p : shown) {
+        for (const kladde::SeriesPoint &p : sum.points) {
             first << p.value;
             if (pairs) {
                 second << *p.secondary;
-                sumSecondary += *p.secondary;
             }
-            if (!lowest || p.value < lowest->value)
-                lowest = &p;
-            if (!highest || p.value > highest->value)
-                highest = &p;
             m_labels << locale.toString(p.at.toLocalTime(), dateFormat);
         }
         m_series = pairs ? QVariantList{QVariant(first), QVariant(second)} : QVariantList{QVariant(first)};
         m_unit = s.unit;
-
-        double low = lowest ? lowest->value : 0;
-        for (const kladde::SeriesPoint &p : shown) {
-            if (p.secondary)
-                low = std::min(low, *p.secondary);
-        }
-        m_min = isTotal(kind) || shown.isEmpty() ? 0 : std::floor(low * 0.9);
-
-        m_count = pairs ? int(shown.size()) : s.count;
-        if (pairs && !shown.isEmpty()) {
-            // The pair everywhere: average of both, the readings with the lowest and highest
-            // systolic value.
-            double sumFirst = 0;
-            for (const kladde::SeriesPoint &p : shown)
-                sumFirst += p.value;
-            m_mean = kladde::formatValue(kind, sumFirst / shown.size(), sumSecondary / shown.size());
-            m_low = kladde::formatValue(kind, lowest->value, lowest->secondary);
-            m_high = kladde::formatValue(kind, highest->value, highest->secondary);
-        } else {
-            m_mean = s.count ? kladde::formatValue(kind, s.mean) : QString();
-            m_low = s.count ? kladde::formatValue(kind, s.min) : QString();
-            m_high = s.count ? kladde::formatValue(kind, s.max) : QString();
-        }
+        m_min = sum.scaleMin;
+        m_count = sum.count;
+        m_mean = sum.mean;
+        m_low = sum.low;
+        m_high = sum.high;
         if (s.change && *s.change != 0) {
             m_change = (*s.change > 0 ? QStringLiteral("+") : QString()) + kladde::formatValue(kind, *s.change);
             m_changeTrend = *s.change > 0 ? 1 : -1;
-            m_changeGood = s.changeSentiment == QLatin1String("positive") ? m_changeTrend
-                         : s.changeSentiment == QLatin1String("negative") ? -m_changeTrend : 0;
+            m_changeGood = kladde::goodDirection(kind, m_changeTrend, s.changeSentiment);
         } else {
             m_change.clear();
             m_changeTrend = 0;
-            m_changeGood = 0;
+            m_changeGood = kladde::goodDirection(kind, 0, {});
         }
         Q_EMIT changed();
     });

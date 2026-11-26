@@ -122,6 +122,20 @@ bool isTotal(const QString &kind)
     return kind == QLatin1String("steps") || kind == QLatin1String("sleep");
 }
 
+// Lowest mark of the history scale: 90 % of the lowest value, diastolic ones included.
+double scaleMin(const QString &kind, const QList<SeriesPoint> &points)
+{
+    if (isTotal(kind) || points.isEmpty()) {
+        return 0;
+    }
+
+    double low = points.first().value;
+    for (const SeriesPoint &p : points) {
+        low = std::min({low, p.value, p.secondary.value_or(p.value)});
+    }
+    return std::floor(low * 0.9);
+}
+
 } // namespace
 
 int goodDirection(const QString &kind, int trend, const QString &sentiment)
@@ -168,14 +182,7 @@ SeriesSummary summarize(const QString &kind, const Series &series)
         }
     }
 
-    // The scale reaches below the diastolic values too.
-    double lowAny = lowest ? lowest->value : 0;
-    for (const SeriesPoint &p : out.points) {
-        if (p.secondary) {
-            lowAny = std::min(lowAny, *p.secondary);
-        }
-    }
-    out.scaleMin = isTotal(kind) || out.points.isEmpty() ? 0 : std::floor(lowAny * 0.9);
+    out.scaleMin = scaleMin(kind, out.points);
 
     out.count = pairs ? int(out.points.size()) : series.count;
     if (pairs && lowest) {

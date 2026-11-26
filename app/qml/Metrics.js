@@ -21,12 +21,3 @@ function title(kind) {
     }
     return kind
 }
-
-// Which way is good when the server does not say: 1 up, -1 down, 0 neither.
-function goodDirection(kind) {
-    switch (kind) {
-    case "steps": case "sleep": case "mood": return 1
-    case "pulse": case "restingHeartRate": case "bloodPressure": return -1
-    }
-    return 0
-}
