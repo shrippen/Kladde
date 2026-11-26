@@ -63,7 +63,7 @@ class HealthConnectSource(
     )
 
     // The types and the mapping it was made for: 0.2.0 dated day totals a day late, so its
-    // cursor (no MAPPING) reads again and the server moves them to their day (migrationDays).
+    // cursor (no MAPPING) reads again and the server moves them to their day (migrate).
     private val signature = types.map { it.simpleName }.sortedBy { it }.joinToString(",") + MAPPING
 
     suspend fun read(cursor: String?, zone: ZoneId, backfillDays: Long, daysOf: (String) -> Set<LocalDate>, now: Instant): Read {
@@ -129,11 +129,9 @@ class HealthConnectSource(
                 Period.ofDays(1),
             ))
             for (d in days) {
-                val (start, end) = DayWindow.bounds(d.startTime.toLocalDate(), zone)
-                for (t in totals) {
-                    val value = t.value(d.result) ?: continue
-                    samples += Sample(t.kind, "day:${d.startTime.toLocalDate()}", AGGREGATE, start, end, value)
-                }
+                val day = d.startTime.toLocalDate()
+                val (start, end) = DayWindow.bounds(day, zone)
+                samples += totalSamples(totals, d.result, day, start, end)
             }
             from = until
         }
@@ -171,14 +169,10 @@ class HealthConnectSource(
 
         for (day in days.sorted()) {
             val (start, end) = DayWindow.bounds(day, zone)
-            val id = "day:$day"
 
             if (totals.isNotEmpty()) {
                 val result = client.aggregate(AggregateRequest(totals.map { it.metric }.toSet(), TimeRangeFilter.between(start, end)))
-                for (t in totals) {
-                    val value = t.value(result) ?: continue
-                    samples += Sample(t.kind, id, AGGREGATE, start, minOf(end, now), value)
-                }
+                samples += totalSamples(totals, result, day, start, minOf(end, now))
             }
 
             if (HeartRateRecord::class !in types) {
@@ -198,6 +192,12 @@ class HealthConnectSource(
         }
         return DayWindow.keep(samples, days, zone)
     }
+
+    // One day's total samples from an aggregate result; [until] ends today's total at now.
+    private fun totalSamples(totals: List<Total>, result: AggregationResult, day: LocalDate, start: Instant, until: Instant): List<Sample> =
+        totals.mapNotNull { t ->
+            t.value(result)?.let { Sample(t.kind, "day:$day", AGGREGATE, start, until, it) }
+        }
 
     private suspend fun <T : Record> readAll(type: KClass<T>, start: Instant, end: Instant): List<T> {
         val out = mutableListOf<T>()
