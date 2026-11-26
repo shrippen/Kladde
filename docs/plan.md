@@ -116,6 +116,8 @@ Mapper ─▶ /api/measurements/batch   |   Training ─▶ /api/workouts/batch 
       Apps, die die Art im Rücklesefenster geschrieben haben; gilt für Sitzungen, die danach
       beginnen, frühere behalten ihren Gewinner: `Ranking`).
 - [ ] Status je Art.
+- [ ] Umstellung der Tagessummen mit 0.4 entfernen, wenn kein Nutzer mehr 0.1/0.2 hat
+      (`MIGRATION_FIRST`, MAPPING-Abfrage in `read`, `migrate`).
 - [ ] C++-Abbildung (`core/mapper.cpp`) und Fixture nachziehen; Lastenheft LF-14/LF-15.
 
 ## Phase 2: Anzeige und Plasma Mobile (LF-30 … LF-33)
