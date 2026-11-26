@@ -32,6 +32,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import kotlin.reflect.KClass
 
 /**
@@ -61,7 +62,7 @@ class HealthConnectSource(
     )
 
     // The types and the mapping it was made for: 0.2.0 dated day totals a day late, so its
-    // cursor (no MAPPING) reads the window again and the server moves them to their day.
+    // cursor (no MAPPING) reads again and the server moves them to their day (migrationDays).
     private val signature = types.map { it.simpleName }.sortedBy { it }.joinToString(",") + MAPPING
 
     suspend fun read(cursor: String?, zone: ZoneId, backfillDays: Long, daysOf: (String) -> Set<LocalDate>, now: Instant): Read {
@@ -69,6 +70,9 @@ class HealthConnectSource(
             return Read(emptyList(), null, emptyMap())
         }
         val token = cursor?.removePrefix("$signature$SEPARATOR")?.takeIf { it != cursor }
+        if (token == null && cursor != null && MAPPING !in cursor) {
+            return backfill(zone, migrationDays(zone, backfillDays, now), now)
+        }
         if (token == null) {
             return backfill(zone, backfillDays, now)
         }
@@ -101,6 +105,16 @@ class HealthConnectSource(
             }
         }
         return Read(aggregate(days, zone, now), cursorOf(next), recordDays)
+    }
+
+    /**
+     * Back to a day before the earliest total 0.1/0.2 can have sent (0.1.0's first window).
+     * A moved total takes the time of the old total of the day before, and HealthLog
+     * retires that row; the chain must end on a day without one, or a day is lost.
+     */
+    private fun migrationDays(zone: ZoneId, backfillDays: Long, now: Instant): Long {
+        val first = FIRST_RELEASE.minusDays(backfillDays)
+        return maxOf(backfillDays, ChronoUnit.DAYS.between(first, Mapper.dayOf(now, zone)) + 1)
     }
 
     private suspend fun backfill(zone: ZoneId, backfillDays: Long, now: Instant): Read {
@@ -205,6 +219,7 @@ class HealthConnectSource(
 
         private const val SEPARATOR = "|"
         private const val MAPPING = ";day-at-start"
+        private val FIRST_RELEASE: LocalDate = LocalDate.of(2026, 11, 1) // 0.1.0
         private const val AGGREGATE = "health-connect" // the app of a sample Health Connect summed
         private val BUCKET: Duration = Duration.ofMinutes(10)
 

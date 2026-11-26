@@ -21,7 +21,10 @@ Die `externalId` hat vier Formen:
 
 - Einzelwert: eine stabile Id (bei uns die Health-Connect-Record-Id); der erste Wert gewinnt.
 - `stats:<HKQuantityTypeIdentifier>:<YYYY-MM-DD>`: Tagessumme (Schritte, Distanz, Energie,
-  Schlafdauer); ein erneuter Upload überschreibt.
+  Schlafdauer); ein erneuter Upload überschreibt. HealthLog datiert jeden Wert auf sein
+  `endDate`: Anfang und Ende auf Mitternacht des Tages (wie die iOS-App), sonst steht die
+  Summe am Folgetag. Ein verschobener Wert, der auf die Zeit einer anderen Zeile trifft,
+  löscht diese (`retireCollision` in `reconcile-external-measurement.ts`).
 - `stats:HKQuantityTypeIdentifierHeartRate:<10-Minuten-Grenze in UTC, z. B. 2026-06-21T14:10:00.000Z>`:
   Durchschnitt mit `valueMin`/`valueMax`; überschreibt.
 - `stats:<id>:<YYYY-MM-DD>T<HH>`: Stundensumme; für Brücken-Tokens nicht erlaubt.

@@ -74,12 +74,13 @@ class HealthConnectSourceTest {
 
     @Test
     fun aCursorForOtherTypesReadsTheWindowAgain() = runBlocking {
-        // 0.1.0's cursor has no types: the first run of 0.2 reads the window anew.
+        // 0.1.0's cursor has no types: the first run of 0.2 reads the window anew, and a day
+        // before it, as 0.1.0 dated day totals a day late too (a020CursorReadsTheWindowAgain).
         val fake = FakeHealthConnect()
         val read = HealthConnectSource(fake.client).read("token-0.1", zone, 2, { emptySet() }, now)
         assertTrue("getChangesToken" in fake.calls)
         assertTrue("getChanges" !in fake.calls)
-        assertEquals(2, fake.aggregated.size)
+        assertEquals(3, fake.aggregated.size)
         assertTrue(read.cursor!!.endsWith("|token-new"))
 
         // Its own cursor: only the changes.
@@ -94,10 +95,13 @@ class HealthConnectSourceTest {
         // 0.2.0 dated day totals a day late: its cursor (same types) must send the window again.
         val types = (HealthConnectSource.TYPES + HealthConnectSource.OPTIONAL_TYPES)
             .map { it.simpleName }.sortedBy { it }.joinToString(",")
+        // Back to a day before 0.1.0's first window (1 November, 2 days: 31 October), so the
+        // move ends on a day without an old total and HealthLog retires none (30.10.–26.11.).
         val fake = FakeHealthConnect()
-        HealthConnectSource(fake.client).read("$types|token-0.2", zone, 2, { emptySet() }, now)
+        val later = Instant.parse("2026-11-26T12:00:00Z")
+        HealthConnectSource(fake.client).read("$types|token-0.2", zone, 2, { emptySet() }, later)
         assertTrue("getChanges" !in fake.calls)
-        assertEquals(2, fake.aggregated.size)
+        assertEquals(28, fake.aggregated.size)
     }
 
     @Test
